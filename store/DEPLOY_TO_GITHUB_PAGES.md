@@ -4,17 +4,15 @@ The repo is initialised and committed. Nothing sensitive is in it — the
 keystore lives outside the project and `android/key.properties` is gitignored,
 both verified before the commit.
 
-## 1. Create the repo on github.com
+## 1. Create the repo on github.com — DONE
 
-**New repository** → name it `ports-ahoy` → **Public** (Pages needs public on a
-free account) → do NOT tick "add a README", the repo already has one.
+    https://github.com/Manicalmonocle/PortsAhoy
+
+The remote is already configured locally, so this step is finished.
 
 ## 2. Push
 
-Copy the URL GitHub shows you, then:
-
     cd ~/ports_ahoy
-    git remote add origin https://github.com/YOUR-USERNAME/ports-ahoy.git
     git push -u origin main
 
 It will ask for your username and a password. **The password is a Personal
@@ -29,7 +27,7 @@ Branch: `main`, folder: **`/docs`** → Save.
 
 A minute later the game is live at:
 
-    https://YOUR-USERNAME.github.io/ports-ahoy/
+    https://manicalmonocle.github.io/PortsAhoy/
 
 That is the link to send testers.
 
