@@ -76,6 +76,20 @@ class ReportEndpoint {
   // public web bundle, where anything readable will eventually be scraped.
   static const String inbox = 'portsahoy@gmail.com';
 
+  /// Marks where the run code stops, in an email body.
+  ///
+  /// Mail clients wrap long lines, and a PA1 code is one 2 KB token with no
+  /// spaces in it — so a wrapped payload arrives split across lines. Rejoining
+  /// it means deleting the whitespace, and that is only safe if something says
+  /// where the code ends: otherwise a mail signature, or the sender's own
+  /// note, gets glued onto the end and silently becomes part of the run.
+  ///
+  /// '!' is outside PA1's alphabet, so it terminates a match on its own and
+  /// the collector needs no cleverness to find it. The payload goes LAST in
+  /// the body for the same reason — the less that follows it, the less there
+  /// is to confuse.
+  static const String mailTerminator = '\n!END';
+
   /// Whether Send can be offered at all.
   static bool get configured => configuredFor(destination);
 
@@ -162,8 +176,8 @@ class ReportEndpoint {
           'mailto:$mail'
           '?subject=${Uri.encodeComponent("Ports Ahoy run report")}'
           '&body=${Uri.encodeComponent(
-            '$payload\n\nNothing to edit — just send. '
-            'Anything you want to add can go below.\n',
+            'Nothing to edit — just send. Anything you want to add can go '
+            'above this line.\n\n$payload$mailTerminator\n',
           )}'),
     };
   }

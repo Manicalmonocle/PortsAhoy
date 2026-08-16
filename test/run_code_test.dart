@@ -305,7 +305,11 @@ void _endpointTests() {
       expect(u.toString(), contains('%20'));
       expect(u.toString(), isNot(contains('+')));
       expect(u.queryParameters['subject'], 'Ports Ahoy run report');
-      expect(u.queryParameters['body'], startsWith(payload));
+      expect(u.queryParameters['body'], contains(payload));
+      // A terminator so the collector can un-wrap a payload the mail client
+      // split across lines without gluing a signature onto the end of it.
+      expect(u.queryParameters['body'],
+          contains(payload + ReportEndpoint.mailTerminator));
     });
 
     // The whole reason email is acceptable as a transport. A mail client that

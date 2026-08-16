@@ -24826,7 +24826,7 @@ case 1:s=A.hn("https://docs.google.com/forms/d/e//viewform?usp=pp_url&entry.="+b
 break
 case 2:s=A.aP6("https","github.com","/Manicalmonocle/PortsAhoy/issues/new",A.ak(["title","Run report","body","Paste from the game \u2014 nothing to edit.\n\n```\n"+b+"\n```"],t.N,t.z))
 break
-case 3:s=A.hn("mailto:portsahoy@gmail.com?subject="+A.qE(2,"Ports Ahoy run report",B.aj,!1)+"&body="+A.qE(2,b+"\n\nNothing to edit \u2014 just send. Anything you want to add can go below.\n",B.aj,!1),0,r)
+case 3:s=A.hn("mailto:portsahoy@gmail.com?subject="+A.qE(2,"Ports Ahoy run report",B.aj,!1)+"&body="+A.qE(2,"Nothing to edit \u2014 just send. Anything you want to add can go above this line.\n\n"+b+"\n!END\n",B.aj,!1),0,r)
 break}return s},
 aMg(){A:{break A}return"It carries the day-by-day numbers and nothing else \u2014 no device id, no location \u2014 but it is an email, so your address comes with it. Use the Copy button instead if you would rather it did not."},
 aMh(){switch(3){case 3:break}return"an email to portsahoy@gmail.com"},
@@ -85005,7 +85005,7 @@ A.Da.prototype={
 F(a){var s,r,q,p,o=null,n=this.c.b
 n===$&&A.a()
 s=n.x
-r=A.P("Ports Ahoy! 1.0.12+13 \xb7 "+s.a.length+" days, "+s.b.length+" milestones",o,o,B.c1,o)
+r=A.P("Ports Ahoy! 1.0.13+14 \xb7 "+s.a.length+" days, "+s.b.length+" milestones",o,o,B.c1,o)
 q=t.p
 p=A.b([A.aAx(B.IH,B.Zt,new A.akA(s,n,a),A.tj(o,o,o,o,o,o,o,o,o,B.B,o,o,o,o,o,B.d5,o,o,o,B.bf))],q)
 if(A.avG(B.dt,"","","Manicalmonocle/PortsAhoy","portsahoy@gmail.com"))p.push(A.aAx(B.IB,B.Zn,new A.akB(a,s,n),A.tj(o,o,o,o,o,o,o,o,o,B.B,o,o,o,o,o,B.d5,o,o,o,B.bf)))
@@ -85016,7 +85016,7 @@ var $async$$0=A.U(function(a,b){if(a===1)return A.Q(b,r)
 for(;;)switch(s){case 0:o=p.a
 n=p.b
 s=3
-return A.W(A.x4(new A.nZ(o.XH(B.b.aT(n.at.gqj(),", "),n.at.gil(),"1.0.12+13",n.w))),$async$$0)
+return A.W(A.x4(new A.nZ(o.XH(B.b.aT(n.at.gqj(),", "),n.at.gil(),"1.0.13+14",n.w))),$async$$0)
 case 3:n=p.c
 if(n.e==null){s=1
 break}n.an(t.Pu).f.Bp(A.aBv(null,null,null,B.c4,null,B.a7,null,A.P("Run report copied \u2014 "+o.a.length+" days. Paste it wherever it is useful.",null,null,B.cX,null),null,B.kc,null,null,null,null,null,null,null,null,null,null))
@@ -85024,7 +85024,7 @@ case 1:return A.R(q,r)}})
 return A.S($async$$0,r)},
 $S:33}
 A.akB.prototype={
-$0(){var s,r="1.0.12+13",q=this.b,p=this.c,o=p.r.a,n=p.at.gil(),m=p.at.gqj()
+$0(){var s,r="1.0.13+14",q=this.b,p=this.c,o=p.r.a,n=p.at.gil(),m=p.at.gqj()
 m=A.b(m.slice(0),A.M(m))
 s=p.w
 return A.aSy(this.a,A.aMm(q,m,n,A.aB7(B.dt),o,r,s),q.XH(B.b.aT(p.at.gqj(),", "),p.at.gil(),r,p.w))},

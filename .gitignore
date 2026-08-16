@@ -54,3 +54,10 @@ android/key.properties
 
 # Golden-test diff artefacts, written on failure. Never source.
 test/failures/
+
+# Mail credentials never belong here. The real file lives in
+# ~/.config/ports_ahoy/mail.env, outside the repo — this is belt and braces
+# against a stray copy being committed.
+mail.env
+*.app_password
+tool/reference_runs/incoming/
