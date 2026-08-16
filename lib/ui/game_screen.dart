@@ -415,7 +415,7 @@ class _SpeedPill extends StatelessWidget {
             Icon(speed == 0 ? Icons.play_arrow : Icons.fast_forward,
                 size: 13, color: speed == 0 ? Palette.rust : Palette.brass),
             const SizedBox(width: 4),
-            Text(speed == 0 ? 'Paused' : '${speed}x',
+            Text(speed == 0 ? 'Paused' : '${fmtSpeed(speed)}x',
                 style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w700,

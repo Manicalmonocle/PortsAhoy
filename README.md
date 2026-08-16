@@ -323,11 +323,16 @@ The clock has been set by playing, twice:
 | --- | --- | --- | --- |
 | 1.0 | 24s | ~55 min | "too quick to get a feel for what's going on" |
 | 0.35 | 69s | ~2.6 h | "just a bit slow" |
-| **0.45** | **53s** | **~2.0 h** | current |
+| **0.70** | **34s** | **~1.3 h** | current — the pace that actually felt right |
 
-A deliberate 4× speedrun to reach the endgame took 45 minutes. 4× still lands
-about where the original 1× did, so the sprint is intact for anyone who wants
-it — the change only moved where the *default* sits.
+The last row was not a guess. Playing at 0.35 felt sluggish at 1× but right at
+2×, so 2× of 0.35 — 0.70 — became what 1× gives you. A comfortable default
+should not be something the player has to reach for.
+
+Speeds are `0, 0.5, 1, 2, 4`. The half step exists because 1× is now tuned to a
+comfortable pace rather than a slow one, so watching the port closely needs
+somewhere to go downward. 4× is a deliberate speedrun: one full playthrough
+hunting bugs took 45 minutes at the old 4×.
 
 That is the third of three readings, and the history is the point:
 

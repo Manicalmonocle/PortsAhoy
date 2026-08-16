@@ -20,22 +20,26 @@ class GameController extends ChangeNotifier {
 
   /// Game-hours per real second at 1×.
   ///
-  /// Tuned by playing, twice. 1.0 put a whole game-day in 24 seconds and a
-  /// full run in half an hour — far too fast to watch a decision play out.
-  /// 0.35 overshot the other way and read as slightly sluggish at 1×. At 0.45
-  /// a day is about fifty seconds, a full run is a couple of hours, and 4×
-  /// still lands where the original 1× was for anyone who wants the sprint.
-  static const double baseTicksPerSecond = 0.45;
+  /// Set by playing, not by guessing.
+  ///
+  /// 1.0 was far too quick to follow. 0.35 read as sluggish at 1×. The pace
+  /// that actually felt right in a real session was 2× of 0.35 — so that rate,
+  /// 0.70, is now what 1× gives you. A comfortable default should not be
+  /// something the player has to reach for.
+  static const double baseTicksPerSecond = 0.70;
 
   /// Time away resolves at the same rate as time watched, regardless of the
   /// speed you left on — so the world runs at one pace and nothing about
   /// closing the app is worth gaming.
   static const double offlineTicksPerSecond = baseTicksPerSecond;
 
-  static const List<int> speeds = [0, 1, 2, 4];
+  /// Multipliers offered, paused first. A half step exists because 1× is now
+  /// tuned to a comfortable pace rather than a slow one, and someone who wants
+  /// to watch the port more closely needs somewhere to go.
+  static const List<double> speeds = [0, 0.5, 1, 2, 4];
 
   late GameState state;
-  int speed = 1;
+  double speed = 1;
   bool ready = false;
 
   /// Ticks caught up on the last resume, for the "while you were away" card.
@@ -107,7 +111,7 @@ class GameController extends ChangeNotifier {
     if (steps > 0) notifyListeners();
   }
 
-  void setSpeed(int value) {
+  void setSpeed(double value) {
     speed = value;
     _syncTimer();
     notifyListeners();

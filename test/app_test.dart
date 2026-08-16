@@ -4,6 +4,7 @@ import 'package:ports_ahoy/game_controller.dart';
 import 'package:ports_ahoy/main.dart';
 import 'package:ports_ahoy/sim/events.dart';
 import 'package:ports_ahoy/sim/resources.dart';
+import 'package:ports_ahoy/ui/theme.dart';
 import 'package:ports_ahoy/ui/world_view.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -84,10 +85,16 @@ void main() {
       await closeGame(tester);
     });
 
-    testWidgets('the speed control cycles and is never gated', (tester) async {
+    testWidgets('the speed control cycles through every step, never gated',
+        (tester) async {
       final c = await pumpGame(tester);
-      for (final expected in [1, 2, 4, 0]) {
-        await tester.tap(find.text(c.speed == 0 ? 'Paused' : '${c.speed}x'));
+      // Half speed exists so a player can slow down as well as speed up.
+      expect(GameController.speeds, contains(0.5));
+
+      // pumpGame leaves the clock paused, so the cycle starts from 0.
+      for (final expected in [0.5, 1.0, 2.0, 4.0, 0.0]) {
+        await tester.tap(
+            find.text(c.speed == 0 ? 'Paused' : '${fmtSpeed(c.speed)}x'));
         await tester.pump();
         expect(c.speed, expected);
       }

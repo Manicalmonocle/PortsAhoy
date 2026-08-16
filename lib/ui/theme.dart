@@ -65,3 +65,7 @@ String fmt(num v) {
 }
 
 String fmtCoin(num v) => '${fmt(v)}c';
+
+/// "0.5", "1", "2" — never "1.0" or a float tail.
+String fmtSpeed(double v) =>
+    v == v.roundToDouble() ? v.round().toString() : v.toString();
