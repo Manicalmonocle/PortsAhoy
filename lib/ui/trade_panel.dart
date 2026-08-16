@@ -200,6 +200,8 @@ class _TradePanelState extends State<TradePanel> {
             held: s.stock[r],
             loaded: _cargo[r] ?? 0,
             pays: _dest.payFor(r),
+            hereRate: _dest.dailyRateFor(r),
+            bestRate: best.dailyRateFor(r),
             bestPort: best.id == _destId ? null : best.name,
             onChanged: (v) => _setCargo(r, v),
           );
@@ -728,6 +730,8 @@ class _CargoRow extends StatelessWidget {
     required this.held,
     required this.loaded,
     required this.pays,
+    required this.hereRate,
+    required this.bestRate,
     required this.bestPort,
     required this.onChanged,
   });
@@ -735,7 +739,25 @@ class _CargoRow extends StatelessWidget {
   final Resource resource;
   final double held;
   final double loaded;
+
+  /// The price multiplier this port pays for the cargo — the headline number.
   final double pays;
+
+  /// What that works out to per unit per DAY of crossing, here and at the best
+  /// port for this cargo.
+  ///
+  /// These exist because the two numbers disagreed on screen with nothing to
+  /// explain it. A player reported it exactly: "greyhaven pays better for tools
+  /// than the reaches yet the price on the reaches is higher". Both were true.
+  /// The Reaches pays x3.30 against Greyhaven's x1.95 — 132c a unit against
+  /// 78c — and still loses, because nine days is nearly twice five and the
+  /// hull is what is scarce. 15.34 a day against 14.43.
+  ///
+  /// The multiplier is the number the eye lands on and the rate is the number
+  /// that decides, so showing only the first and quietly ranking on the second
+  /// reads as the game contradicting itself.
+  final double hereRate;
+  final double bestRate;
 
   /// Set when somewhere else pays better per day for this cargo.
   final String? bestPort;
@@ -778,8 +800,11 @@ class _CargoRow extends StatelessWidget {
                   ),
                   Text(
                     bestPort == null
-                        ? 'hold ${fmt(held)} · best here'
-                        : 'hold ${fmt(held)} · ${bestPort!} pays better',
+                        ? 'hold ${fmt(held)} · ${hereRate.toStringAsFixed(1)}c '
+                            'a day — best'
+                        : 'hold ${fmt(held)} · ${hereRate.toStringAsFixed(1)}c '
+                            'a day · ${bestPort!} '
+                            '${bestRate.toStringAsFixed(1)}',
                     style: TextStyle(
                       fontSize: 10,
                       color: bestPort == null

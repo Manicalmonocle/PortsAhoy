@@ -1092,4 +1092,42 @@ void retinuePricingTests() {
           reason: 'by eight sheds the tedium has already set in');
     });
   });
+  _rankingTests();
+}
+
+void _rankingTests() {
+  group('a port that pays more per unit can still be the worse voyage', () {
+    // The exact confusion a player reported: "greyhaven pays better for tools
+    // than the reaches yet the price on the reaches is higher". Both were
+    // true. The hull, not the price, is what is scarce.
+    test('tools: The Reaches pays far more per unit and still loses per day',
+        () {
+      final grey = kDestinations.firstWhere((d) => d.id == 'greyhaven');
+      final reaches = kDestinations.firstWhere((d) => d.id == 'the_reaches');
+
+      expect(reaches.payFor(Resource.tools),
+          greaterThan(grey.payFor(Resource.tools)),
+          reason: 'the headline multiplier is higher at The Reaches');
+      expect(grey.dailyRateFor(Resource.tools),
+          greaterThan(reaches.dailyRateFor(Resource.tools)),
+          reason: 'and Greyhaven still wins on the rate that decides');
+    });
+
+    // Guards the fix rather than the balance: if ranking is ever "simplified"
+    // to compare payFor, the two numbers on screen start contradicting each
+    // other again and the game reads as broken.
+    test('the daily rate accounts for the crossing and the freight', () {
+      for (final d in kDestinations) {
+        for (final r in Resource.values) {
+          if (d.payFor(r) <= 1.0) continue;
+          final gross = r.basePrice * d.payFor(r);
+          expect(d.dailyRateFor(r), lessThan(gross),
+              reason: '${d.name}/${r.label}: a daily rate that is not below '
+                  'the gross per unit has stopped dividing by the crossing');
+          expect(d.dailyRateFor(r),
+              closeTo((gross - d.charterPerUnit) / d.days, 0.001));
+        }
+      }
+    });
+  });
 }
