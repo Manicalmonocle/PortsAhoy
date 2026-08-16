@@ -1,8 +1,14 @@
 /// People you pay to be better at things than you are.
 ///
-/// Two tracks, hired in order and paid a wage every day they are on the books.
+/// Three tracks, hired in order and paid a wage every day they are on the
+/// books.
 /// The ongoing wage is the point: a one-off purchase would just be a coin dump,
 /// whereas a payroll is a standing decision you have to keep affording.
+///
+/// ON PRICING. The first rung of each track is deliberately cheap — under a
+/// fifteenth of the lighthouse's coin cost. An upgrade you cannot afford until
+/// the game is already decided shapes nothing; these are meant to be an early
+/// decision you build a run around, not a late-game footnote.
 ///
 /// ON CAPTAINS AND TIME. A better captain sails faster, which shortens the
 /// voyages you send **from now on**. It never moves a hull already at sea —
@@ -93,8 +99,8 @@ const List<Retainer> kRetinue = [
     name: 'Maren Holt',
     title: 'Sailing Master',
     blurb: 'Knows the inshore passages. Shaves a little off every crossing.',
-    coinCost: 1200,
-    dailyWage: 6,
+    coinCost: 450,
+    dailyWage: 5,
     voyageSpeed: 0.85,
     voyageRisk: 0.80,
   ),
@@ -104,8 +110,8 @@ const List<Retainer> kRetinue = [
     name: 'Iversen',
     title: 'Master Mariner',
     blurb: 'Carries her canvas longer than is strictly sensible.',
-    coinCost: 3200,
-    dailyWage: 14,
+    coinCost: 2200,
+    dailyWage: 12,
     voyageSpeed: 0.72,
     voyageRisk: 0.60,
   ),
@@ -115,8 +121,8 @@ const List<Retainer> kRetinue = [
     name: 'Old Rennick',
     title: 'Commodore',
     blurb: 'Forty years at sea and has never lost a hull he was aboard.',
-    coinCost: 7000,
-    dailyWage: 28,
+    coinCost: 5200,
+    dailyWage: 24,
     voyageSpeed: 0.60,
     voyageRisk: 0.45,
   ),
@@ -128,8 +134,8 @@ const List<Retainer> kRetinue = [
     name: 'Bettine Cray',
     title: 'Factor',
     blurb: 'Haggles so you do not have to. A few percent on everything.',
-    coinCost: 1400,
-    dailyWage: 7,
+    coinCost: 500,
+    dailyWage: 5,
     sellBonus: 1.06,
     voyagePay: 1.08,
   ),
@@ -139,8 +145,8 @@ const List<Retainer> kRetinue = [
     name: 'Sowerby',
     title: 'Broker',
     blurb: 'Knows which captains are desperate and which are bluffing.',
-    coinCost: 3600,
-    dailyWage: 16,
+    coinCost: 2400,
+    dailyWage: 13,
     sellBonus: 1.12,
     voyagePay: 1.16,
   ),
@@ -150,8 +156,8 @@ const List<Retainer> kRetinue = [
     name: 'Halvard Meer',
     title: 'Merchant Prince',
     blurb: 'Sets the price on this coast, and everyone knows it.',
-    coinCost: 7800,
-    dailyWage: 30,
+    coinCost: 5600,
+    dailyWage: 26,
     sellBonus: 1.20,
     voyagePay: 1.26,
   ),
@@ -164,10 +170,10 @@ const List<Retainer> kRetinue = [
     title: 'Yard Clerk',
     blurb: 'Runs a cart round the port every other evening, and empties any '
         'yard that fills in between.',
-    coinCost: 1600,
-    dailyWage: 8,
+    coinCost: 600,
+    dailyWage: 6,
     autoCollect: AutoCollect.everyOtherDay,
-    requiresBuildings: 8,
+    requiresBuildings: 5,
   ),
   Retainer(
     track: RetinueTrack.quartermaster,
@@ -176,10 +182,10 @@ const List<Retainer> kRetinue = [
     title: 'Quartermaster',
     blurb: 'A cart round the whole port every single evening. You need never '
         'tap a shed again unless you want to.',
-    coinCost: 4200,
-    dailyWage: 18,
+    coinCost: 2800,
+    dailyWage: 15,
     autoCollect: AutoCollect.daily,
-    requiresBuildings: 12,
+    requiresBuildings: 9,
   ),
   Retainer(
     track: RetinueTrack.quartermaster,
@@ -188,10 +194,10 @@ const List<Retainer> kRetinue = [
     title: 'Harbour Steward',
     blurb: 'Keeps carts moving hour by hour. Nothing sits in a yard longer '
         'than it takes to make.',
-    coinCost: 9000,
-    dailyWage: 34,
+    coinCost: 6600,
+    dailyWage: 30,
     autoCollect: AutoCollect.hourly,
-    requiresBuildings: 16,
+    requiresBuildings: 13,
   ),
 ];
 

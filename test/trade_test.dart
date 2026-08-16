@@ -280,6 +280,7 @@ void main() {
   retinueTests();
   quartermasterTests();
   destinationIdentityTests();
+  retinuePricingTests();
 
   group('destinations', () {
     test('every destination is coherent', () {
@@ -779,6 +780,77 @@ void destinationIdentityTests() {
         final bestFar = sorted[i].wants.values.reduce((a, b) => a > b ? a : b);
         expect(bestFar, greaterThan(bestNear));
       }
+    });
+  });
+}
+
+// ---------------------------------------------------------------------------
+
+void retinuePricingTests() {
+  group('retinue pricing', () {
+    test('the first rung of every track is an early-game decision', () {
+      // Reported as "level 1 is a little high — by the time you get to them
+      // it's already mid-late game". An upgrade you cannot afford until the
+      // run is decided shapes nothing.
+      for (final track in RetinueTrack.values) {
+        final first = retainerAt(track, 1)!;
+        expect(first.coinCost, lessThan(Balance.lighthouseCoin / 12),
+            reason: '${first.name} at ${first.coinCost}c is too dear to be a '
+                'decision you build a run around');
+      }
+    });
+
+    test('a first hire is reachable not long after the port finds its feet',
+        () {
+      // Play an honest early game: work the sheds, cart them in, sell to
+      // whoever calls. The first rung should be affordable well before the
+      // lighthouse is in sight.
+      final g = GameState.newGame(seed: 31415);
+      var affordableOn = -1;
+      final cheapest = RetinueTrack.values
+          .map((t) => retainerAt(t, 1)!.coinCost)
+          .reduce((a, b) => a < b ? a : b);
+
+      for (var day = 1; day <= 60 && affordableOn < 0; day++) {
+        for (var t = 0; t < Balance.ticksPerDay; t++) {
+          g.step();
+          g.collectAll();
+          for (final ship in List.of(g.market.ships)) {
+            for (final o in ship.offers.where((o) => !o.isFilled)) {
+              if (o.resource.isFood) continue; // the town has to eat
+              final spare = g.stock[o.resource] - 20;
+              if (spare >= 1) g.sell(ship, o, spare);
+            }
+          }
+        }
+        if (g.coin >= cheapest) affordableOn = day;
+      }
+
+      expect(affordableOn, greaterThan(0),
+          reason: 'no first hire was affordable in sixty days');
+      expect(affordableOn, lessThan(40),
+          reason: 'the first hire landed on day $affordableOn — too late to '
+              'shape how the run is played');
+    });
+
+    test('each rung costs meaningfully more than the one below', () {
+      for (final track in RetinueTrack.values) {
+        for (var lvl = 2; lvl <= 3; lvl++) {
+          final lower = retainerAt(track, lvl - 1)!;
+          final upper = retainerAt(track, lvl)!;
+          expect(upper.coinCost, greaterThan(lower.coinCost * 2),
+              reason: '${upper.name} is barely dearer than ${lower.name}');
+        }
+      }
+    });
+
+    test('the quartermaster arrives once there is carting worth delegating',
+        () {
+      final first = retainerAt(RetinueTrack.quartermaster, 1)!;
+      expect(first.requiresBuildings, greaterThan(3),
+          reason: 'delegating three sheds is not worth a wage');
+      expect(first.requiresBuildings, lessThan(8),
+          reason: 'by eight sheds the tedium has already set in');
     });
   });
 }
