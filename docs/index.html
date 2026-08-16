@@ -23,7 +23,9 @@
   <!-- iOS meta tags & icons -->
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
-  <meta name="apple-mobile-web-app-title" content="ports_ahoy">
+  <meta name="apple-mobile-web-app-title" content="Ports Ahoy!">
+  <meta name="theme-color" content="#0E1A22">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <link rel="apple-touch-icon" href="icons/Icon-192.png">
 
   <!-- Favicon -->
@@ -42,5 +44,39 @@
     * https://docs.flutter.dev/platform-integration/web/initialization
   -->
   <script src="flutter_bootstrap.js" async></script>
+
+  <script>
+    // Keep an installed copy up to date on its own.
+    //
+    // A sideloaded APK cannot update itself — Android only allows that through
+    // a store. The installed web app can, but Flutter's service worker caches
+    // hard and will happily serve a stale build until something forces it to
+    // look. So: check on every launch, check again when the app is brought
+    // back to the foreground, and reload once the new worker takes over.
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', function () {
+        navigator.serviceWorker.getRegistration().then(function (reg) {
+          if (!reg) return;
+
+          reg.update();
+
+          // Fired when a waiting worker becomes the active one, which only
+          // happens once a genuinely new build has downloaded.
+          var reloading = false;
+          navigator.serviceWorker.addEventListener('controllerchange', function () {
+            if (reloading) return;
+            reloading = true;
+            window.location.reload();
+          });
+
+          // Re-check whenever the app comes back to the foreground, so a
+          // long-lived home-screen install still picks up new builds.
+          document.addEventListener('visibilitychange', function () {
+            if (document.visibilityState === 'visible') reg.update();
+          });
+        });
+      });
+    }
+  </script>
 </body>
 </html>
