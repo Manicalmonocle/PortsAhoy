@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:ports_ahoy/game_controller.dart';
+import 'package:ports_ahoy/report_endpoint.dart';
 import 'package:ports_ahoy/sim/profile.dart';
 import 'package:ports_ahoy/main.dart';
 import 'package:ports_ahoy/sim/events.dart';
@@ -798,5 +799,48 @@ void _abandonTests() {
     expect(reopened.profile.owned, isEmpty);
     expect(reopened.profile.runs, isEmpty);
     expect(reopened.state.day, 1);
+  });
+  _privacyTests();
+}
+
+void _privacyTests() {
+  // A privacy policy that describes an older version of the app is worse than
+  // none: it is a specific false promise on a public page. This one already
+  // went stale once — it claimed the game transmitted nothing for several
+  // releases after the Send button shipped — so the claims it makes are now
+  // pinned to the code that has to keep them true.
+  group('the privacy policy matches what the app does', () {
+    final policy = File('web/privacy.html').readAsStringSync();
+
+    test('it does not claim the game transmits nothing', () {
+      expect(policy, isNot(contains('collects no data whatsoever')));
+      expect(policy, isNot(contains('No network requests of any kind')));
+      expect(policy, isNot(contains('It never leaves the device')));
+    });
+
+    test('it names the destination the app actually sends to', () {
+      expect(policy, contains(ReportEndpoint.inbox),
+          reason: 'the policy must name where a run report goes, and it is '
+              'ReportEndpoint.inbox that decides that');
+    });
+
+    test('it admits that email reveals the sender', () {
+      // The transport attaches an address by construction. A policy that
+      // claimed otherwise would be the comfortable lie this project exists
+      // not to tell.
+      expect(ReportEndpoint.revealsSender, isTrue);
+      expect(policy.toLowerCase(), contains('email address'));
+    });
+
+    test('the app still declares no internet permission', () {
+      // The policy makes this claim in as many words, and it is the strongest
+      // thing it says — an app without the permission cannot transmit, whatever
+      // any page asserts. If a dependency ever adds it, this fails and the
+      // claim must come out.
+      final manifest =
+          File('android/app/src/main/AndroidManifest.xml').readAsStringSync();
+      expect(manifest, isNot(contains('android.permission.INTERNET')));
+      expect(policy, contains('no internet permission'));
+    });
   });
 }

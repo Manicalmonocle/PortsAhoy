@@ -12,51 +12,111 @@
   strong { color:#D9A441; }
   footer { margin-top:3rem; font-size:.85rem; opacity:.7; }
   a { color:#4E9AAE; }
+  ul { padding-left:1.2rem; }
+  code { background:#16262F; padding:.1rem .3rem; border-radius:3px; }
 </style>
 </head>
 <body>
 <h1>Privacy Policy — Ports Ahoy!</h1>
-<p><em>Last updated: 15 August 2026</em></p>
+<p><em>Last updated: 16 August 2026</em></p>
 
-<p><strong>Ports Ahoy! collects no data whatsoever.</strong> Nothing about you
-or your device is gathered, stored on a server, or transmitted anywhere.</p>
+<p><strong>Ports Ahoy! collects nothing automatically.</strong> There is no
+advertising, no analytics, no telemetry, no crash reporting and no tracking of
+any kind. Nothing about you or your device is gathered or sent anywhere as a
+side effect of playing.</p>
+
+<p>The app is not even capable of it: the Android build requests
+<strong>no internet permission</strong>. The only permission it declares is an
+internal Android broadcast permission the Flutter framework needs to talk to
+itself, which grants access to nothing on your device. An app without internet
+permission cannot transmit data, and the operating system enforces that
+regardless of what this page says.</p>
 
 <h2>What the game stores</h2>
-<p>One save file, held in ordinary application storage on your own device. It
-contains only the state of your port — buildings, resources, the day number.
-It never leaves the device. Uninstalling the app, or clearing its data,
-deletes it permanently. There is no cloud save and no account.</p>
+<p>One save file, in ordinary application storage on your own device. It holds
+the state of your port — buildings, resources, the day number — and a
+day-by-day log of the run in progress. There is no cloud save and no account.
+Uninstalling the app, or clearing its data, deletes it permanently.</p>
+
+<h2>The one thing that can leave your device</h2>
+<p>The Log panel has a <strong>Send run report</strong> button. It exists so
+players who want to help balance the game can share how a run actually went.</p>
+
+<p>It is never automatic. Tapping it opens a sheet showing you the exact text,
+in full, before anything happens. If you choose to send, the app opens
+<em>your own mail app</em> with that text already in the body, addressed to
+<code>portsahoy@gmail.com</code>. <strong>Nothing is transmitted unless you then
+send that email yourself.</strong> The app never sends it for you — it cannot,
+having no internet permission.</p>
+
+<p>The report contains only numbers from your run:</p>
+<ul>
+  <li>population, coin, buildings, staffed sheds, food days and ships at sea, per day</li>
+  <li>the days you built, hired, sent a consignment, or finished</li>
+  <li>which charters and difficulty the run was played under, and the app version</li>
+  <li>the run's seed — the number the game used to lay out that particular
+      island and its weather. It describes the world, not you, and is included
+      so a reported run can be replayed exactly.</li>
+</ul>
+
+<p>It contains <strong>no name, no device identifier, no location, and no free
+text</strong>. Nothing you type can end up in it, because it is assembled only
+from those numbers — a test in the source enforces this by rejecting any
+character outside the small set the format uses.</p>
+
+<p><strong>Because it is email, the recipient will see your email address.</strong>
+That is how email works and the app cannot prevent it. If you would rather not
+be identified, use <strong>Copy instead</strong> in the same sheet: it puts the
+report on your clipboard and you can share it however you like, or not at all.
+The game plays exactly the same either way, and nothing is withheld from players
+who never send one.</p>
+
+<p>Reports are read only to tune the game's difficulty and pacing. They are not
+sold, shared or published. To have yours deleted, email
+<code>portsahoy@gmail.com</code> and say so — since a report has no name
+attached, please send it from the address you sent it with, or quote the day
+and charters so it can be found.</p>
+
+<h2>Playing in a browser</h2>
+<p>The web version is hosted on GitHub Pages. As with any website, GitHub's
+servers see the requests your browser makes, including your IP address, under
+<a href="https://docs.github.com/site-policy/privacy-policies/github-privacy-statement">GitHub's own privacy statement</a>.
+That is the host, not the game — the game itself still collects nothing. The
+installed Android app does not load anything from the network.</p>
 
 <h2>What the game does not do</h2>
 <ul>
   <li>No advertising, and no advertising identifier is read.</li>
   <li>No analytics, telemetry, or crash reporting.</li>
   <li>No in-app purchases and no payment handling.</li>
-  <li>No accounts, sign-in, or email collection.</li>
-  <li>No location, contacts, camera, microphone, photos, or files.</li>
-  <li>No network requests of any kind. The game works fully offline.</li>
+  <li>No accounts and no sign-in.</li>
+  <li>No location, contacts, camera, microphone, photos or files.</li>
   <li>No third-party SDKs that collect data.</li>
 </ul>
 
-<h2>Permissions</h2>
-<p>The app requests one permission, an internal Android broadcast permission
-required by the Flutter framework it is built on. It grants no access to
-anything on your device and exists only so the app can talk to itself.</p>
-
 <h2>Children</h2>
-<p>Because no data is collected from anyone, none is collected from children.
-The game is suitable for general audiences.</p>
+<p>Nothing is collected from anyone automatically, so nothing is collected from
+children. The only path by which any data leaves a device requires deliberately
+tapping Send and then sending an email. The game is suitable for general
+audiences.</p>
 
 <h2>Changes</h2>
-<p>If a future version ever collects anything, this page will be updated before
-that version ships, and the change will be described plainly here.</p>
+<p>This page was updated on 16 August 2026 to describe the Send run report
+feature, which was added in version 1.0.10.</p>
+
+<p><strong>That update came late, and the previous version of this page said it
+would not.</strong> It promised any such change would be described here
+<em>before</em> the version shipped. It was not: several releases went out with
+the feature while this page still said the game transmitted nothing. Nothing was
+ever collected without a player choosing to send it, and no report has ever
+contained a name or a device identifier — but the page was wrong for a period,
+and saying so here is better than quietly correcting it.</p>
 
 <h2>Contact</h2>
-<p>Questions about this policy:
-<a href="https://github.com/Manicalmonocle/PortsAhoy/issues">open an issue on
-GitHub</a>.</p>
+<p><code>portsahoy@gmail.com</code>, or
+<a href="https://github.com/Manicalmonocle/PortsAhoy/issues">open an issue on GitHub</a>.</p>
 
-<footer>Ports Ahoy! is free, contains no ads, no in-app purchases, no energy
-meters and no paid speed-ups.</footer>
+<footer>Ports Ahoy! contains no ads, no in-app purchases, no energy meters and
+no paid speed-ups.</footer>
 </body>
 </html>
