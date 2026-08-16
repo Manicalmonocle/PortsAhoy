@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:ports_ahoy/game_controller.dart';
@@ -273,7 +275,7 @@ void main() {
         await tester.pump();
         expect(tester.takeException(), isNull, reason: 'base on $name');
 
-        for (final panel in ['Build', 'Quay', 'Trade', 'Sheds', 'Log']) {
+        for (final panel in ['Build', 'Quay', 'Trade', 'Sheds', 'Voyage', 'Log']) {
           await openPanel(tester, panel);
           expect(tester.takeException(), isNull,
               reason: '$panel overflowed on $name');
@@ -292,7 +294,7 @@ void main() {
       const navBar = 48.0;
       await pumpGame(tester, size: const Size(412, 915), navBar: navBar);
 
-      for (final panel in ['Build', 'Quay', 'Trade', 'Sheds', 'Log']) {
+      for (final panel in ['Build', 'Quay', 'Trade', 'Sheds', 'Voyage', 'Log']) {
         await openPanel(tester, panel);
         expect(tester.takeException(), isNull, reason: '$panel overflowed');
 
@@ -308,6 +310,67 @@ void main() {
       }
 
       await closeGame(tester);
+    });
+
+    // The charter panel only shows its interesting half once you own charters,
+    // so the viewport sweep above never reaches it on a fresh profile. This
+    // seeds a profile that has won a run and is sailing under a hardship, which
+    // is the state that renders the "This voyage" card and the whole toggle
+    // list at once — the tallest this panel ever gets.
+    testWidgets('the charter panel fits a phone once charters are owned',
+        (tester) async {
+      for (final size in const [Size(360, 640), Size(412, 915)]) {
+        SharedPreferences.setMockInitialValues({
+          'ports_ahoy_profile': jsonEncode({
+            'owned': [
+              'hard_weather',
+              'bitter_seas',
+              'rich_contracts',
+              'deep_cellars',
+              'a_full_purse',
+            ],
+            'active': ['hard_weather', 'rich_contracts'],
+            'runs': [
+              {
+                'days': 122,
+                'difficulty': 2,
+                'population': 39,
+                'charters': ['hard_weather'],
+              },
+            ],
+            'pending': <String>[],
+          }),
+        });
+
+        tester.view.physicalSize = size;
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(tester.view.reset);
+
+        final c = GameController();
+        await c.load();
+        c.setSpeed(0);
+        addTearDown(c.dispose);
+
+        await tester.pumpWidget(PortsAhoyApp(controller: c));
+        await tester.pump();
+
+        await openPanel(tester, 'Voyage');
+        expect(tester.takeException(), isNull,
+            reason: 'the charter panel overflowed at $size');
+
+        // The card naming the run in force has to be there, or the panel is
+        // back to describing only the run you are not playing.
+        expect(find.text('This voyage'), findsOneWidget,
+            reason: 'the run in progress must say what it is settled under');
+
+        await tester.drag(find.byType(ListView).last, const Offset(0, -1200));
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull,
+            reason: 'scrolling the charter panel overflowed at $size');
+
+        await tester.pumpWidget(const SizedBox());
+        await tester.pump();
+      }
     });
 
     testWidgets('nothing floating is hidden behind the dock', (tester) async {

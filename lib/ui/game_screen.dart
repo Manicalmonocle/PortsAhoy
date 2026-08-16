@@ -723,7 +723,9 @@ class _PanelSheet extends StatelessWidget {
         _Panel.quay => 'The Quay',
         _Panel.trade => 'Trade',
         _Panel.log => 'Log',
-        _Panel.charters => 'The next voyage',
+        // The panel shows the run you are on as well as the one you are
+        // planning, so it cannot be titled for the next voyage alone.
+        _Panel.charters => 'Charters',
         _Panel.sheds => 'Every shed',
         _Panel.none => '',
       };

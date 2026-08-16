@@ -268,6 +268,71 @@ void endOfRunTests() {
       expect(hard.charters.isLegal, isTrue);
     });
 
+    // Reported from play: "started a new voyage and it allows me to turn it on
+    // or off at any time. I think if you activate you either need to finish
+    // that run or completely restart from zero."
+    //
+    // The simulation already worked that way — a run snapshots its charters at
+    // the moment it begins — but nothing said so, and a screen that silently
+    // applies your choices to a different run than the one in front of you is
+    // worse than one that refuses them. These tests pin the invariant so the
+    // snapshot can never quietly become a live read of the profile.
+    group('a run is settled under the charters it began with', () {
+      test('toggling mid-run cannot reach the run in progress', () {
+        final p = Profile(
+            owned: {'hard_weather', 'rich_contracts', 'a_full_purse'},
+            active: {'hard_weather'});
+
+        final g = GameState.newGame(seed: 42, charters: p.activeSet);
+        final beganUnder = g.charters.ids.toList();
+        final beganGap = g.charters.hazardGap;
+
+        // Everything a player can do to the selection mid-run.
+        p.active
+          ..remove('hard_weather')
+          ..addAll({'rich_contracts', 'a_full_purse'});
+        p.reconcile();
+
+        expect(g.charters.ids, beganUnder,
+            reason: 'the live run keeps the charters it set out under');
+        expect(g.charters.hazardGap, beganGap,
+            reason: 'a hardship cannot be switched off once you are sailing');
+        expect(g.charters.salePrice, 1.0,
+            reason: 'nor can an advantage be switched on mid-voyage');
+        expect(g.charters.difficulty, 2,
+            reason: 'so the record cannot be faked by toggling before the '
+                'light is lit');
+      });
+
+      test('the charters survive a save and reload, not the profile', () {
+        final p = Profile(
+            owned: {'hard_weather', 'rich_contracts'}, active: {'hard_weather'});
+        final g = GameState.newGame(seed: 42, charters: p.activeSet);
+
+        // Player swaps the selection, then the app is closed and reopened.
+        p.active
+          ..remove('hard_weather')
+          ..add('rich_contracts');
+
+        final restored = GameState.fromJson(
+            jsonDecode(jsonEncode(g.toJson())) as Map<String, dynamic>);
+
+        expect(restored.charters.ids, ['hard_weather'],
+            reason: 'resuming must reload the run, not the pending selection');
+        expect(restored.charters.difficulty, 2);
+      });
+
+      test('a run under no charter stays that way', () {
+        final p = Profile(owned: {'hard_weather'});
+        final g = GameState.newGame(seed: 42, charters: p.activeSet);
+        p.active.add('hard_weather');
+
+        expect(g.charters.active, isEmpty);
+        expect(g.charters.difficulty, 0,
+            reason: 'a plain run cannot be retroactively credited as hard');
+      });
+    });
+
     test('the collection grows but the budget does not', () {
       // Power creep is the failure mode of every unlock ladder that only adds.
       // Owning everything must not make a run any easier than owning two.
