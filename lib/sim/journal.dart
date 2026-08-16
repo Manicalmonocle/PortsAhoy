@@ -72,15 +72,32 @@ class JournalDay {
 
 /// Something worth knowing the day of: a build, a hire, a consignment, a win.
 class JournalMark {
-  const JournalMark(this.day, this.what);
+  const JournalMark(this.day, this.what, {this.code});
 
   final int day;
+
+  /// Prose, for a person reading the report.
   final String what;
 
-  Map<String, dynamic> toJson() => {'d': day, 'w': what};
+  /// The same event in machine form — see `run_code.dart`. Kept separate from
+  /// [what] rather than parsed back out of it, for two reasons. Display copy
+  /// gets polished (`built Sawmill (4 total)` is one rewording away from
+  /// breaking a parser), and [what] is an unconstrained String that could one
+  /// day carry something a player typed. Anything that travels off the device
+  /// is built from [code] alone.
+  final String? code;
 
-  static JournalMark fromJson(Map<String, dynamic> j) =>
-      JournalMark((j['d'] as num).toInt(), j['w'] as String);
+  Map<String, dynamic> toJson() => {
+        'd': day,
+        'w': what,
+        if (code != null) 'k': code,
+      };
+
+  static JournalMark fromJson(Map<String, dynamic> j) => JournalMark(
+        (j['d'] as num).toInt(),
+        j['w'] as String,
+        code: j['k'] as String?,
+      );
 }
 
 class RunJournal {
@@ -95,14 +112,30 @@ class RunJournal {
   static const int maxDays = 400;
   static const int maxMarks = 300;
 
+  /// The caps were hit and recording stopped.
+  ///
+  /// These used to be silent. A run that outlived them produced a report whose
+  /// tail showed a port that had stopped building and stopped sailing — which
+  /// reads as a finding about late-game balance rather than as the storage
+  /// limit it actually is. Anyone analysing that trace would draw a real
+  /// conclusion from an artefact. Cheaper to say so than to be misled.
+  bool daysTruncated = false;
+  bool marksTruncated = false;
+
   void record(JournalDay d) {
-    if (days.length >= maxDays) return;
+    if (days.length >= maxDays) {
+      daysTruncated = true;
+      return;
+    }
     days.add(d);
   }
 
-  void mark(int day, String what) {
-    if (marks.length >= maxMarks) return;
-    marks.add(JournalMark(day, what));
+  void mark(int day, String what, {String? code}) {
+    if (marks.length >= maxMarks) {
+      marksTruncated = true;
+      return;
+    }
+    marks.add(JournalMark(day, what, code: code));
   }
 
   /// A compact report, small enough to paste into a message.
@@ -118,7 +151,15 @@ class RunJournal {
       ..writeln('charters: ${charters.isEmpty ? "none" : charters}')
       ..writeln('difficulty: $difficulty')
       ..writeln('outcome: ${won ? "lighthouse lit" : "in progress"}')
-      ..writeln('days recorded: ${days.length}')
+      ..writeln('days recorded: ${days.length}');
+    if (daysTruncated || marksTruncated) {
+      b.writeln('TRUNCATED: this run outgrew the journal '
+          '(${daysTruncated ? "days" : ""}'
+          '${daysTruncated && marksTruncated ? " and " : ""}'
+          '${marksTruncated ? "milestones" : ""}). '
+          'The trace stops early — it is not that the port went quiet.');
+    }
+    b
       ..writeln()
       ..writeln('## milestones');
     for (final m in marks) {
@@ -137,6 +178,8 @@ class RunJournal {
   Map<String, dynamic> toJson() => {
         'days': days.map((d) => d.toJson()).toList(),
         'marks': marks.map((m) => m.toJson()).toList(),
+        if (daysTruncated) 'td': true,
+        if (marksTruncated) 'tm': true,
       };
 
   static RunJournal fromJson(Map<String, dynamic>? j) {
@@ -148,6 +191,10 @@ class RunJournal {
       marks: (j['marks'] as List? ?? [])
           .map((m) => JournalMark.fromJson(m as Map<String, dynamic>))
           .toList(),
-    );
+    )
+      // Survives a save/load, or a long run reloaded on a phone would forget
+      // that its own tail is missing.
+      ..daysTruncated = j['td'] == true
+      ..marksTruncated = j['tm'] == true;
   }
 }

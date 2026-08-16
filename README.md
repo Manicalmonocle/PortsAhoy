@@ -497,6 +497,58 @@ All tuning lives in `Balance` in `lib/sim/game_state.dart` and `EventTuning` in
 `lib/sim/events.dart`. The building and event catalogues are plain `const`
 lists — adding a chain or an event is one entry.
 
+### Collecting runs from testers
+
+The Log panel has two buttons. **Copy run report** puts the long readable trace
+on the clipboard. **Send** offers to file that run somewhere it can be read.
+
+Send never fires by itself. A sheet opens first showing the exact payload, in
+full, with Send / Copy instead / Not now at equal weight — no pre-ticked box, no
+second ask on the next launch. Silent upload of play data would be telemetry,
+and shipping telemetry in a game sold on not having dark patterns would be the
+bait-and-switch this project exists to avoid.
+
+**What travels is `PA1`, not the readable report.** The readable one cannot go
+by link at all: a 200-day run is 7,463 characters, 11,549 once URL-encoded, and
+GitHub's endpoint accepts about 6,000, kills the connection near 8,000 and
+returns 414 at 12,000 (measured against the real endpoint, not folklore). PA1 is
+the same run in 2-4 KB of URL-safe characters — see `lib/sim/run_code.dart`.
+Decode what comes back with:
+
+```sh
+dart run tool/decode_run_report.dart reports.csv   # or a bare code, or stdin
+```
+
+**Choosing a destination** — one constant, `ReportEndpoint.destination` in
+`lib/report_endpoint.dart`:
+
+| | GitHub issue *(current)* | Google Form |
+| --- | --- | --- |
+| tester needs an account | **yes** — signed-out testers hit a sign-in wall | no |
+| name attached to the report | their GitHub username, publicly, forever | none |
+| setup | none, works today | ~5 minutes |
+| collects into | the issue tracker | a spreadsheet |
+| 200-day run | thinned to every 2nd day | every day |
+| 300-day run | thinned to every 10th day | every 2nd day |
+
+The resolution difference is real: GitHub's budget is halved because a
+signed-out tester's whole URL is echoed back inside `?return_to=`, so the
+payload has to survive being carried twice. Runs at or under ~120 days keep
+full daily resolution either way.
+
+GitHub is the sensible default while the testers are you and anyone technical.
+Switch to a form before handing builds to friends and family — the sign-in wall
+is the thing most likely to make a non-technical tester give up, and their runs
+are the ones worth having.
+
+Neither setting is a secret. A form id appears in every prefilled link the form
+hands out, and the repo is already public. **No token is compiled into the
+app**, and a test asserts none ever is: the APK and the web bundle are both
+public artefacts, anything inside them is readable by anyone, and GitHub's
+secret scanning would revoke a leaked token anyway. That is precisely why the
+app opens a page the tester submits themselves rather than posting anywhere on
+their behalf.
+
 ## What is not built yet
 
 - No sound, no animation beyond the harbour swell, emoji placeholder art

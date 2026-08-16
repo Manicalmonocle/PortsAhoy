@@ -6,6 +6,7 @@ import 'market.dart';
 import 'progression.dart';
 import 'resources.dart';
 import 'retinue.dart';
+import 'run_code.dart';
 import 'terrain.dart';
 import 'trade.dart';
 
@@ -1271,8 +1272,12 @@ class GameState {
     // Selling abroad never touches your own quay, which is the whole point:
     // it is how you move volume without collapsing the local price.
     final units = clean.values.fold(0.0, (s, v) => s + v).round();
-    journal.mark(day, 'sent $units units to ${dest.name}, '
-        '${crossing.label}, quoted ${quote}c');
+    journal.mark(
+        day,
+        'sent $units units to ${dest.name}, '
+        '${crossing.label}, quoted ${quote}c',
+        code: RunCode.voyageMark(
+            day, units, dest.name, crossing.days, quote.round()));
     log('Sent $units units to ${dest.name}. Due back in ${crossing.label}, '
         'quoted ${quote}c.', LogKind.good);
     return true;
@@ -1370,8 +1375,14 @@ class GameState {
     }
     log('${r.name}, ${r.title.toLowerCase()}, signed on at '
         '${r.dailyWage}c a day.', LogKind.good);
-    journal.mark(day, 'hired ${r.track.name} L${r.level} (${r.name}) '
-        'for ${r.coinCost}c');
+    journal.mark(
+        day,
+        'hired ${r.track.name} L${r.level} (${r.name}) '
+        'for ${r.coinCost}c',
+        // The retainer's proper name is a function of track and level via
+        // kRetinue, so the code carries the track and level and lets the
+        // decoder look the name up rather than shipping it.
+        code: RunCode.hireMark(day, r.track.name, r.level, r.coinCost.round()));
     return true;
   }
 
@@ -1503,7 +1514,9 @@ class GameState {
     autoPlace(b);
     buildings.add(b);
     log('${def.name} raised on the waterfront.', LogKind.good);
-    journal.mark(day, 'built ${def.name} (${buildings.length} total)');
+    journal.mark(day, 'built ${def.name} (${buildings.length} total)',
+        // def.id, not def.name: ids are stable, display names get polished.
+        code: RunCode.buildMark(day, def.id));
     checkUnlocks(); // raising one shed often reveals the next
     return true;
   }
@@ -1750,7 +1763,8 @@ class GameState {
     coin -= lighthouseCoinCost;
     stock.payAll(lighthouseGoodsCost);
     lighthouseBuilt = true;
-    journal.mark(day, 'LIGHTHOUSE LIT — population $population');
+    journal.mark(day, 'LIGHTHOUSE LIT — population $population',
+        code: RunCode.winMark(day, population));
     log('The Saltwind Light burns for the first time. The port is made.',
         LogKind.good);
     return true;

@@ -41,5 +41,13 @@
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>
         </intent>
+        <!-- Needed by url_launcher to open the run-report form in a browser.
+             Android 11+ hides other apps unless they are declared here. Note
+             the app never calls canLaunchUrl, which IS filtered by this list
+             and would answer "no" on a device that can plainly open a link. -->
+        <intent>
+            <action android:name="android.intent.action.VIEW"/>
+            <data android:scheme="https"/>
+        </intent>
     </queries>
 </manifest>

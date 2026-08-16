@@ -2,8 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../game_controller.dart';
+import '../report_endpoint.dart';
 import '../sim/game_state.dart';
+import '../sim/run_code.dart';
 import '../version.dart';
+import 'send_report_sheet.dart';
 import 'theme.dart';
 
 class LogTab extends StatelessWidget {
@@ -96,15 +99,19 @@ class _ExportRow extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
+          Text(
+            'Ports Ahoy! $kAppVersion · ${journal.days.length} days, '
+            '${journal.marks.length} milestones',
+            style: const TextStyle(fontSize: 11, color: Palette.fog),
+          ),
+          const SizedBox(height: 8),
+          // Wrap, not Row: a second button pushed this 5.9px past the edge of
+          // an iPhone SE and 21px past a small Android. Buttons that can grow
+          // in number or in label length do not belong on a fixed line.
+          Wrap(
+            spacing: 8,
+            runSpacing: 6,
             children: [
-              Expanded(
-                child: Text(
-                  'Ports Ahoy! $kAppVersion · ${journal.days.length} days, '
-                  '${journal.marks.length} milestones',
-                  style: const TextStyle(fontSize: 11, color: Palette.fog),
-                ),
-              ),
               OutlinedButton.icon(
                 onPressed: () async {
                   final text = journal.report(
@@ -135,9 +142,37 @@ class _ExportRow extends StatelessWidget {
                 label: const Text('Copy run report',
                     style: TextStyle(fontSize: 11)),
               ),
+              if (ReportEndpoint.configured)
+                OutlinedButton.icon(
+                  onPressed: () => showSendReportSheet(
+                    context,
+                    payload: RunCode.encode(
+                      journal,
+                      version: kAppVersion,
+                      seed: s.rng.seed,
+                      difficulty: s.charters.difficulty,
+                      charters: s.charters.ids.toList(),
+                      won: s.lighthouseBuilt,
+                      maxChars: ReportEndpoint.maxPayload,
+                    ),
+                    readable: journal.report(
+                      charters: s.charters.ids.join(', '),
+                      difficulty: s.charters.difficulty,
+                      won: s.lighthouseBuilt,
+                      version: kAppVersion,
+                    ),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Palette.brass,
+                    side: const BorderSide(color: Palette.line),
+                    visualDensity: VisualDensity.compact,
+                  ),
+                  icon: const Icon(Icons.outbox_outlined, size: 15),
+                  label: const Text('Send', style: TextStyle(fontSize: 11)),
+                ),
             ],
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 8),
           const Text(
             'A day-by-day trace of this port — population, coin, sheds, food '
             'and hulls at sea — plus every build, hire and consignment. Used '
