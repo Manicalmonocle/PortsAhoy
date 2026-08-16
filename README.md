@@ -357,6 +357,12 @@ Four findings from the probe, each of which changed the design:
    dominated the ropewalk — so the flax tension the game is built around was not
    a real choice. Both are now locked by tests.
 
+**The probe underestimates a real player's income by roughly 40% in the early
+game.** Its selling heuristic holds a fixed reserve and only trades with
+whoever happens to be at the quay. Measured: the cheapest retinue hire looked
+affordable on day 23 by the model, and was bought on day 13 in play. Assume
+anything priced against the probe will be reachable sooner than it says.
+
 **Known caveat:** the probe fully reallocates its labour every single day, so it
 absorbs disruption a human never would. Events moved its median by only ~7 days;
 expect them to bite considerably harder in real play. Do not tune event severity
