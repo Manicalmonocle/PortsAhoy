@@ -73064,8 +73064,8 @@ B.b.B(s,a)},
 wE(a,b){var s=this.b
 if(s.length>=300)return
 B.b.B(s,new A.ih(a,b))},
-agr(a,b,c){var s,r,q,p,o=a.length===0?"none":a,n=c?"lighthouse lit":"in progress",m=this.a,l=m.length
-n="# Ports Ahoy run report\n"+("charters: "+o+"\n")+("difficulty: "+b+"\n")+("outcome: "+n+"\n")+("days recorded: "+l+"\n")+"\n## milestones\n"
+agr(a,b,c,d){var s,r,q,p,o=a.length===0?"none":a,n=d?"lighthouse lit":"in progress",m=this.a,l=m.length
+n="# Ports Ahoy run report\n"+("build: "+c+"\n")+("charters: "+o+"\n")+("difficulty: "+b+"\n")+("outcome: "+n+"\n")+("days recorded: "+l+"\n")+"\n## milestones\n"
 for(o=this.b,s=o.length,r=0;r<s;++r){q=o[r]
 n+="day "+q.a+": "+q.b+"\n"}o=n+"\n## daily\nday,pop,coin,built,staffed,foodDays,atSea\n"
 for(r=0;r<m.length;m.length===l||(0,A.t)(m),++r){p=m[r]
@@ -74204,7 +74204,7 @@ A.Ac.prototype={
 G(a){var s,r,q,p,o=null,n=this.c.b
 n===$&&A.a()
 s=n.x
-r=A.bG(A.L("Run report \xb7 "+s.a.length+" days, "+s.b.length+" milestones",o,o,B.bK,o),1)
+r=A.bG(A.L("Ports Ahoy! 1.0.8+9 \xb7 "+s.a.length+" days, "+s.b.length+" milestones",o,o,B.bK,o),1)
 q=A.GO(o,o,o,o,o,o,o,o,o,B.C,o,o,o,o,o,B.e_,o,o,o,B.b3)
 p=t.p
 return new A.ac(B.F1,A.bt(A.c([A.aI(A.c([r,new A.kO(!0,new A.ada(s,n,a),o,o,o,q,o,o,!1,o,!0,o,new A.MX(B.Vz,B.Gq,q,o,o),o)],p),B.o,B.p,B.k,0),B.yz,B.Vx,B.Ed],p),B.z,B.k),o)}}
@@ -74214,7 +74214,7 @@ var $async$$0=A.X(function(a,b){if(a===1)return A.T(b,r)
 for(;;)switch(s){case 0:o=p.a
 n=p.b
 s=3
-return A.S(A.U1(new A.TV(o.agr(B.b.aQ(n.at.gwr(),", "),n.at.giB(),n.w))),$async$$0)
+return A.S(A.U1(new A.TV(o.agr(B.b.aQ(n.at.gwr(),", "),n.at.giB(),"1.0.8+9",n.w))),$async$$0)
 case 3:n=p.c
 if(n.e==null){s=1
 break}n.ad(t.Pu).f.G5(A.asf(null,null,null,B.cp,null,B.ac,null,A.L("Run report copied \u2014 "+o.a.length+" days. Paste it wherever it is useful.",null,null,B.d3,null),null,B.mO,null,null,null,null,null,null,null,null,null,null))
