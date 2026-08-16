@@ -312,8 +312,19 @@ culling that was dropping every roof.
 `tool/balance_probe.dart` plays eight fixed seeds with a competent-but-not-
 optimal policy. It is a tuning instrument, not a test.
 
-Current: **8/8 seeds win, median day 118, spread 33 days, peak coin 1.1× the
+Current: **8/8 seeds win, median day 135, spread 53 days, peak coin 1.1× the
 requirement.**
+
+### Measured against a human
+
+One full playthrough, deliberately rushed at 4× to reach the endgame and hunt
+bugs: **45 minutes**. That implies roughly three hours at 1×, which is the
+intended shape — 4× is the "I want to get through this" speed and sits about
+where the original 1× did before the clock was slowed.
+
+**Still unmeasured: how 1× feels to actually play.** Every human session so far
+has been a speedrun, so the base pace has never been evaluated by anyone but
+the bot. That is the single biggest open question in the balance.
 
 That is the third of three readings, and the history is the point:
 
