@@ -510,4 +510,60 @@ void housingArithmeticTests() {
       expect(g.housingBreakdown, contains('${g.cottageCount}'));
     });
   });
+  _darkTradeReachability();
+}
+
+void _darkTradeReachability() {
+  group('the dark trade is reachable', () {
+    // THE BUG THIS EXISTS TO STOP COMING BACK.
+    //
+    // Every dark shed used to unlock only once the previous dark shed had been
+    // BUILT. Measured against a complete human run — 93 days, lighthouse lit —
+    // the Bonded Cellar and the Privateer Berth never became available at all,
+    // because the player never built the shed each was hiding behind. A player
+    // reporting "the dark trade is too late to matter" was describing a
+    // subsystem that was not late but absent.
+    test('no dark shed hides behind another dark shed', () {
+      for (final id in kDarkBuildingIds) {
+        final rule = unlockRuleFor(id);
+        expect(rule, isNotNull, reason: '$id has no unlock rule');
+        for (final needed in rule!.requires) {
+          expect(kDarkBuildingIds.contains(needed), isFalse,
+              reason: '$id only appears once you have built $needed, which is '
+                  'itself part of the dark trade. That chain made half the '
+                  'subsystem unreachable in a winning run.');
+        }
+      }
+    });
+
+    // Concealment has to be buyable BEFORE contraband exists, or a first dark
+    // run is forced to get exposed before it can do anything about it.
+    test('concealment does not wait on producing contraband', () {
+      final cellar = unlockRuleFor('bonded_cellar')!;
+      expect(cellar.requires, isNot(contains('distillery')));
+      expect(cellar.requires, isNot(contains('powder_mill')));
+    });
+
+    // Replays the real build days from tool/reference_runs: warehouse 36,
+    // smithy 51, won 93. Both must land with real runway left, not at the death.
+    test('both late sheds open with most of a real run still to play', () {
+      const builtOn = {'warehouse': 36, 'smithy': 51, 'mine': 22, 'ropewalk': 17};
+      const wonOn = 93;
+
+      for (final id in ['bonded_cellar', 'privateer_berth']) {
+        final rule = unlockRuleFor(id)!;
+        var opensOn = rule.minDay;
+        for (final needed in rule.requires) {
+          final day = builtOn[needed];
+          expect(day, isNotNull,
+              reason: '$id now waits on $needed, which that run never built — '
+                  'it would be unreachable again');
+          opensOn = opensOn > day! ? opensOn : day;
+        }
+        expect(opensOn, lessThan(wonOn - 30),
+            reason: '$id opens on day $opensOn of a run won on $wonOn — under '
+                'a month of runway is what "too late to matter" felt like');
+      }
+    });
+  });
 }

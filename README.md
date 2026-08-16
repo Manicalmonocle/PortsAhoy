@@ -168,6 +168,18 @@ Entirely opt-in. Build any of the four dark sheds and free traders start
 calling; build none and you will never see contraband, never be inspected, and
 can still win.
 
+**When it opens.** Distillery on day 25; Bonded Cellar with the warehouse;
+Powder Mill and Privateer Berth with the smithy. Deliberately four separate
+gates rather than a chain: each dark shed used to unlock only once the previous
+one had been *built*, and measured against a complete human run — 93 days,
+lighthouse lit — the Bonded Cellar and the Privateer Berth **never became
+available at all**. The player reporting "the dark trade unlocks too late to
+matter" was describing half a subsystem that was not late but absent. The
+Cellar in particular sat behind the Distillery, so concealment could only be
+bought *after* becoming exposed. No payoff number changed; two links were cut.
+A test in `progression_test.dart` now fails if any dark shed is ever gated
+behind another.
+
 - **Contraband** — Spirits (Distillery: grain + barrels) and Powder (Powder
   Mill: ore + timber). The distillery argues with the supper table every hour.
 - **Notoriety** — rises only from explicit acts (selling contraband, bartering,

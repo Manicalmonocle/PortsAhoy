@@ -71,13 +71,33 @@ const List<UnlockRule> kUnlockRules = [
   // ---- Spending coin -----------------------------------------------------
   UnlockRule('import_berth', text: 'Hold 1,200 coin', minCoin: 1200),
 
-  // ---- The dark trade, last and entirely optional ------------------------
+  // ---- The dark trade, entirely optional ---------------------------------
+  //
+  // These used to be a chain: each dark shed unlocked only once you had BUILT
+  // the previous one. Measured against a complete human run — 93 days, won —
+  // that meant the Distillery appeared on day 25, the Powder Mill on day 51,
+  // and the Bonded Cellar and Privateer Berth NEVER APPEARED AT ALL, because
+  // the player never built the shed each one was hiding behind. The whole late
+  // half of the subsystem was unreachable in a winning run, which is why it
+  // read as "too late to matter": it wasn't late, it was absent.
+  //
+  // Two links cut, no payoff number touched:
+  //
+  //   The Bonded Cellar hangs off the warehouse, not the distillery. Hiding
+  //   contraband used to be gated behind producing it, so a first dark run had
+  //   to get exposed before it could buy concealment — backwards, and the
+  //   reason the dark trade punished the exact curiosity it wanted to reward.
+  //
+  //   The Privateer Berth hangs off the smithy, not the powder mill. It is the
+  //   building this game is named after and it sat four deep behind a chain
+  //   that only starts once iron is running. Its cost — 40 rope and 30
+  //   sailcloth — already means a ropewalk and a weaver, so the resources gate
+  //   it honestly without the unlock doing it a second time.
   UnlockRule('distillery', text: 'Reach day 25', minDay: 25),
   UnlockRule('bonded_cellar',
-      text: 'Build a distillery', requires: ['distillery']),
+      text: 'Build a warehouse', requires: ['warehouse']),
   UnlockRule('powder_mill', text: 'Build a smithy', requires: ['smithy']),
-  UnlockRule('privateer_berth',
-      text: 'Build a powder mill', requires: ['powder_mill']),
+  UnlockRule('privateer_berth', text: 'Build a smithy', requires: ['smithy']),
 ];
 
 UnlockRule? unlockRuleFor(String buildingId) {
