@@ -1218,13 +1218,20 @@ class GameState {
   /// is that a shed never stands idle waiting on a tap, and being asleep is
   /// exactly when that would happen.
   void _runAutoCollect({required bool dayTurned}) {
-    switch (autoCollectMode) {
+    final mode = autoCollectMode;
+    if (mode == AutoCollect.none) return;
+
+    // Whoever you have hired, a full yard gets emptied — no shed of yours
+    // stands idle because nobody was watching.
+    for (final b in buildings) {
+      if (b.holdFullness >= 0.999) collect(b);
+    }
+
+    switch (mode) {
       case AutoCollect.none:
         return;
-      case AutoCollect.whenFull:
-        for (final b in buildings) {
-          if (b.holdFullness >= 0.999) collect(b);
-        }
+      case AutoCollect.everyOtherDay:
+        if (dayTurned && day.isEven) collectAll();
       case AutoCollect.daily:
         if (dayTurned) collectAll();
       case AutoCollect.hourly:

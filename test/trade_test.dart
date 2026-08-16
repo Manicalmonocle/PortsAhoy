@@ -539,17 +539,39 @@ void quartermasterTests() {
       expect(g.hire(first), isTrue);
     });
 
-    test('a yard clerk stops sheds stalling, without emptying them early', () {
+    test('the first tier actually carts, rather than only catching stalls', () {
+      // The complaint: "the quartermaster didn't auto collect unless the yards
+      // were full, which rarely happened". A hire that almost never fires is
+      // indistinguishable from one that does not work.
       final g = bigPort();
       g.hire(retainerAt(RetinueTrack.quartermaster, 1)!);
 
-      // Run long enough that yards would otherwise fill and stop.
-      for (var i = 0; i < kHoldTicks.toInt() * 2; i++) {
-        g.step();
+      // Four days is well short of a yard filling, so anything carted in here
+      // is the clerk doing his rounds rather than a stall being cleared.
+      for (var d = 0; d < 4; d++) {
+        for (var t = 0; t < Balance.ticksPerDay; t++) {
+          g.step();
+        }
       }
-      for (final b in g.buildings) {
-        expect(b.holdFullness, lessThan(0.999),
-            reason: '${b.defId} was left stalled');
+      expect(g.buildings.every((b) => b.holdFullness < 0.9), isTrue,
+          reason: 'nothing should be anywhere near full this early');
+      expect(g.stock[Resource.timber], greaterThan(0),
+          reason: 'the rounds should have put timber in the stores');
+    });
+
+    test('every tier still guarantees no shed stalls', () {
+      for (var lvl = 1; lvl <= 3; lvl++) {
+        final g = bigPort();
+        for (var l = 1; l <= lvl; l++) {
+          g.hire(retainerAt(RetinueTrack.quartermaster, l)!);
+        }
+        for (var i = 0; i < kHoldTicks.toInt() * 2; i++) {
+          g.step();
+        }
+        for (final b in g.buildings) {
+          expect(b.holdFullness, lessThan(0.999),
+              reason: 'tier $lvl left ${b.defId} stalled');
+        }
       }
     });
 
@@ -637,7 +659,7 @@ void quartermasterTests() {
 
     test('every tier costs more and does more', () {
       const order = [
-        AutoCollect.whenFull,
+        AutoCollect.everyOtherDay,
         AutoCollect.daily,
         AutoCollect.hourly,
       ];

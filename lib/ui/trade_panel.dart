@@ -311,9 +311,9 @@ class _RetinueCard extends StatelessWidget {
             'Quay prices +${((r.sellBonus - 1) * 100).round()}%, '
                 'voyages +${((r.voyagePay - 1) * 100).round()}%',
           RetinueTrack.quartermaster => switch (r.autoCollect) {
-              AutoCollect.whenFull => 'Empties any yard that fills, so no shed '
-                  'ever stands idle',
-              AutoCollect.daily => 'Carts the whole port in every evening',
+              AutoCollect.everyOtherDay =>
+                'Carts the port in every other evening',
+              AutoCollect.daily => 'Carts the port in every evening',
               AutoCollect.hourly => 'Carts everything in, every hour',
               AutoCollect.none => '',
             },

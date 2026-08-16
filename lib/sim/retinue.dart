@@ -18,14 +18,18 @@ enum RetinueTrack { captain, merchant, quartermaster }
 /// This exists because a port of twenty-five sheds turns collecting from a
 /// satisfying beat into a chore. It is earned with coin and a standing wage —
 /// never sold — and it arrives late, once the tedium is real.
+/// Every tier below [none] also empties any yard that fills, so a shed can
+/// never stall unwatched. That guarantee is free at all levels — it was a
+/// mistake to sell it as the first tier, because a yard filling is rare once
+/// warehouses have widened them, so the hire appeared to do nothing at all.
 enum AutoCollect {
   /// Nobody. You cart every yard in yourself.
   none,
 
-  /// Empties a yard the moment it fills, so a shed never stalls unwatched.
-  whenFull,
+  /// Carts the whole port in every second evening.
+  everyOtherDay,
 
-  /// Carts the whole port in at the end of each day.
+  /// Carts the whole port in every evening.
   daily,
 
   /// Carts everything in, every hour.
@@ -158,11 +162,11 @@ const List<Retainer> kRetinue = [
     level: 1,
     name: 'Tam Fowler',
     title: 'Yard Clerk',
-    blurb: 'Watches the yards and empties any that fill, so no shed of yours '
-        'ever stands idle waiting on you.',
+    blurb: 'Runs a cart round the port every other evening, and empties any '
+        'yard that fills in between.',
     coinCost: 1600,
     dailyWage: 8,
-    autoCollect: AutoCollect.whenFull,
+    autoCollect: AutoCollect.everyOtherDay,
     requiresBuildings: 8,
   ),
   Retainer(
@@ -170,7 +174,7 @@ const List<Retainer> kRetinue = [
     level: 2,
     name: 'Ansel Rook',
     title: 'Quartermaster',
-    blurb: 'Runs a cart round the whole port every evening. You need never '
+    blurb: 'A cart round the whole port every single evening. You need never '
         'tap a shed again unless you want to.',
     coinCost: 4200,
     dailyWage: 18,
