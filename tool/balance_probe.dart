@@ -27,6 +27,30 @@ const List<String> buildOrder = [
   'farm', 'house', 'import_berth', 'sawmill', 'house',
 ];
 
+/// The same port, but committing hands to the dark trade instead of a second
+/// smithy and weaver.
+///
+/// Exists to answer a player's verdict with a measurement rather than an
+/// opinion: "I skip it because it doesn't feel worth the investment... just
+/// adds another layer for no real payoff." A layer that cannot be shown to pay
+/// for the hands it takes is one of two things, and only a run tells you which.
+const List<String> darkBuildOrder = [
+  // Identical to the honest order through the first smithy — a port that never
+  // builds one cannot make the 80 tools the light needs, and an order that
+  // buries it measures nothing but the ordering mistake. The dark sheds take
+  // the place of the SECOND smithy and weaver, which is the real trade a
+  // player makes: these hands, or those.
+  'forest_camp', 'sawmill', 'house', 'flax_field', 'ropewalk',
+  'warehouse', 'farm', 'flax_field', 'weaver', 'house',
+  'mine', 'sawmill', 'smithy', 'warehouse', 'house',
+  'import_berth', 'forest_camp', 'distillery', 'mine', 'bonded_cellar',
+  'house', 'import_berth', 'powder_mill', 'distillery', 'warehouse',
+  'farm', 'house', 'import_berth', 'sawmill', 'house',
+];
+
+/// True when `--dark` was passed: build the contraband chain and trade it.
+bool kDark = false;
+
 /// Stock levels the policy aims to keep of each importable, used to decide
 /// which cargo each berth puts its standing order on.
 const Map<Resource, double> importTargets = {
@@ -125,6 +149,9 @@ void main(List<String> args) {
     print('Charters in force: $held  (difficulty ${_charters.difficulty})');
   }
 
+  kDark = args.contains('--dark');
+  if (kDark) print('Dark trade: building and working the contraband chain.');
+
   final verboseSeed = seeds.first;
   final runs = <Run>[];
 
@@ -201,6 +228,7 @@ Run _play(int seed, {bool verbose = false}) {
       }
       _sellEverythingOffered(g);
       _buyWhatWeLack(g);
+      if (kDark) _workTheDarkTrade(g);
     }
 
     _sendConsignments(g);
@@ -251,6 +279,27 @@ void _sellEverythingOffered(GameState g) {
       final reserve = reserves[offer.resource] ?? 0;
       final spare = g.stock[offer.resource] - reserve;
       if (spare >= 1) g.sell(ship, offer, spare);
+    }
+  }
+}
+
+/// Move contraband the way the design intends it to be moved.
+///
+/// Barter first — swapping contraband for bulk raws is the channel the dark
+/// trade exists for, and pays far better than coin — then sell whatever a free
+/// trader will bid on. Nothing is hoarded: holding contraband is what the
+/// Revenue seizes and what rivals raid, so a policy that sits on it would be
+/// measuring a mistake rather than the mechanic.
+void _workTheDarkTrade(GameState g) {
+  for (final ship in List.of(g.market.ships)) {
+    if (!ship.isFreeTrader) continue;
+    for (final deal in List.of(ship.barters)) {
+      if (g.stock[deal.give] >= deal.giveQty) g.barter(ship, deal);
+    }
+    for (final offer in ship.offers.where((o) => !o.isFilled)) {
+      if (!offer.resource.isContraband) continue;
+      final held = g.stock[offer.resource];
+      if (held >= 1) g.sell(ship, offer, held);
     }
   }
 }
@@ -312,8 +361,9 @@ void _buyWhatWeLack(GameState g) {
 }
 
 int _tryBuild(GameState g, int index) {
-  while (index < buildOrder.length) {
-    final def = defById(buildOrder[index]);
+  final order = kDark ? darkBuildOrder : buildOrder;
+  while (index < order.length) {
+    final def = defById(order[index]);
     // Keep a coin cushion so wages never go unpaid on the next day.
     if (g.coin - def.coinCost < g.dailyWageBill * 3) return index;
     // Not unlocked yet: wait for it rather than skipping down the order, so
