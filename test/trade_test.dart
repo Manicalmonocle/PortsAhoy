@@ -464,6 +464,44 @@ void retinueTests() {
           reason: 'so a field of empty huts buys no berths at all');
     });
 
+    test('a staffed import berth counts toward officers', () {
+      // Reported from play: "import berth doesn't count towards officers". It
+      // has no `outputs` map — it spends coin by the hour and lands raws
+      // through a different path — so a test for outputs alone ignored a shed
+      // with three hands posted to it. It produces by buying rather than by
+      // making, which is still producing.
+      final g = stocked();
+      g.population = 60;
+      final before = g.staffedSheds;
+      final producingBefore = g.producingSheds;
+
+      for (var i = 0; i < 4; i++) {
+        g.buildings.add(Building(defId: 'import_berth'));
+      }
+      g.placeAll();
+      for (var i = 0; i < g.buildings.length; i++) {
+        if (g.buildings[i].def.imports) g.setWorkers(i, 3);
+      }
+
+      expect(g.staffedSheds, before + 4,
+          reason: 'four worked import berths are four working sheds');
+
+      // But an *unworked* one still counts for nothing, or the huts exploit
+      // simply moves to a different building.
+      final idle = GameState.newGame(seed: 3);
+      final idleBefore = idle.staffedSheds;
+      idle.buildings.add(Building(defId: 'import_berth'));
+      idle.placeAll();
+      expect(idle.staffedSheds, idleBefore,
+          reason: 'an import berth with nobody in it is still an empty hut');
+
+      // And it is still absent from the quartermaster's count, deliberately:
+      // imports land in the stores, so there is no yard to cart.
+      expect(g.producingSheds, producingBefore,
+          reason: 'an import berth has no yard, so the quartermaster gate must '
+              'not move');
+    });
+
     test('a save from before berths existed is brought within the cap', () {
       final g = stocked();
       g.coin = 100000;

@@ -1277,21 +1277,39 @@ class GameState {
   /// The next person you could take on, or null at the top of the track.
   Retainer? nextOn(RetinueTrack t) => retainerAt(t, levelOn(t) + 1);
 
-  /// Sheds that actually make something — what the quartermaster is measured
-  /// against, since infrastructure has no yard to cart.
+  /// Sheds with a **yard to cart** — what the quartermaster is measured
+  /// against.
+  ///
+  /// The Import Berth is deliberately absent: it lands cargo straight into the
+  /// stores rather than filling a yard, so there is nothing there for a
+  /// quartermaster to collect. That is why this count and [staffedSheds]
+  /// differ, and the difference is meant.
   int get producingSheds =>
       buildings.where((b) => b.def.outputs.isNotEmpty).length;
 
-  /// Sheds with somebody in them.
+  /// Working sheds with somebody in them.
   ///
-  /// The berth cap keys off this rather than off [producingSheds], because an
-  /// empty shed costs nothing to keep: a player could throw up cheap huts they
-  /// never staffed and buy all three berths outright for a few hundred coin,
-  /// which is precisely the pacing gate the cap exists to be. A working port is
-  /// the thing that supports officers, not a field of empty buildings.
-  int get staffedSheds => buildings
-      .where((b) => b.def.outputs.isNotEmpty && b.workers > 0)
-      .length;
+  /// The berth cap keys off this rather than off [producingSheds] for two
+  /// separate reasons, and both are load-bearing.
+  ///
+  /// It must be *staffed*, because an empty shed costs nothing to keep: a
+  /// player could throw up cheap huts they never worked and buy all three
+  /// berths outright for a few hundred coin, which is precisely the pacing gate
+  /// the cap exists to be.
+  ///
+  /// And it must count the Import Berth, which was reported from play as not
+  /// counting toward officers. It has no `outputs` map — it spends coin by the
+  /// hour and lands raws through a different path — so a test for outputs alone
+  /// silently ignored a shed with three hands posted to it and coin going out
+  /// every tick. It is as much a working shed as a sawmill; it simply produces
+  /// by buying rather than by making.
+  ///
+  /// Hence [BuildingDef.isProducer], which is the codebase's existing answer to
+  /// "does this draw hands and do something with them" — rather than a second
+  /// hand-rolled version of the same question, which is how the Import Berth
+  /// came to be missed in the first place.
+  int get staffedSheds =>
+      buildings.where((b) => b.workers > 0 && b.def.isProducer).length;
 
   bool canHire(Retainer r) =>
       r.level == levelOn(r.track) + 1 &&

@@ -234,6 +234,13 @@ nothing to keep, so counting built ones let a player throw up cheap huts nobody
 worked in and buy all three berths outright for a few hundred coin. A working
 port supports officers; a field of empty huts does not.
 
+"Working shed" means `BuildingDef.isProducer` — anything that draws hands and
+does something with them, which includes the **Import Berth**. It has no
+`outputs` map (it spends coin by the hour and lands raws by another path), so an
+earlier check for outputs alone ignored a shed with three hands in it. It is
+absent from the *quartermaster's* count on purpose, though: imports land in the
+stores rather than a yard, so there is nothing there to cart.
+
 **Seeing them work.** A consignment quote is itemised — cargo value, what the
 factor added, what they took back, the harbour charter, and what actually
 reaches you — and the crossing shows the lane's own length against the one your
