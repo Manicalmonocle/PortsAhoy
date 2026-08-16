@@ -609,7 +609,72 @@ void main() {
       await closeGame(tester);
     });
 
-    testWidgets('suspending the app writes the port immediately',
+    testWidgets('the port does not work while you are not playing',
+      (tester) async {
+    // The whole premise is that putting the phone down costs nothing. A world
+    // that advances in your absence makes closing the app consequential: the
+    // town eats, wages fall due, and a run left overnight was found starved.
+    SharedPreferences.setMockInitialValues({});
+    final c = GameController(seedOverride: 20260815);
+    await c.load();
+    c.setSpeed(1);
+    addTearDown(c.dispose);
+
+    await tester.pumpWidget(PortsAhoyApp(controller: c));
+    await tester.pump();
+
+    // Running: the clock moves.
+    await tester.pump(const Duration(seconds: 3));
+    final whileWatching = c.state.tick;
+    expect(whileWatching, greaterThan(0),
+        reason: 'the sim should advance while the app is on screen');
+
+    // Away: it must not.
+    c.setAway(true);
+    await tester.pump(const Duration(seconds: 5));
+    expect(c.state.tick, whileWatching,
+        reason: 'the port kept working with the app in the background');
+
+    // Back: it resumes, without having caught anything up.
+    c.setAway(false);
+    await tester.pump(const Duration(seconds: 3));
+    expect(c.state.tick, greaterThan(whileWatching));
+
+    c.setSpeed(0); // leave no periodic timer running past the test
+    await tester.pump();
+    await closeGame(tester);
+  });
+
+  testWidgets('reopening a save does not run the clock forward',
+      (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final first = GameController(seedOverride: 20260815);
+    await first.load();
+    first.setSpeed(1);
+    await tester.pumpWidget(PortsAhoyApp(controller: first));
+    await tester.pump(const Duration(seconds: 3));
+    await first.saveNow();
+    final leftAt = first.state.tick;
+    first.setSpeed(0);
+    await tester.pump();
+    first.dispose();
+    await closeGame(tester);
+
+    // A save written "a long time ago" must reopen exactly where it was.
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt('ports_ahoy_saved_at_ms',
+        DateTime.now().millisecondsSinceEpoch - const Duration(days: 3).inMilliseconds);
+
+    final second = GameController(seedOverride: 20260815);
+    await second.load();
+    second.setSpeed(0);
+    addTearDown(second.dispose);
+    expect(second.state.tick, leftAt,
+        reason: 'three days away must not advance the port by a single hour');
+    expect(second.lastCatchUpTicks, 0);
+  });
+
+  testWidgets('suspending the app writes the port immediately',
         (tester) async {
       final c = await pumpGame(tester);
       await tester.pump();

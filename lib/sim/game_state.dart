@@ -60,6 +60,18 @@ class Balance {
   /// app. This is a compute guard, not a progress cap — see [GameState.catchUp].
   static const int maxCatchUpTicks = 20000;
 
+  /// Whether the port keeps working while you are not playing.
+  ///
+  /// False, deliberately. A tick-based game that advances in your absence
+  /// quietly makes closing the app a decision with consequences — the town
+  /// eats, wages fall due, and a port left overnight can be found starved in
+  /// the morning. That is the shape of the thing this project exists not to
+  /// be, even when the intent behind it was generous.
+  ///
+  /// With this off, the world is exactly as you left it. Nothing is missed by
+  /// being away, so nothing is gained by staying.
+  static const bool progressWhileAway = false;
+
   // ---- The import berth (the coin sink) ---------------------------------
 
   /// Coin an import berth commits per worker per tick.

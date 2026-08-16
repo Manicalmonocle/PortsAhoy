@@ -82,9 +82,12 @@ class _PortsAhoyAppState extends State<PortsAhoyApp>
       case AppLifecycleState.paused:
       case AppLifecycleState.hidden:
       case AppLifecycleState.detached:
+        // Stop the clock BEFORE writing, so what is saved is the port as the
+        // player left it rather than a few ticks further on.
+        widget.controller.setAway(true);
         widget.controller.saveNow();
       case AppLifecycleState.resumed:
-        break;
+        widget.controller.setAway(false);
     }
   }
 

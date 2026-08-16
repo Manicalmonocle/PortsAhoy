@@ -10,12 +10,17 @@
 // and does it take an interesting number of days?" — the question a balance
 // spreadsheet is normally used for, except it runs the real simulation.
 
+import 'dart:io';
+
 import 'package:ports_ahoy/sim/buildings.dart';
 import 'package:ports_ahoy/sim/events.dart';
 import 'package:ports_ahoy/sim/charters.dart';
 import 'package:ports_ahoy/sim/game_state.dart';
 import 'package:ports_ahoy/sim/resources.dart';
+import 'package:ports_ahoy/sim/retinue.dart';
+import 'package:ports_ahoy/sim/run_code.dart';
 import 'package:ports_ahoy/sim/trade.dart';
+import 'package:ports_ahoy/version.dart';
 
 /// What the policy builds, in order, whenever it can afford the next item.
 const List<String> buildOrder = [
@@ -51,6 +56,35 @@ const List<String> darkBuildOrder = [
 /// True when `--dark` was passed: build the contraband chain and trade it.
 bool kDark = false;
 
+/// True when `--hire` was passed: take on officers.
+///
+/// OFF BY DEFAULT, AND THAT IS A FINDING RATHER THAN AN OMISSION. The player
+/// this bot is calibrated against hired four times and won on day 93, so the
+/// obvious correction was to make the bot hire too. Measured against their
+/// curve, it made the match twice as bad:
+///
+///     no hiring : combined error 30.1%, median win day 126
+///     hiring    : combined error 45.8%, median win day 168
+///
+/// The bot reproduces the player's hiring MILESTONES almost exactly — first
+/// hire day 2 against their day 3, four hires against their four — and still
+/// gets further from their curve, because officer wages are permanent and the
+/// bot's coin is still ~60% short of what that player was earning. Hiring is
+/// not what a strong economy buys; it is what a strong economy can afford. The
+/// income gap has to close before this can be turned on honestly.
+///
+/// Kept behind a flag so the experiment is one command away rather than
+/// something to write again from scratch:  --hire
+bool kHire = false;
+
+/// Where to write the first seed's run as a PA1 code, if `--journal=` is given.
+///
+/// The bot plays a real GameState, so it has been keeping a journal all along
+/// and simply never handed it over. Emitting it in the same format a player's
+/// phone sends means one comparison tool works on both, and "the bot plays
+/// like a human" becomes a measurement instead of a claim.
+String? kJournalPath;
+
 /// Stock levels the policy aims to keep of each importable, used to decide
 /// which cargo each berth puts its standing order on.
 const Map<Resource, double> importTargets = {
@@ -62,16 +96,72 @@ const Map<Resource, double> importTargets = {
 /// Coin above which the policy considers itself rich enough to staff a berth.
 const int importCoinThreshold = 4000;
 
-/// Never sell these below the reserve — food feeds the town, planks build it,
-/// and the lighthouse wants 80 tools banked before it will light.
-const Map<Resource, double> reserves = {
-  Resource.fish: 60,
-  Resource.grain: 60,
-  Resource.planks: 190,
-  Resource.tools: 95,
-  Resource.rope: 135,
-  Resource.sailcloth: 105,
+/// What the policy keeps back, EARLY: enough to eat and to keep building.
+///
+/// The old policy held a flat reserve of planks 190, tools 95, rope 135 and
+/// sailcloth 105 for the whole run — which is the lighthouse's bill of
+/// materials plus a margin. It was therefore banking the entire win condition
+/// from day one, and `spare = stock - reserve` never went positive, so it could
+/// not sell a plank or ship a consignment for the first hundred days. Measured
+/// against a real player: the bot's first consignment left on day 139 of a
+/// 149-day run, against their day 13, and it sailed 4 times against their 11.
+/// Its income was strangled by its own savings plan.
+///
+/// A person does not play that way. They sell and ship freely while the light
+/// is far off, and bank the materials once it is in sight — because a working
+/// port can re-make 160 planks in a few days, and coin earned early compounds
+/// into sheds, hands and more coin.
+const Map<Resource, double> workingReserve = {
+  Resource.fish: 25,
+  Resource.grain: 25,
+  Resource.planks: 40,
 };
+
+/// Margin over the lighthouse's exact bill, so a late sale cannot shave the
+/// win out from under a run that had it.
+const double endgameMargin = 1.15;
+
+/// Buildings after which the port stops expanding and starts finishing.
+///
+/// A person decides at some point that the port is big enough and turns to the
+/// light. The bot had no such moment: it worked down a thirty-item build order
+/// forever. Keyed on sheds standing rather than on coin, because a coin-keyed
+/// trigger deadlocks — coin stays low, so the reserve stays low, so it keeps
+/// selling the very materials it needs, so coin stays low. Measured: 0 of 8
+/// seeds won that way, all of them ending on 40 population and 33 buildings
+/// with no light. The player this is calibrated against won on 25 buildings.
+const int expandUntil = 25;
+
+/// And enough hands to actually work them.
+///
+/// Shed count alone was not enough: on one seed the port hit 25 sheds with only
+/// 24 people, stopped expanding, and could never make the 160 planks the light
+/// needed — it failed with `planks short by 160` while sitting on a build order
+/// it had chosen to stop reading. A port that is behind should keep growing,
+/// and population is the honest measure of whether the sheds standing are sheds
+/// working.
+const int expandAtPopulation = 32;
+
+bool inEndgame(GameState g) =>
+    g.buildings.length >= expandUntil && g.population >= expandAtPopulation;
+
+/// What the policy keeps back right now.
+///
+/// Two regimes, not a slide. While the port is still growing it holds only
+/// enough to eat and to build, and everything else is income. Once it turns to
+/// finishing it holds the lighthouse's whole bill, because a sale that shaves
+/// the win out from under a finished run is the one mistake worth being
+/// completely rigid about.
+Map<Resource, double> reservesNow(GameState g) {
+  final out = <Resource, double>{...workingReserve};
+  if (!inEndgame(g)) return out;
+  g.lighthouseGoodsCost.forEach((r, need) {
+    final banked = need * endgameMargin;
+    final current = out[r] ?? 0;
+    out[r] = banked > current ? banked : current;
+  });
+  return out;
+}
 
 /// Stock the policy will pay a markup for when a ship happens to carry it.
 const Map<Resource, double> buyTargets = {
@@ -149,8 +239,17 @@ void main(List<String> args) {
     print('Charters in force: $held  (difficulty ${_charters.difficulty})');
   }
 
+  kHire = args.contains('--hire');
+  if (kHire) print('Retinue: hiring officers up to rank $topRank.');
+
   kDark = args.contains('--dark');
   if (kDark) print('Dark trade: building and working the contraband chain.');
+
+  final journalArg = args.firstWhere((a) => a.startsWith('--journal='),
+      orElse: () => '');
+  if (journalArg.isNotEmpty) {
+    kJournalPath = journalArg.substring('--journal='.length);
+  }
 
   final verboseSeed = seeds.first;
   final runs = <Run>[];
@@ -232,6 +331,7 @@ Run _play(int seed, {bool verbose = false}) {
     }
 
     _sendConsignments(g);
+    if (kHire) _hireRetinue(g);
     buildIndex = _tryBuild(g, buildIndex);
     _reassign(g);
 
@@ -250,6 +350,21 @@ Run _play(int seed, {bool verbose = false}) {
     print(lighthouseDay > 0
         ? 'seed $seed: lighthouse lit on day $lighthouseDay'
         : 'seed $seed: no win in $maxDays days');
+
+    final path = kJournalPath;
+    if (path != null) {
+      File(path).writeAsStringSync(RunCode.encode(
+        g.journal,
+        version: 'bot-$kAppVersion',
+        seed: seed,
+        difficulty: _charters.difficulty,
+        charters: _charters.ids.toList(),
+        won: lighthouseDay > 0,
+        // No URL to fit inside here, so keep every day.
+        maxChars: 1 << 30,
+      ));
+      print('journal written to $path');
+    }
   }
 
   return Run(seed, lighthouseDay, peakCoin, g.population, g.buildings.length,
@@ -274,6 +389,7 @@ void _report(GameState g, int day, int buildIndex) {
 
 /// Dump anything a ship will take, above the reserves.
 void _sellEverythingOffered(GameState g) {
+  final reserves = reservesNow(g);
   for (final ship in List.of(g.market.ships)) {
     for (final offer in ship.offers.where((o) => !o.isFilled)) {
       final reserve = reserves[offer.resource] ?? 0;
@@ -318,6 +434,7 @@ void _workTheDarkTrade(GameState g) {
 /// per day. A human would do better; this only has to be non-zero and
 /// consistent between runs.
 void _sendConsignments(GameState g) {
+  final reserves = reservesNow(g);
   while (g.canSendVoyage) {
     final cargo = <Resource, double>{};
     for (final r in Resource.values) {
@@ -360,7 +477,59 @@ void _buyWhatWeLack(GameState g) {
   }
 }
 
+/// Take on officers, the way the player this is calibrated against did.
+///
+/// The bot hired NOTHING for the entire life of this project, while the real
+/// run it is measured against hired on day 3 — a captain, for 450 coin, out of
+/// the 980 that a_full_purse starts you with — and four times over 93 days.
+/// Every crossing after that day was shorter, which compounds: a consignment
+/// policy and a captain are the same lever pulled twice.
+///
+/// Captain before quartermaster because that is the order the player used and
+/// because shorter crossings pay back immediately, where reduced waste pays
+/// back in proportion to a throughput the port does not have yet. The merchant
+/// is deliberately last: that same player skipped it entirely across a whole
+/// run, so buying it eagerly here would model nobody.
+/// The highest rank the policy will buy.
+///
+/// Third-rank officers cost 5,200 and 6,600 coin — together more than the
+/// 9,000 the lighthouse itself asks for. Measured: buying them pushed the bot
+/// from a median 126-day win out to 184, because it spent the light's own coin
+/// on rank and then had to earn it twice. The player being modelled took both
+/// tracks to rank two and stopped, which on this evidence was correct.
+///
+/// This is a statement about how people play, not a claim that rank three is
+/// mispriced — a longer game than the lighthouse might well justify it.
+const int topRank = 2;
+
+void _hireRetinue(GameState g) {
+  const order = [
+    RetinueTrack.captain,
+    RetinueTrack.quartermaster,
+    RetinueTrack.merchant,
+  ];
+  for (final track in order) {
+    final next = g.nextOn(track);
+    if (next == null) continue;
+    if (next.level > topRank) continue;
+    if (!g.canHire(next)) continue;
+    // Wages are forever and the coin is gone today, so leave enough behind to
+    // keep the port fed and building rather than buying rank it cannot carry.
+    if (g.coin - next.coinCost < g.dailyWageBill * 6) continue;
+    if (g.hire(next)) return; // one promotion a day, never a spree
+  }
+}
+
 int _tryBuild(GameState g, int index) {
+  // Once the port turns to finishing, coin is for the light and not for the
+  // next shed. The first version of this said `&& coin < lighthouseCoinCost`,
+  // which let the port start building again the very moment it could afford
+  // the light — spending the exact coin it had just banked. It never won: the
+  // trace shows it oscillating between 800 and 3,600 coin for two hundred days
+  // with 33 sheds standing. Stopping means stopping.
+
+  if (inEndgame(g)) return index;
+
   final order = kDark ? darkBuildOrder : buildOrder;
   while (index < order.length) {
     final def = defById(order[index]);

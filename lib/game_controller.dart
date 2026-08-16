@@ -85,14 +85,30 @@ class GameController extends ChangeNotifier {
     } else {
       try {
         state = GameState.fromJson(jsonDecode(raw) as Map<String, dynamic>);
-        final savedAt = prefs.getInt(_savedAtKey);
-        if (savedAt != null) {
-          final away = DateTime.now().millisecondsSinceEpoch - savedAt;
-          if (away > 0) {
-            lastCatchUpTicks = state.catchUp(
-              Duration(milliseconds: away),
-              ticksPerSecond: offlineTicksPerSecond,
-            );
+        // THE PORT DOES NOT WORK WHILE YOU ARE NOT PLAYING.
+        //
+        // This used to run the sim forward for however long the app had been
+        // closed. It was meant generously — no timer to skip, nothing to buy
+        // to speed it up — but it made putting the phone down consequential in
+        // a game whose entire premise is that it should not be. A run left
+        // overnight came back to a port whose people had starved and whose
+        // coin had gone to wages, and one of those aftermaths reached the
+        // developer as a "run report" of 89 days of population zero.
+        //
+        // Freezing the world instead means the only thing that advances the
+        // port is you, deciding to advance it. `catchUp` is kept because the
+        // behaviour is still worth being able to reason about and is covered
+        // by tests, but nothing in the app calls it.
+        if (Balance.progressWhileAway) {
+          final savedAt = prefs.getInt(_savedAtKey);
+          if (savedAt != null) {
+            final away = DateTime.now().millisecondsSinceEpoch - savedAt;
+            if (away > 0) {
+              lastCatchUpTicks = state.catchUp(
+                Duration(milliseconds: away),
+                ticksPerSecond: offlineTicksPerSecond,
+              );
+            }
           }
         }
       } catch (_) {
@@ -129,8 +145,24 @@ class GameController extends ChangeNotifier {
 
   /// The clock only exists while it has something to do. A paused or finished
   /// game holds no timer at all, which keeps a backgrounded port off the CPU.
+  /// True while the app is not on screen.
+  ///
+  /// The timer kept running when the app went to the background, so the port
+  /// went on working in a pocket. Saving on suspend was not enough on its own:
+  /// it recorded the leaving, it did not stop the clock.
+  bool _away = false;
+
+  /// Called from the app's lifecycle observer. Stops the world on the way out
+  /// and starts it again on the way back in, with no catching up in between —
+  /// see [Balance.progressWhileAway].
+  void setAway(bool away) {
+    if (_away == away) return;
+    _away = away;
+    _syncTimer();
+  }
+
   void _syncTimer() {
-    if (!ready || speed == 0 || state.lighthouseBuilt) {
+    if (!ready || speed == 0 || state.lighthouseBuilt || _away) {
       _timer?.cancel();
       _timer = null;
       return;

@@ -13,8 +13,8 @@ mechanically and by test:
 | Free-to-play pattern | What this game does instead |
 | --- | --- |
 | Sell time skips on build timers | Fast-forward up to 4× is a free button |
-| Cap offline progress, sell a bigger cap | Offline progress is uncapped; **storage you built** is the only limiter |
-| Punish you for closing the app | **Nothing is ever seized while the app is closed** |
+| Cap offline progress, sell a bigger cap | **There is no offline progress to cap.** The world is frozen while you are away |
+| Punish you for closing the app | Nothing happens at all while the app is closed — nothing seized, nothing eaten, nothing missed |
 | Sell relief from a pressure meter | Notoriety has **no coin path down** and no passive decay — nothing to wait out |
 | Gate content behind currency | The goal is a project you manufacture yourself |
 | Sell a skip on a voyage | Nothing shortens a crossing. A better captain speeds up **future** voyages, never one already at sea |
@@ -90,10 +90,15 @@ cd ~/ports_ahoy
 export PATH=$HOME/flutter/bin:$PATH
 
 flutter analyze                     # clean
-flutter test                        # 319 tests
+flutter test                        # 353 tests
 dart run tool/balance_probe.dart    # 8-seed headless pacing check
 dart run tool/balance_probe.dart --dark              # ...playing the dark trade
 dart run tool/balance_probe.dart --charters=poor_soil  # ...under a hardship
+dart run tool/balance_probe.dart --hire                # ...taking on officers
+
+# how close the bot is to a real player's curve
+dart run tool/balance_probe.dart --charters=a_full_purse,poor_soil --journal=/tmp/bot.pa1
+dart run tool/calibrate.dart tool/reference_runs/human-*.pa1 /tmp/bot.pa1
 ```
 
 ## How the game works
@@ -289,6 +294,23 @@ days, so a first captain on the 3-day lane turned 2.55 into 3 and delivered
 nothing while still charging commission — a trap on the shortest, most-used
 route, bought by the first hire of a run. Crossings are measured in hours now,
 and every captain tier saves real time on every lane, which a test asserts.
+
+### Nothing happens while you are away
+
+The port does not work in your pocket. Close the app, background it, put the
+phone down for three days — the world is exactly as you left it, and the clock
+starts again when you come back. `Balance.progressWhileAway` is false and the
+timer stops on the way out.
+
+It used to run the sim forward for the time you were gone. That was meant
+generously (no timer to skip, nothing to buy to speed it up) but it made
+closing the app consequential in a game whose whole premise is that it should
+not be: the town eats and wages fall due whether or not anyone is watching, so
+a run left overnight could be found starved in the morning. One such aftermath
+reached the developer as a run report of 89 days of population zero.
+
+`GameState.catchUp` is kept and still tested, because the behaviour is worth
+being able to reason about, but nothing in the app calls it.
 
 ### Saving
 
@@ -486,6 +508,45 @@ Four findings from the probe, each of which changed the design:
    worker-hour against 0.6c for just selling the timber, and the weaver strictly
    dominated the ropewalk — so the flax tension the game is built around was not
    a real choice. Both are now locked by tests.
+
+**The bot is calibrated against a real run, and the gap is measured.**
+`tool/calibrate.dart` lays the bot's own trace against a player's — both are
+PA1 run codes, so one tool reads either:
+
+```sh
+dart run tool/balance_probe.dart --charters=a_full_purse,poor_soil --journal=/tmp/bot.pa1
+dart run tool/calibrate.dart tool/reference_runs/human-*.pa1 /tmp/bot.pa1
+```
+
+| | before | after |
+| --- | --- | --- |
+| combined curve error | **54.0%** | **28.5%** |
+| median win day | 143 | 126 (player: 93) |
+| first consignment | day 139 | day 4 (player: day 13) |
+| consignments sent | 4 | 23 (player: 11) |
+
+What was wrong: the policy held a flat reserve of planks 190, tools 95, rope
+135 and sailcloth 105 — which is the lighthouse's own bill of materials plus a
+margin. It was **banking the win condition from day one**, so `stock - reserve`
+never went positive and it could not sell a plank or fill a consignment for a
+hundred days. Its income was strangled by its own savings plan. It now holds a
+working reserve while the port grows, and banks the full bill only once it
+turns to finishing.
+
+Two things that did NOT work, both measured rather than assumed:
+
+- **Lowering the reserves outright**: 0 of 8 seeds won. Those numbers are the
+  win condition, not caution.
+- **Hiring officers**: made the curve match twice as bad (28.5% -> 45.8%) even
+  capped at rank two, and pushed the median win out to 168. The bot reproduces
+  the player's hiring milestones almost exactly and still gets further from
+  their curve, because wages are permanent and its coin is still ~60% short of
+  what they were earning. Hiring is what a strong economy can afford, not what
+  makes one. Behind `--hire` until the income gap closes.
+
+Left over from the same measurement: rank-three officers cost 5,200 and 6,600
+coin, together more than the 9,000 the lighthouse asks for, and the player
+bought neither.
 
 **The probe underestimates a real player's income by roughly 40% in the early
 game.** Its selling heuristic holds a fixed reserve and only trades with
