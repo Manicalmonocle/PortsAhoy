@@ -90,7 +90,7 @@ cd ~/ports_ahoy
 export PATH=$HOME/flutter/bin:$PATH
 
 flutter analyze                     # clean
-flutter test                        # 354 tests
+flutter test                        # 355 tests
 dart run tool/balance_probe.dart    # 8-seed headless pacing check
 dart run tool/balance_probe.dart --dark              # ...playing the dark trade
 dart run tool/balance_probe.dart --charters=poor_soil  # ...under a hardship
@@ -301,17 +301,26 @@ The Charters panel carries a **Give up the venture** button, directly under the
 card showing the run in force. It ends the run *and* destroys every charter and
 record earned before it, and there is no undo.
 
-Two separate things, deliberately:
+Two separate things, and only one of them is available mid-run:
 
-| | leaves the port | keeps charters and records |
-| --- | --- | --- |
-| **Set sail anew** | yes | **yes** |
-| **Give up the venture** | yes | **no** |
+| | when offered | leaves the port | keeps charters and records |
+| --- | --- | --- | --- |
+| **Set sail anew** | only once the Light is lit | yes | **yes** |
+| **Give up the venture** | any time | yes | **no** |
 
-The total cost is the point. A cheap quit is a reroll — restart until the
-charters and the weather look kind — which turns a roguelite into a slot
-machine and makes every record meaningless. Losing the collection means
-quitting is a way out of a broken run and never a way to win a good one.
+**A run in progress cannot be put down and picked over.** "Set sail anew" used
+to be available at any moment and kept the whole collection, which made
+abandoning a run free: quit on day 4, quit again, until the charters and the
+weather look kind. That is a reroll, and every record after it means nothing
+because it was drawn rather than played. It now waits for the run to be
+finished — the only moment "keep what you have earned" was ever meant to
+describe.
+
+The button still has to exist, because `chooseCharter` does not begin a run:
+without it, winning would strand you with a charter you could never sail under.
+That is the whole reason it was gated rather than removed.
+
+Leaving early is still possible at any time. It costs the collection.
 
 It exists because a save *can* reach somewhere no play recovers from: the case
 that prompted it was a browser tab left open across several updates, found on

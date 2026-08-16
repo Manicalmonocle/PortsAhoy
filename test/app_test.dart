@@ -701,6 +701,60 @@ void main() {
 }
 
 void _abandonTests() {
+  // THE RULE: a run in progress cannot be put down and picked over.
+  //
+  // "Set sail anew" keeps the whole collection, so while it was available at
+  // any moment, abandoning a run was free — quit on day 4, quit again, until
+  // the charters and the weather look kind. That is a reroll, and every record
+  // after it means nothing because it was drawn rather than played. It now
+  // waits for the light to be lit, which is the only moment "keep what you
+  // have earned" was ever meant to describe.
+  testWidgets('a run in progress cannot be restarted with the collection kept',
+      (tester) async {
+    SharedPreferences.setMockInitialValues({
+      'ports_ahoy_profile': jsonEncode({
+        'owned': ['poor_soil', 'a_full_purse'],
+        'active': <String>[],
+        'runs': <Map<String, dynamic>>[],
+        'pending': <String>[],
+      }),
+    });
+
+    // Tall enough that the whole panel is laid out at once: a ListView builds
+    // lazily, so "not on screen" and "not offered" are indistinguishable to a
+    // finder unless everything fits.
+    tester.view.physicalSize = const Size(420, 2600);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    final c = GameController(seedOverride: 20260815);
+    await c.load();
+    c.setSpeed(0);
+    addTearDown(c.dispose);
+
+    await tester.pumpWidget(PortsAhoyApp(controller: c));
+    await tester.pump();
+    await openPanel(tester, 'Voyage');
+    await tester.pumpAndSettle();
+
+    // Mid-run: no free restart, but the costly exit is there.
+    expect(c.state.lighthouseBuilt, isFalse);
+    expect(find.textContaining('Set sail anew'), findsNothing,
+        reason: 'a free restart mid-run is a reroll');
+    expect(find.text('Give up the venture'), findsOneWidget,
+        reason: 'leaving early must still be possible, at a cost');
+
+    // Finished: the roguelite loop needs its way onward, or a win strands you
+    // with a charter you can never sail under.
+    c.state.lighthouseBuilt = true;
+    c.notifyListeners();
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Set sail anew'), findsOneWidget,
+        reason: 'after the light is lit, starting the next run must be offered');
+
+    await closeGame(tester);
+  });
+
   testWidgets('giving up the venture destroys the collection too',
       (tester) async {
     // The escape hatch for a run no play can recover from — the case that

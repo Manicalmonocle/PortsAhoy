@@ -137,20 +137,47 @@ class CharterPanel extends StatelessWidget {
         ...owned.where((c) => !c.isHardship).map((c) =>
             _CharterTile(controller: controller, charter: c, set: set)),
         _RecordsCard(controller: controller),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 18, 16, 8),
-          child: FilledButton(
-            onPressed: () => _confirmNewRun(context),
-            style: FilledButton.styleFrom(
-              backgroundColor: Palette.brass,
-              foregroundColor: Palette.deep,
-              padding: const EdgeInsets.symmetric(vertical: 14),
+        // ONLY AFTER THE LIGHT IS LIT.
+        //
+        // This used to be available at any moment, and it kept the whole
+        // collection — which made abandoning a run free. That is a reroll:
+        // quit on day 4, quit again, until the charters and the weather look
+        // kind, and every record afterwards means nothing because it was drawn
+        // rather than played. The roguelite still needs a way to begin the
+        // next run, so the button survives; it simply waits for the run to be
+        // finished, which is the only moment keeping your charters was ever
+        // meant to describe.
+        //
+        // Leaving a run early still exists. It costs the collection.
+        if (controller.state.lighthouseBuilt)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 18, 16, 8),
+            child: FilledButton(
+              onPressed: () => _confirmNewRun(context),
+              style: FilledButton.styleFrom(
+                backgroundColor: Palette.brass,
+                foregroundColor: Palette.deep,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+              ),
+              child: Text(set.difficulty > 0
+                  ? 'Set sail anew — difficulty ${set.difficulty}'
+                  : 'Set sail anew'),
             ),
-            child: Text(set.difficulty > 0
-                ? 'Set sail anew — difficulty ${set.difficulty}'
-                : 'Set sail anew'),
+          )
+        else
+          const Padding(
+            padding: EdgeInsets.fromLTRB(20, 18, 20, 8),
+            child: Text(
+              'These take hold when you next set sail, which you may do once '
+              'the Saltwind Light is lit.\n\n'
+              'A run cannot be put down and picked over: leaving this one '
+              'early costs you every charter and record you hold. Charters are '
+              'won by finishing, not by starting again until the draw suits.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                  fontSize: 11.5, color: Palette.fog, height: 1.5),
+            ),
           ),
-        ),
       ],
     );
   }
@@ -186,8 +213,8 @@ class CharterPanel extends StatelessWidget {
           'You begin again with nothing, as on the first day you played. '
           'There is no undoing this.\n\n'
           'It is here for a run that has become impossible rather than merely '
-          'hard — if you only want different charters, take a new post '
-          'instead and keep what you have earned.',
+          'hard. Charters are kept only by finishing a run — so if this one is '
+          'still winnable, it is worth more played out than restarted.',
           style: const TextStyle(height: 1.5),
         ),
         actions: [
