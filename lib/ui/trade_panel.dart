@@ -72,7 +72,21 @@ class _TradePanelState extends State<TradePanel> {
       padding: const EdgeInsets.only(bottom: 28),
       children: [
         // ---- Who works for you --------------------------------------------
-        const _Label('Your people'),
+        _Label('Your people · ${s.officersRetained}/${s.officerCapacity} '
+            'berths'),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+          child: Text(
+            s.officerCapacity >= 3
+                ? 'A harbour this size keeps all three on the books.'
+                : 'A port this size supports ${s.officerCapacity} '
+                    'officer${s.officerCapacity == 1 ? "" : "s"}. '
+                    'Another berth opens at '
+                    '${s.producingSheds < 9 ? 9 : 16} working sheds.',
+            style: const TextStyle(
+                fontSize: 11, color: Palette.fog, height: 1.4),
+          ),
+        ),
         _RetinueCard(controller: controller, track: RetinueTrack.captain),
         _RetinueCard(controller: controller, track: RetinueTrack.merchant),
         _RetinueCard(
@@ -346,7 +360,11 @@ class _RetinueCard extends StatelessWidget {
                           color: Colors.white)),
                 ),
                 if (hired != null)
-                  Text('${hired.dailyWage}c/day',
+                  Text(
+                      hired.commission > 0
+                          ? '${hired.dailyWage}c/day · '
+                              '${(hired.commission * 100).toStringAsFixed(1)}%'
+                          : '${hired.dailyWage}c/day',
                       style: const TextStyle(
                           fontSize: 11, color: Palette.rust)),
               ],
@@ -364,6 +382,11 @@ class _RetinueCard extends StatelessWidget {
               const SizedBox(height: 2),
               Text(effectOf(hired),
                   style: const TextStyle(fontSize: 11, color: Palette.moss)),
+              if (hired.commission > 0)
+                Text(
+                    'Takes ${(hired.commission * 100).toStringAsFixed(1)}% of '
+                    'every sale ${track == RetinueTrack.captain ? "abroad" : "they handle"}',
+                    style: const TextStyle(fontSize: 11, color: Palette.rust)),
             ],
             const SizedBox(height: 10),
             if (next != null)
@@ -384,13 +407,32 @@ class _RetinueCard extends StatelessWidget {
                                 color: Palette.fog,
                                 height: 1.3)),
                         const SizedBox(height: 2),
-                        Text('${next.coinCost}c to sign · ${next.dailyWage}c a day',
+                        Text(
+                            next.commission > 0
+                                ? '${next.coinCost}c to sign · '
+                                    '${next.dailyWage}c a day · '
+                                    '${(next.commission * 100).toStringAsFixed(1)}% '
+                                    'of what they sell'
+                                : '${next.coinCost}c to sign · '
+                                    '${next.dailyWage}c a day',
                             style: const TextStyle(
                                 fontSize: 11, color: Palette.brass)),
                         if (s.producingSheds < next.requiresBuildings)
                           Text(
                             'Needs ${next.requiresBuildings} working sheds '
                             '(you have ${s.producingSheds})',
+                            style: const TextStyle(
+                                fontSize: 11, color: Palette.lamp),
+                          )
+                        // A hire blocked purely by berths must say so, or it
+                        // reads as a bug rather than a decision.
+                        else if (s.levelOn(track) == 0 &&
+                            !s.hasFreeOfficerBerth)
+                          Text(
+                            'No berth free — you keep '
+                            '${s.officersRetained} of ${s.officerCapacity} '
+                            'officers. Pay one off, or build up to '
+                            '${s.producingSheds < 9 ? 9 : 16} sheds.',
                             style: const TextStyle(
                                 fontSize: 11, color: Palette.lamp),
                           ),

@@ -198,13 +198,36 @@ Ten powder buys an escort and halves that risk; a privateer scare doubles it.
 
 ### The retinue
 
-Two hiring tracks, three tiers each, hired in order. **Captains** cut crossing
+Three hiring tracks, three tiers each, hired in order. **Captains** cut crossing
 time (−15/−28/−40%) and risk; **merchants** raise prices at home and abroad
-(up to +20% at the quay, +26% on voyages).
+(up to +20% at the quay, +26% on voyages); **quartermasters** cart your yards in
+for you.
 
-They cost coin to sign *and a wage every day*. That is the design: a one-off
-purchase is a coin dump, a payroll is a standing decision you have to keep
-affording. Pay someone off and the wage stops.
+They cost coin to sign *and* a standing cost every day. That is the design: a
+one-off purchase is a coin dump, a payroll is a decision you have to keep
+affording. Pay someone off and it stops.
+
+**Commission, and the bug that forced it.** The earners were once on a flat 5c a
+day. Measured on a mid-game consignment, the first merchant returned +150c a
+crossing against that 5c — a tenfold return that repaid its hire in four voyages
+and printed money after. The fault was structural rather than numerical: *a flat
+cost against a percentage benefit is always eventually free*, because the benefit
+grows with your cargo all run while the cost does not. Tuning the 5c only moves
+the day it stops mattering.
+
+Captains and merchants are therefore paid the way factors and shipmasters
+actually were — a small retainer plus a **commission** on what passes through
+their hands (3–8% for a captain, 3.5–11% for a merchant). The cost now scales
+with the benefit. A captain is the interesting case: commission is a *pure* cost
+to them, so a retained captain makes every crossing quicker and safer and pays
+*less* per voyage — the gain has to come from sailing more of them. The
+quartermaster stays on a flat wage, since carting earns nothing to take a cut of.
+
+**Officer berths.** A port supports one officer until 9 working sheds, two until
+16, three after. The first hire is a choice between price, speed and having your
+yards carted — not the first item on a shopping list you will finish anyway.
+Promoting someone you already retain never needs a new berth. In a probe run the
+second berth opened on day 50 and the third on day 88, against a win around 116.
 
 ### Learning it
 

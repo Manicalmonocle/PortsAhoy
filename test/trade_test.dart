@@ -22,6 +22,18 @@ GameState stocked() {
   return g;
 }
 
+/// Grow the port until it can keep [want] officers on the books.
+///
+/// A starting port supports one, which is the point of the cap — so any test
+/// that retains two tracks has to build up to it first, exactly as a player
+/// does.
+void openBerths(GameState g, int want) {
+  while (g.officerCapacity < want) {
+    g.buildings.add(Building(defId: 'fishing_wharf'));
+    g.placeAll();
+  }
+}
+
 void main() {
   group('the chandler', () {
     test('buys exactly what you asked for, right now', () {
@@ -331,6 +343,73 @@ void retinueTests() {
       expect(g.captainLevel, 0);
     });
 
+    // Reported from play: "bought the first level of merchant at day 25 and it
+    // is a no-brainer buy for every run". It was — a flat 5c/day wage against a
+    // percentage of a cargo that grows all run is free money by construction.
+    // These two tests pin the fixes so the shape cannot drift back.
+    test('a small port has only one berth, so the first hire is a choice', () {
+      final g = stocked();
+      g.coin = 100000;
+      expect(g.officerCapacity, 1,
+          reason: 'a starting port supports one officer');
+
+      expect(g.hire(retainerAt(RetinueTrack.merchant, 1)!), isTrue);
+      expect(g.hasFreeOfficerBerth, isFalse);
+
+      // A second *track* is refused while the one berth is taken.
+      expect(g.canHire(retainerAt(RetinueTrack.captain, 1)!), isFalse);
+
+      // Promoting the person you already keep is not a second officer.
+      expect(g.canHire(retainerAt(RetinueTrack.merchant, 2)!), isTrue);
+
+      // Paying them off frees the berth again.
+      g.dismiss(RetinueTrack.merchant);
+      expect(g.canHire(retainerAt(RetinueTrack.captain, 1)!), isTrue);
+    });
+
+    test('commission scales with the cargo, so no hire is ever free money', () {
+      final g = stocked();
+      final small = {Resource.planks: 60.0, Resource.rope: 40.0};
+      final large = {Resource.planks: 600.0, Resource.rope: 400.0};
+      final dest = kDestinations.first;
+
+      g.merchantLevel = 0;
+      final smallPlain = g.quoteVoyage(dest, small);
+      final largePlain = g.quoteVoyage(dest, large);
+      g.merchantLevel = 1;
+      final smallHired = g.quoteVoyage(dest, small);
+      final largeHired = g.quoteVoyage(dest, large);
+
+      // Worth having...
+      expect(smallHired, greaterThan(smallPlain));
+
+      // ...but the gain stays a roughly constant *share* of the cargo rather
+      // than widening against a fixed wage. Under the old flat wage this ratio
+      // grew without limit, which is what made the hire a formality.
+      final smallShare = (smallHired - smallPlain) / smallPlain;
+      final largeShare = (largeHired - largePlain) / largePlain;
+      expect((largeShare - smallShare).abs(), lessThan(0.02),
+          reason: 'the merchant takes a cut, so their edge does not run away '
+              'with the size of the consignment');
+    });
+
+    test('a captain trades coin for speed rather than adding both', () {
+      final g = stocked();
+      final dest = kDestinations.first;
+      final cargo = {Resource.planks: 60.0, Resource.rope: 40.0};
+
+      g.captainLevel = 0;
+      final plain = g.quoteVoyage(dest, cargo);
+      g.captainLevel = 1;
+      final hired = g.quoteVoyage(dest, cargo);
+
+      // The captain sells speed and safety, and takes a share of the venture
+      // for it. A crossing under a retained captain pays *less*, not more —
+      // the gain has to come from sailing more of them.
+      expect(hired, lessThan(plain));
+      expect(g.voyageSpeedFactor, lessThan(1.0));
+    });
+
     test('an unaffordable hire changes nothing', () {
       final g = stocked();
       g.coin = 10;
@@ -460,6 +539,7 @@ void retinueTests() {
     test('the roster round-trips through a save', () {
       final g = stocked();
       g.coin = 100000;
+      openBerths(g, 2); // two tracks at once needs a port big enough for them
       g.hire(retainerAt(RetinueTrack.captain, 1)!);
       g.hire(retainerAt(RetinueTrack.merchant, 1)!);
       g.hire(retainerAt(RetinueTrack.merchant, 2)!);

@@ -1137,8 +1137,13 @@ class GameState {
       gross += qty * r.basePrice * dest.payFor(r);
       units += qty;
     });
-    final net =
-        gross * voyagePayBonus * charters.salePrice - units * dest.charterPerUnit;
+    // The retinue is paid out of the proceeds, before the charter is settled,
+    // so the quote you are shown is what actually reaches your strongbox.
+    final net = gross *
+            voyagePayBonus *
+            charters.salePrice *
+            (1.0 - voyageCommission) -
+        units * dest.charterPerUnit;
     return net < 0 ? 0 : net.round();
   }
 
@@ -1237,7 +1242,9 @@ class GameState {
   bool canHire(Retainer r) =>
       r.level == levelOn(r.track) + 1 &&
       coin >= r.coinCost &&
-      producingSheds >= r.requiresBuildings;
+      producingSheds >= r.requiresBuildings &&
+      // Taking on a track you have nobody on needs a berth free.
+      (levelOn(r.track) > 0 || hasFreeOfficerBerth);
 
   bool hire(Retainer r) {
     if (!canHire(r)) return false;
@@ -1274,6 +1281,26 @@ class GameState {
   double get voyageRiskFactor => hiredOn(RetinueTrack.captain)?.voyageRisk ?? 1.0;
   double get sellBonus => hiredOn(RetinueTrack.merchant)?.sellBonus ?? 1.0;
   double get voyagePayBonus => hiredOn(RetinueTrack.merchant)?.voyagePay ?? 1.0;
+
+  /// The factor's cut of a sale at your own quay.
+  double get quayCommission =>
+      hiredOn(RetinueTrack.merchant)?.commission ?? 0.0;
+
+  /// The cut taken from a consignment abroad. The captain shares in the
+  /// venture as well as the factor, which is why a fast hull is not free.
+  double get voyageCommission =>
+      (hiredOn(RetinueTrack.merchant)?.commission ?? 0.0) +
+      (hiredOn(RetinueTrack.captain)?.commission ?? 0.0);
+
+  /// Tracks you currently have someone on, at any level.
+  int get officersRetained =>
+      RetinueTrack.values.where((t) => levelOn(t) > 0).length;
+
+  int get officerCapacity => officerCapacityFor(producingSheds);
+
+  /// A new *track* needs a free berth on the books; promoting someone you
+  /// already retain does not, since it is the same person paid better.
+  bool get hasFreeOfficerBerth => officersRetained < officerCapacity;
 
   /// What the retinue costs you every day, on top of the crews' wages.
   int get retinueWageBill => RetinueTrack.values
@@ -1366,8 +1393,11 @@ class GameState {
 
     stock.remove(offer.resource, amount);
     offer.quantity -= amount;
-    final earned =
-        amount * offer.pricePerUnit * sellBonus * charters.salePrice;
+    final earned = amount *
+        offer.pricePerUnit *
+        sellBonus *
+        charters.salePrice *
+        (1.0 - quayCommission);
     coin += earned.round();
 
     if (offer.resource.isContraband) {

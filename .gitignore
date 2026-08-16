@@ -51,3 +51,6 @@ app.*.map.json
 android/key.properties
 *.jks
 *.keystore
+
+# Golden-test diff artefacts, written on failure. Never source.
+test/failures/
