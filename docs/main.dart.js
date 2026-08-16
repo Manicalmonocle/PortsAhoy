@@ -71096,7 +71096,7 @@ if(p==null)q.a=A.aoH()
 else try{q.a=A.ayo(t.P.a(B.cx.O8(p,null)))
 o=A.oB(k.a.i(0,"ports_ahoy_saved_at_ms"))
 if(o!=null){n=Date.now()-o
-if(n>0)q.a.a8t(A.dZ(0,n),0.35)}}catch(i){q.a=A.aoH()}q.c=!0
+if(n>0)q.a.a8t(A.dZ(0,n),0.45)}}catch(i){q.a=A.aoH()}q.c=!0
 q.u7()
 q.a2()
 return A.T(null,r)}})
@@ -71112,7 +71112,7 @@ a3l(){var s,r=this,q=r.a
 q===$&&A.a()
 if(q.w){r.u7()
 r.a2()
-return}r.r=r.r+0.034999999999999996*r.b
+return}r.r=r.r+0.045000000000000005*r.b
 s=0
 for(;;){q=r.r
 if(!(q>=1&&s<64))break

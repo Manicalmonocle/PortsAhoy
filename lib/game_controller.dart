@@ -20,12 +20,12 @@ class GameController extends ChangeNotifier {
 
   /// Game-hours per real second at 1×.
   ///
-  /// Was 1.0, which put a whole game-day in 24 seconds and a full run in half
-  /// an hour — far too fast to watch a decision play out, let alone feel one.
-  /// At 0.35 a day takes about a minute and six seconds, a full run runs to a
-  /// few hours, and 4× lands almost exactly where the old 1× was, so anyone
-  /// who liked the sprint still has it.
-  static const double baseTicksPerSecond = 0.35;
+  /// Tuned by playing, twice. 1.0 put a whole game-day in 24 seconds and a
+  /// full run in half an hour — far too fast to watch a decision play out.
+  /// 0.35 overshot the other way and read as slightly sluggish at 1×. At 0.45
+  /// a day is about fifty seconds, a full run is a couple of hours, and 4×
+  /// still lands where the original 1× was for anyone who wants the sprint.
+  static const double baseTicksPerSecond = 0.45;
 
   /// Time away resolves at the same rate as time watched, regardless of the
   /// speed you left on — so the world runs at one pace and nothing about

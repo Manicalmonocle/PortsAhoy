@@ -317,14 +317,17 @@ requirement.**
 
 ### Measured against a human
 
-One full playthrough, deliberately rushed at 4× to reach the endgame and hunt
-bugs: **45 minutes**. That implies roughly three hours at 1×, which is the
-intended shape — 4× is the "I want to get through this" speed and sits about
-where the original 1× did before the clock was slowed.
+The clock has been set by playing, twice:
 
-**Still unmeasured: how 1× feels to actually play.** Every human session so far
-has been a speedrun, so the base pace has never been evaluated by anyone but
-the bot. That is the single biggest open question in the balance.
+| base rate | one day at 1× | full run at 1× | verdict |
+| --- | --- | --- | --- |
+| 1.0 | 24s | ~55 min | "too quick to get a feel for what's going on" |
+| 0.35 | 69s | ~2.6 h | "just a bit slow" |
+| **0.45** | **53s** | **~2.0 h** | current |
+
+A deliberate 4× speedrun to reach the endgame took 45 minutes. 4× still lands
+about where the original 1× did, so the sprint is intact for anyone who wants
+it — the change only moved where the *default* sits.
 
 That is the third of three readings, and the history is the point:
 
