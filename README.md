@@ -42,6 +42,8 @@ flutter build web --release  # what is currently tested
 The quickest route is the web build over your own network:
 
 ```sh
+cd ~/ports_ahoy
+export PATH=$HOME/flutter/bin:$PATH
 flutter build web --release
 python3 -m http.server 8823 --bind 0.0.0.0 -d build/web
 # then open http://<your-lan-ip>:8823 on the handset
@@ -49,25 +51,44 @@ python3 -m http.server 8823 --bind 0.0.0.0 -d build/web
 
 ### Building an APK
 
-A JDK and the Android SDK are installed under `~/android` (no root, no Android
-Studio — just the command-line tools):
+One command, from anywhere:
 
 ```sh
-export JAVA_HOME=$HOME/android/jdk
-export ANDROID_HOME=$HOME/android/sdk
-export PATH=$JAVA_HOME/bin:$HOME/flutter/bin:$PATH
-
-flutter build apk --release
-# build/app/outputs/flutter-apk/app-release.apk
+sh ~/ports_ahoy/tool/build_apk.sh
 ```
 
-Flutter is already configured to find both (`flutter config --android-sdk
---jdk-dir`), so on this machine `flutter build apk` works from a clean shell
-once those variables are exported.
+It builds a signed release APK and copies it to
+`~/ports_ahoy_builds/PortsAhoy-<version>.apk`, telling you the path, the size,
+and whether it was signed with the upload key or fell back to debug signing.
+
+Or by hand — note the `cd`, which is the part that matters:
+
+```sh
+cd ~/ports_ahoy
+export PATH=$HOME/flutter/bin:$PATH
+flutter build apk --release
+# lands at build/app/outputs/flutter-apk/app-release.apk
+```
+
+A JDK and the Android SDK live under `~/android` (no root, no Android Studio —
+just the command-line tools).
+
+**What used to be written here was broken, in two ways.** The block had no `cd`,
+so following it exactly ran the build in whatever directory you were in and
+Flutter answered *"No pubspec.yaml file found."* And it claimed Flutter was
+already configured to find the SDK — which was true only inside the editor,
+whose `XDG_CONFIG_HOME` points into a Flatpak directory. A normal terminal reads
+`~/.config/flutter/settings`, and nothing had ever been written there, so the
+`ANDROID_HOME` exports were load-bearing in one shell and useless in the other.
+The config now lives in the real user config directory, which is why the short
+form above works with no exports beyond `PATH`.
 
 Verify a change:
 
 ```sh
+cd ~/ports_ahoy
+export PATH=$HOME/flutter/bin:$PATH
+
 flutter analyze                     # clean
 flutter test                        # 319 tests
 dart run tool/balance_probe.dart    # 8-seed headless pacing check
