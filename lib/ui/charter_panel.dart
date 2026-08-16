@@ -41,8 +41,8 @@ class CharterPanel extends StatelessWidget {
       // clipped text.
       return ListView(
         padding: const EdgeInsets.all(28),
-        children: const [
-          Text(
+        children: [
+          const Text(
             'Finish the Saltwind Light and the Admiralty will offer you a '
             'charter — a standing condition to carry into your next port.\n\n'
             'Hardships pay for advantages. You can only make something easier '
@@ -51,6 +51,28 @@ class CharterPanel extends StatelessWidget {
             'run. Changing one means starting a fresh port from nothing.',
             textAlign: TextAlign.center,
             style: TextStyle(color: Palette.fog, height: 1.6),
+          ),
+          // The way out has to exist here too. This branch is what a player
+          // sees before their first win — which is exactly when a run can
+          // become unrecoverable with nothing yet earned to lose, and the
+          // worst possible moment to offer no way to start again.
+          const SizedBox(height: 24),
+          OutlinedButton(
+            onPressed: () => _confirmAbandonEverything(context),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: Palette.rust,
+              side: const BorderSide(color: Palette.line),
+              padding: const EdgeInsets.symmetric(vertical: 12),
+            ),
+            child: const Text('Give up the venture',
+                style: TextStyle(fontSize: 12.5)),
+          ),
+          const SizedBox(height: 5),
+          const Text(
+            'Ends this run and starts again from nothing. For a run that '
+            'cannot be recovered.',
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 10.5, color: Palette.fog, height: 1.35),
           ),
         ],
       );
@@ -65,6 +87,36 @@ class CharterPanel extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: 28),
       children: [
         _CurrentVoyageCard(controller: controller),
+        // Directly under the voyage it ends, where someone looking for a way
+        // out of a stuck run will actually look. Still the warning colour and
+        // still spelling out the cost, because the confirm dialog should be
+        // the second time you read what this does, not the first.
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 6),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              OutlinedButton(
+                onPressed: () => _confirmAbandonEverything(context),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Palette.rust,
+                  side: const BorderSide(color: Palette.line),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                ),
+                child: const Text('Give up the venture',
+                    style: TextStyle(fontSize: 12.5)),
+              ),
+              const SizedBox(height: 5),
+              const Text(
+                'Ends this run and destroys every charter and record you have '
+                'earned. For a run that cannot be recovered.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                    fontSize: 10.5, color: Palette.fog, height: 1.35),
+              ),
+            ],
+          ),
+        ),
         _Label(pending ? 'Your next voyage — changed' : 'Your next voyage'),
         if (pending)
           const Padding(
@@ -107,6 +159,53 @@ class CharterPanel extends StatelessWidget {
   static String _idsOf(Iterable<String> ids) {
     final list = ids.toList()..sort();
     return list.join(',');
+  }
+
+  /// The last resort, and deliberately not dressed up as an option.
+  ///
+  /// Two things make this safe to put on screen at all: it names exactly what
+  /// is about to be destroyed, in counts rather than in the word "everything",
+  /// and the confirming button says what it does rather than "OK". Nobody
+  /// should be able to lose a collection to a mis-tap and a habit.
+  void _confirmAbandonEverything(BuildContext context) {
+    final p = controller.profile;
+    final charters = p.owned.length;
+    final wins = p.wins;
+
+    showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: Palette.panel,
+        title: const Text('Give up the whole venture?'),
+        content: Text(
+          'This ends the run on day ${controller.state.day} and destroys '
+          'everything earned before it:\n\n'
+          '  · $charters charter${charters == 1 ? "" : "s"} in your collection\n'
+          '  · ${wins == 0 ? "no" : "$wins"} recorded '
+          '${wins == 1 ? "win" : "wins"}\n\n'
+          'You begin again with nothing, as on the first day you played. '
+          'There is no undoing this.\n\n'
+          'It is here for a run that has become impossible rather than merely '
+          'hard — if you only want different charters, take a new post '
+          'instead and keep what you have earned.',
+          style: const TextStyle(height: 1.5),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('Keep my collection'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.of(dialogContext).pop();
+              controller.abandonEverything();
+            },
+            child: const Text('Destroy everything',
+                style: TextStyle(color: Palette.rust)),
+          ),
+        ],
+      ),
+    );
   }
 
   void _confirmNewRun(BuildContext context) {

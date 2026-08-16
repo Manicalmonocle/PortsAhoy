@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:ports_ahoy/game_controller.dart';
+import 'package:ports_ahoy/sim/profile.dart';
 import 'package:ports_ahoy/main.dart';
 import 'package:ports_ahoy/sim/events.dart';
 import 'package:ports_ahoy/sim/resources.dart';
@@ -695,5 +696,53 @@ void main() {
 
       await closeGame(tester);
     });
+  });
+  _abandonTests();
+}
+
+void _abandonTests() {
+  testWidgets('giving up the venture destroys the collection too',
+      (tester) async {
+    // The escape hatch for a run no play can recover from — the case that
+    // prompted it was a browser tab left open across an update, found on day
+    // 1000-odd with no coin. The cost is total on purpose: a cheap quit is a
+    // reroll, and a rerollable roguelite has meaningless records.
+    SharedPreferences.setMockInitialValues({});
+    final c = GameController(seedOverride: 20260815);
+    await c.load();
+    c.setSpeed(0);
+    addTearDown(c.dispose);
+
+    c.profile.owned.addAll(['poor_soil', 'a_full_purse']);
+    c.profile.active.add('poor_soil');
+    c.profile.runs.add(RunRecord(
+        days: 94, difficulty: 1, population: 42, charterIds: const ['poor_soil']));
+    await c.saveProfile();
+
+    // A run well underway, in the state the button exists to escape.
+    for (var i = 0; i < 24 * 5; i++) {
+      c.state.step();
+    }
+    expect(c.state.day, greaterThan(1));
+
+    await c.abandonEverything();
+    c.setSpeed(0); // the fresh run starts its clock; stop it for the test
+
+    expect(c.profile.owned, isEmpty, reason: 'charters must not survive');
+    expect(c.profile.active, isEmpty);
+    expect(c.profile.runs, isEmpty, reason: 'records must not survive');
+    expect(c.profile.wins, 0);
+    expect(c.state.day, 1, reason: 'the new run starts from the first day');
+    expect(c.state.charters.ids, isEmpty);
+
+    // And it must survive a reload — a wipe that comes back on next launch
+    // would be worse than no wipe at all.
+    final reopened = GameController(seedOverride: 20260815);
+    await reopened.load();
+    reopened.setSpeed(0);
+    addTearDown(reopened.dispose);
+    expect(reopened.profile.owned, isEmpty);
+    expect(reopened.profile.runs, isEmpty);
+    expect(reopened.state.day, 1);
   });
 }

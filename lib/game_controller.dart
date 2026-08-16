@@ -335,6 +335,36 @@ class GameController extends ChangeNotifier {
     await saveNow();
   }
 
+  /// Abandon the run AND everything earned across every run before it.
+  ///
+  /// The escape hatch of last resort. [startNewRun] leaves a port behind but
+  /// keeps your charters and your records; this keeps nothing. It exists
+  /// because a save can end up somewhere no play can recover from — the case
+  /// that prompted it was a browser tab left open across an update, found on
+  /// day 1000-odd with no coin, which the port cannot trade its way out of.
+  ///
+  /// The cost is deliberately total rather than nominal. A cheap quit is a
+  /// strategy: reroll the opening until the charters and the weather look
+  /// kind, which would quietly turn a roguelite into a slot machine and make
+  /// every record meaningless. Losing the collection means quitting is a way
+  /// out of a broken run and never a way to win a good one.
+  Future<void> abandonEverything() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_savedAtKey);
+    await prefs.remove(_hintsKey);
+    dismissedHints = {};
+
+    profile = Profile();
+    await saveProfile();
+
+    state = _freshRun();
+    lastCatchUpTicks = 0;
+    speed = 1;
+    _syncTimer();
+    notifyListeners();
+    await saveNow();
+  }
+
   Future<void> resetGame() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_hintsKey);

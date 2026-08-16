@@ -90,7 +90,7 @@ cd ~/ports_ahoy
 export PATH=$HOME/flutter/bin:$PATH
 
 flutter analyze                     # clean
-flutter test                        # 353 tests
+flutter test                        # 354 tests
 dart run tool/balance_probe.dart    # 8-seed headless pacing check
 dart run tool/balance_probe.dart --dark              # ...playing the dark trade
 dart run tool/balance_probe.dart --charters=poor_soil  # ...under a hardship
@@ -294,6 +294,31 @@ days, so a first captain on the 3-day lane turned 2.55 into 3 and delivered
 nothing while still charging commission — a trap on the shortest, most-used
 route, bought by the first hire of a run. Crossings are measured in hours now,
 and every captain tier saves real time on every lane, which a test asserts.
+
+### Giving up a venture
+
+The Charters panel carries a **Give up the venture** button, directly under the
+card showing the run in force. It ends the run *and* destroys every charter and
+record earned before it, and there is no undo.
+
+Two separate things, deliberately:
+
+| | leaves the port | keeps charters and records |
+| --- | --- | --- |
+| **Set sail anew** | yes | **yes** |
+| **Give up the venture** | yes | **no** |
+
+The total cost is the point. A cheap quit is a reroll — restart until the
+charters and the weather look kind — which turns a roguelite into a slot
+machine and makes every record meaningless. Losing the collection means
+quitting is a way out of a broken run and never a way to win a good one.
+
+It exists because a save *can* reach somewhere no play recovers from: the case
+that prompted it was a browser tab left open across several updates, found on
+day 1000-odd with no coin. Freezing the world while you are away (below) should
+make that particular route impossible now, but a game with no exit from a dead
+save is worse than one with a costly one. The button also appears before your
+first win, when there is nothing yet to lose and no other way to start over.
 
 ### Nothing happens while you are away
 
