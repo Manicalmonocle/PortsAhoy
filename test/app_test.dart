@@ -405,6 +405,33 @@ void main() {
       await closeGame(tester);
     });
 
+    testWidgets('the banner states what the event does, on the smallest phone',
+        (tester) async {
+      // Reported from play: "what does north easterly event mean? it is very
+      // vague". It showed a line of flavour and a countdown. The effects are
+      // now spelled out, which makes the banner taller — so it has to be
+      // checked at the tightest viewport, not just the roomy one.
+      final c = await pumpGame(tester, size: const Size(360, 640));
+      c.act((s) {
+        s.events.active.add(ActiveEvent(
+          defId: 'north_easterly',
+          omenTick: s.tick,
+          startTick: s.tick,
+          endTick: s.tick + 500,
+        ));
+      });
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull,
+          reason: 'the taller banner must still fit a 360x640 handset');
+
+      expect(find.textContaining('Fishing Wharf works at 30%'), findsOneWidget,
+          reason: 'the player has to know which shed is hurt, and by how much');
+      expect(find.textContaining('consignments sail as normal'), findsOneWidget,
+          reason: 'and that their own hulls are not stuck in port');
+
+      await closeGame(tester);
+    });
+
     testWidgets('the event banner never covers the resource chips',
         (tester) async {
       // Reported from a Pixel: the banner was pinned at a guessed top offset

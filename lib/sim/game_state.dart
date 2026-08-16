@@ -1216,9 +1216,9 @@ class GameState {
       final dest = v.destination;
       var risk = dest.risk * v.riskFactor;
       // Privateers in the lanes are exactly when a lone hull goes missing.
-      if (events.live(tick).any((e) => e.defId == 'privateer_scare')) {
-        risk *= 2;
-      }
+      // Read live and taken from the event's own field rather than a hard-coded
+      // id, so the banner can state it and the two can never disagree.
+      risk *= events.effects.voyageRiskScale;
       if (v.escorted) risk *= 0.5;
 
       if (rng.next() < risk) {

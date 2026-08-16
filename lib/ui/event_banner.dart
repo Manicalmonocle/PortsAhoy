@@ -101,6 +101,29 @@ class _EventCard extends StatelessWidget {
                   Text(body,
                       style: const TextStyle(
                           fontSize: 11, color: Palette.fog, height: 1.35)),
+                  // What it does, in numbers. The flavour line tells you what
+                  // the weather is like; this tells you what to do about it.
+                  ...def.effectLines(event.target).map((line) => Padding(
+                        padding: const EdgeInsets.only(top: 3),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('· ',
+                                style: TextStyle(
+                                    fontSize: 11,
+                                    height: 1.3,
+                                    color: accent)),
+                            Expanded(
+                              child: Text(line,
+                                  style: TextStyle(
+                                      fontSize: 11,
+                                      height: 1.3,
+                                      fontWeight: FontWeight.w600,
+                                      color: accent)),
+                            ),
+                          ],
+                        ),
+                      )),
                 ],
               ),
             ),

@@ -6,6 +6,7 @@ import 'package:ports_ahoy/sim/events.dart';
 import 'package:ports_ahoy/sim/game_state.dart';
 import 'package:ports_ahoy/sim/market.dart';
 import 'package:ports_ahoy/sim/resources.dart';
+import 'package:ports_ahoy/sim/trade.dart';
 
 /// A port big enough and rich enough to be eligible for anything.
 GameState wellFoundPort({int seed = 4242}) {
@@ -314,6 +315,58 @@ void main() {
       tickAndCollect(g);
       expect(g.coin, greaterThan(0));
       expect(g.coin, lessThan(100));
+    });
+  });
+
+  // Reported from play: "what does north easterly event mean? it is very
+  // vague". The banner showed a line of flavour and a countdown and never said
+  // what the event did — and in that case the flavour was actively wrong,
+  // implying your own hulls were stuck in port when they sail as normal.
+  group('an event says what it does', () {
+    test('every event describes at least one concrete effect', () {
+      for (final d in kEventDefs) {
+        expect(d.effectLines(), isNotEmpty,
+            reason: '"${d.name}" would show a player nothing but prose');
+      }
+    });
+
+    test('a blocked quay does not stop your own consignments', () {
+      final g = wellFoundPort();
+      g.stock[Resource.planks] = 200;
+      g.events.active.add(ActiveEvent(
+        defId: 'north_easterly',
+        omenTick: g.tick,
+        startTick: g.tick,
+        endTick: g.tick + 4 * Balance.ticksPerDay,
+      ));
+      g.events.nextRollTick = 1 << 30;
+      tickAndCollect(g);
+
+      expect(g.events.effects.conditions.shipsBlocked, isTrue);
+      expect(g.sendVoyage(kDestinations.first, {Resource.planks: 40.0}), isTrue,
+          reason: 'the banner promises this, so it had better be true');
+
+      final def = eventById('north_easterly');
+      expect(def.effectLines().join(' '), contains('consignments sail'));
+    });
+
+    test('the privateer scare still doubles the danger at sea', () {
+      // Moved off a hard-coded defId check and onto a field so the banner can
+      // state it. The number must not have changed on the way.
+      expect(eventById('privateer_scare').voyageRiskScale, 2.0);
+
+      final g = wellFoundPort();
+      g.events.active.add(ActiveEvent(
+        defId: 'privateer_scare',
+        omenTick: g.tick,
+        startTick: g.tick,
+        endTick: g.tick + 5 * Balance.ticksPerDay,
+      ));
+      g.events.nextRollTick = 1 << 30;
+      tickAndCollect(g);
+
+      expect(g.events.effects.voyageRiskScale, 2.0,
+          reason: 'the lanes are twice as dangerous while they are out there');
     });
   });
 

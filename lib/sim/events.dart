@@ -8,6 +8,7 @@
 /// Forewarning that lies is worse than no forewarning at all.
 library;
 
+import 'buildings.dart';
 import 'market.dart';
 import 'resources.dart';
 
@@ -45,6 +46,7 @@ class EventDef {
     this.arrivalInterval,
     this.maxShips,
     this.demandScale = 1.0,
+    this.voyageRiskScale = 1.0,
   });
 
   final String id;
@@ -115,7 +117,85 @@ class EventDef {
   final int? maxShips;
   final double demandScale;
 
+  /// Multiplier on the chance a consignment at sea is taken.
+  ///
+  /// This was a hard-coded `defId == 'privateer_scare'` check inside voyage
+  /// settlement — a real effect that no event could describe, because it did
+  /// not exist as a property of any event. Danger in the lanes is a fact about
+  /// the world, so unlike the captain's protection it is read live: privateers
+  /// that turn up while your hull is out are exactly the ones that take her.
+  final double voyageRiskScale;
+
   bool get isHazard => severity != EventSeverity.boon;
+
+  /// What this event actually does, in plain numbers.
+  ///
+  /// Derived from the fields rather than written by hand, so it can never drift
+  /// from the mechanics the way a blurb does. "A North-Easterly" read as
+  /// *Nothing enters or leaves the harbour* — evocative, but it never said the
+  /// fishing wharves drop to a third, and it implied your own consignments were
+  /// stuck when they sail perfectly well. A player cannot plan around prose.
+  ///
+  /// [target] is the good chosen at draw time for [targetsAGood] events.
+  List<String> effectLines([Resource? target]) {
+    final out = <String>[];
+
+    String pct(double v) => '${(v * 100).round()}%';
+    String delta(double v) => v >= 1
+        ? '+${((v - 1) * 100).round()}%'
+        : '−${((1 - v) * 100).round()}%';
+
+    throughput.forEach((id, v) {
+      final who = id == '*' ? 'Every shed' : defById(id).name;
+      out.add('$who works at ${pct(v)} — ${delta(v)} output');
+    });
+
+    yieldScale.forEach((id, v) {
+      final who = id == '*' ? 'Every shed' : defById(id).name;
+      out.add('$who yields ${pct(v)}, and still eats its inputs in full');
+    });
+
+    if (absentFraction > 0) {
+      out.add('${pct(absentFraction)} of your hands are laid up');
+    }
+    if (foodScale != 1.0) out.add('The town eats ${delta(foodScale)}');
+    if (wageScale != 1.0) out.add('Wages ${delta(wageScale)}');
+    if (onsetCoinScale != 1.0) {
+      out.add('Takes ${delta(onsetCoinScale)} of your coin, once');
+    }
+
+    onsetStockScale.forEach((r, v) =>
+        out.add('${delta(v)} of your ${r.label.toLowerCase()}, once'));
+    onsetStockGrant.forEach((r, v) =>
+        out.add('Washes up ${v.round()} ${r.label.toLowerCase()}'));
+
+    indexTarget.forEach((r, v) => out.add(
+        '${r.label} prices move toward ${pct(v)} of normal'));
+    if (targetsAGood) {
+      final what = target?.label ?? 'one finished good';
+      out.add('$what prices move toward ${pct(targetIndex)} of normal');
+    }
+
+    if (demandScale != 1.0) {
+      out.add('Buyers take ${delta(demandScale)} off you');
+    }
+    if (voyageRiskScale != 1.0) {
+      out.add('Consignments at sea are ${voyageRiskScale.toStringAsFixed(1)}x '
+          'as likely to be taken');
+    }
+
+    // The quay. Say plainly what is and is not stopped: the old wording had
+    // players believing their own hulls were trapped in port.
+    if (shipsBlocked) {
+      out.add('No new ships reach the quay');
+      out.add('Your own consignments sail as normal');
+    } else {
+      if (maxShips != null) out.add('At most $maxShips ships in port');
+      if (arrivalInterval != null) out.add('Ships call less often');
+    }
+
+    return out;
+  }
 }
 
 /// One scheduled instance of an [EventDef].
@@ -190,6 +270,7 @@ class EventEffects {
   final Map<String, double> yieldScale = {};
   double foodScale = 1.0;
   double wageScale = 1.0;
+  double voyageRiskScale = 1.0;
   int absentTotal = 0;
   PortConditions conditions = PortConditions.calm;
 
@@ -401,6 +482,10 @@ class EventSystem {
           fx.yieldScale[k] = (fx.yieldScale[k] ?? 1.0) * sharpen(v));
       fx.foodScale *= d.foodScale;
       fx.wageScale *= d.wageScale;
+      // Passed through sharpen for consistency, though it changes nothing
+      // here: sharpen leaves multipliers of 1.0 or more alone, so this is the
+      // same doubling the hard-coded check applied.
+      fx.voyageRiskScale *= sharpen(d.voyageRiskScale);
       fx.absentTotal += e.absentCount;
 
       shipsBlocked = shipsBlocked || d.shipsBlocked;
@@ -758,6 +843,7 @@ const List<EventDef> kEventDefs = [
     minDay: 30,
     arrivalInterval: 30,
     maxShips: 2,
+    voyageRiskScale: 2.0,
     // Freight risk is priced into everything the port has to bring in.
     indexTarget: {
       Resource.timber: 1.80,
