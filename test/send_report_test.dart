@@ -79,4 +79,24 @@ void main() {
       expect(ReportEndpoint.url(_payload), isNotNull);
     }
   });
+
+  // Pins what the SHIPPED build actually opens, rather than what the constant
+  // says it should. Worth a test of its own because the symptom of getting it
+  // wrong — "Send opens the wrong place" — is indistinguishable from a user
+  // running a stale cached bundle, and that ambiguity costs a round trip to
+  // diagnose every single time.
+  test('the shipped destination opens the link it claims to', () {
+    final u = ReportEndpoint.url(_payload);
+    switch (ReportEndpoint.destination) {
+      case ReportDestination.none:
+        expect(u, isNull);
+      case ReportDestination.email:
+        expect(u!.scheme, 'mailto');
+        expect(u.path, ReportEndpoint.inbox);
+      case ReportDestination.googleForm:
+        expect(u!.host, 'docs.google.com');
+      case ReportDestination.githubIssue:
+        expect(u!.host, 'github.com');
+    }
+  });
 }

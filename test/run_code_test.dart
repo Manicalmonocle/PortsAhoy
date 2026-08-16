@@ -241,9 +241,15 @@ void _endpointTests() {
       expect(u.scheme, 'mailto');
       expect(u.path, 'someone@example.com');
       expect(u.queryParameters['body'], contains(payload));
-      // Percent-encoded by Uri, not concatenated: a raw '&' in the body would
-      // otherwise end the parameter and deliver half a run.
-      expect(u.toString(), contains('%'));
+      // Percent-encoded, not form-encoded. Uri(queryParameters:) would turn
+      // every space into '+', which a web URL decodes back to a space but
+      // mailto does not — RFC 6068 gives mailto only percent-encoding. The
+      // tester would open their mail app to "Ports+Ahoy+run+report" over a
+      // body of plus signs, and not send it.
+      expect(u.toString(), contains('%20'));
+      expect(u.toString(), isNot(contains('+')));
+      expect(u.queryParameters['subject'], 'Ports Ahoy run report');
+      expect(u.queryParameters['body'], startsWith(payload));
     });
 
     // The whole reason email is acceptable as a transport. A mail client that

@@ -147,18 +147,24 @@ class ReportEndpoint {
           // gets a 404 instead of the issue form when one is present.
           'body': 'Paste from the game — nothing to edit.\n\n```\n$payload\n```',
         }),
-      // Query parameters, not a hand-built string: the body must be
-      // percent-encoded, and concatenating it by hand is how a payload picks
-      // up a stray '&' and arrives cut in half.
-      ReportDestination.email => Uri(
-          scheme: 'mailto',
-          path: mail,
-          queryParameters: {
-            'subject': 'Ports Ahoy run report',
-            'body': '$payload\n\nNothing to edit — just send. '
-                'Anything you want to add can go below.\n',
-          },
-        ),
+      // Encoded by hand, and deliberately NOT via Uri(queryParameters:).
+      //
+      // That constructor form-encodes, so every space becomes '+'. The web
+      // form of a URL decodes that back to a space; mailto does not. RFC 6068
+      // gives mailto only percent-encoding, so a '+' stays a literal plus and
+      // the tester opens their mail app to a subject reading
+      // "Ports+Ahoy+run+report" over a body of plus signs. Uri.encodeComponent
+      // emits %20 instead, which every client decodes correctly.
+      //
+      // The payload itself is unaffected either way — PA1 has no spaces — but
+      // a message that arrives looking broken is one a tester does not send.
+      ReportDestination.email => Uri.parse(
+          'mailto:$mail'
+          '?subject=${Uri.encodeComponent("Ports Ahoy run report")}'
+          '&body=${Uri.encodeComponent(
+            '$payload\n\nNothing to edit — just send. '
+            'Anything you want to add can go below.\n',
+          )}'),
     };
   }
 
