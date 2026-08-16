@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'sim/game_state.dart';
+import 'sim/profile.dart';
 
 /// Drives the simulation clock and owns persistence.
 ///
@@ -17,6 +18,9 @@ class GameController extends ChangeNotifier {
   static const String _saveKey = 'ports_ahoy_save_v1';
   static const String _savedAtKey = 'ports_ahoy_saved_at_ms';
   static const String _hintsKey = 'ports_ahoy_dismissed_hints';
+
+  /// Stored apart from the save: this is what survives starting a new run.
+  static const String _profileKey = 'ports_ahoy_profile';
 
   /// Game-hours per real second at 1×.
   ///
@@ -48,6 +52,9 @@ class GameController extends ChangeNotifier {
   /// Hints the player has already read. Nothing is gated behind these.
   Set<String> dismissedHints = {};
 
+  /// Charters earned, charters in force, and the record of finished runs.
+  Profile profile = Profile();
+
   Timer? _timer;
   double _accumulator = 0;
   static const Duration _frame = Duration(milliseconds: 100);
@@ -55,6 +62,15 @@ class GameController extends ChangeNotifier {
   Future<void> load() async {
     final prefs = await SharedPreferences.getInstance();
     dismissedHints = (prefs.getStringList(_hintsKey) ?? const []).toSet();
+    final rawProfile = prefs.getString(_profileKey);
+    if (rawProfile != null) {
+      try {
+        profile =
+            Profile.fromJson(jsonDecode(rawProfile) as Map<String, dynamic>);
+      } catch (_) {
+        profile = Profile(); // a corrupt profile must not brick the game
+      }
+    }
     final raw = prefs.getString(_saveKey);
 
     if (raw == null) {
@@ -135,6 +151,7 @@ class GameController extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_saveKey, jsonEncode(state.toJson()));
     await prefs.setInt(_savedAtKey, DateTime.now().millisecondsSinceEpoch);
+    await prefs.setString(_profileKey, jsonEncode(profile.toJson()));
   }
 
   Future<void> dismissHint(String id) async {
@@ -142,6 +159,67 @@ class GameController extends ChangeNotifier {
     notifyListeners();
     final prefs = await SharedPreferences.getInstance();
     await prefs.setStringList(_hintsKey, dismissedHints.toList());
+  }
+
+  Future<void> saveProfile() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_profileKey, jsonEncode(profile.toJson()));
+  }
+
+  /// Record a finished run and offer three charters to choose between.
+  ///
+  /// Called once, the moment the light is lit. The offer is seeded from the
+  /// run itself so closing the app cannot reroll it — the choice is meant to
+  /// be a decision, not a slot machine.
+  Future<void> recordVictory() async {
+    if (profile.hasChoicePending) return;
+    profile.runs.add(RunRecord(
+      days: state.day,
+      difficulty: state.charters.difficulty,
+      population: state.population,
+      charterIds: state.charters.ids,
+    ));
+    profile.pendingChoice = profile.offer(state.rng.seed ^ state.day);
+    notifyListeners();
+    await saveProfile();
+  }
+
+  /// Take one of the offered charters into the collection.
+  Future<void> chooseCharter(String id) async {
+    profile.pendingChoice = const [];
+    profile.owned.add(id);
+    notifyListeners();
+    await saveProfile();
+  }
+
+  /// Toggle a charter for the next run, refusing anything unaffordable.
+  void toggleCharter(String id) {
+    if (profile.active.contains(id)) {
+      profile.active.remove(id);
+    } else {
+      profile.active.add(id);
+      if (!profile.activeSet.isLegal) profile.active.remove(id);
+    }
+    notifyListeners();
+    saveProfile();
+  }
+
+  /// Begin a fresh run under the charters currently in force. The profile
+  /// itself is untouched — that is the whole point of keeping it separate.
+  Future<void> startNewRun() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_saveKey);
+    await prefs.remove(_savedAtKey);
+    profile.reconcile();
+    state = GameState.newGame(
+      seed: DateTime.now().millisecondsSinceEpoch % 100000,
+      charters: profile.activeSet,
+    );
+    lastCatchUpTicks = 0;
+    speed = 1;
+    _syncTimer();
+    notifyListeners();
+    await saveProfile();
   }
 
   Future<void> resetGame() async {

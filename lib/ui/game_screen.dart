@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../game_controller.dart';
 import '../sim/resources.dart';
 import 'build_tab.dart';
+import 'charter_panel.dart';
 import 'event_banner.dart';
 import 'hints.dart';
 import 'world_view.dart';
@@ -26,11 +27,39 @@ class GameScreen extends StatefulWidget {
   State<GameScreen> createState() => _GameScreenState();
 }
 
-enum _Panel { none, build, quay, trade, log, sheds }
+enum _Panel { none, build, quay, trade, log, sheds, charters }
 
 class _GameScreenState extends State<GameScreen> {
   _Panel _panel = _Panel.none;
   int? _selected;
+  bool _offerShown = false;
+
+  /// The moment the light is lit, record the run and offer a charter. Guarded
+  /// so a rebuild cannot show it twice.
+  void _maybeOfferCharter(BuildContext context) {
+    final c = widget.controller;
+    if (!c.state.lighthouseBuilt || _offerShown) return;
+    if (c.profile.runs.length > c.profile.wins) return;
+
+    final alreadyRecorded = c.profile.runs.any((r) =>
+        r.days == c.state.day && r.population == c.state.population);
+    if (!alreadyRecorded && !c.profile.hasChoicePending) {
+      c.recordVictory();
+    }
+    if (!c.profile.hasChoicePending) return;
+
+    _offerShown = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      showDialog<void>(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => CharterOfferDialog(controller: c),
+      ).then((_) {
+        if (mounted) setState(() => _panel = _Panel.charters);
+      });
+    });
+  }
 
   void _open(_Panel p) => setState(() {
         _panel = p;
@@ -48,6 +77,7 @@ class _GameScreenState extends State<GameScreen> {
         // Gesture bar or three-button nav: everything that floats above the
         // dock has to clear it, or the bottom of the game is unreachable.
         final safeBottom = MediaQuery.viewPaddingOf(context).bottom;
+        _maybeOfferCharter(context);
         final hint = nextHint(state, controller.dismissedHints);
         final omens = state.events.omens(state.tick).toList();
         final live = state.events.live(state.tick).toList();
@@ -580,6 +610,12 @@ class _Dock extends StatelessWidget {
                 onTap: () => onOpen(_Panel.sheds),
               ),
               _DockButton(
+                icon: Icons.map_outlined,
+                label: 'Voyage',
+                badge: state.lighthouseBuilt ? '!' : null,
+                onTap: () => onOpen(_Panel.charters),
+              ),
+              _DockButton(
                 icon: Icons.article_outlined,
                 label: 'Log',
                 onTap: () => onOpen(_Panel.log),
@@ -677,6 +713,7 @@ class _PanelSheet extends StatelessWidget {
         _Panel.quay => 'The Quay',
         _Panel.trade => 'Trade',
         _Panel.log => 'Log',
+        _Panel.charters => 'The next voyage',
         _Panel.sheds => 'Every shed',
         _Panel.none => '',
       };
@@ -740,6 +777,7 @@ class _PanelSheet extends StatelessWidget {
         _Panel.quay => MarketTab(controller: controller),
         _Panel.trade => TradePanel(controller: controller),
         _Panel.log => LogTab(controller: controller),
+        _Panel.charters => CharterPanel(controller: controller),
         _Panel.sheds => ShedList(controller: controller),
         _Panel.none => const SizedBox.shrink(),
       };

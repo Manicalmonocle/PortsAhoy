@@ -281,6 +281,7 @@ class EventContext {
     required this.dailyWageBill,
     required this.buildingIds,
     this.producingSheds = 0,
+    this.hazardGap = 1.0,
   });
 
   final int day;
@@ -294,6 +295,9 @@ class EventContext {
 
   /// Producing sheds — the honest measure of how much port there is.
   final int producingSheds;
+
+  /// Multiplier on the quiet days between events, from active charters.
+  final double hazardGap;
 
   int get season =>
       ((day - 1) ~/ EventTuning.seasonLengthDays) % 4;
@@ -524,7 +528,10 @@ class EventSystem {
     final tier = EventTuning.gapTier(ctx.buildableCount);
     final gap = rng.rangeInt(
         EventTuning.gapLowDays[tier], EventTuning.gapHighDays[tier]);
-    nextRollTick = ev.endTick + (recovery + gap) * 24;
+    // A charter can widen or narrow the quiet stretch between events. Never
+    // below a day, or an omen would land on top of the event it warns about.
+    final scaled = ((recovery + gap) * ctx.hazardGap).round().clamp(1, 400);
+    nextRollTick = ev.endTick + scaled * 24;
 
     return ev;
   }

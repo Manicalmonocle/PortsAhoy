@@ -1,4 +1,5 @@
 import 'buildings.dart';
+import 'charters.dart';
 import 'events.dart';
 import 'market.dart';
 import 'progression.dart';
@@ -199,7 +200,8 @@ class GameState {
 
   /// A fresh port: three extractors, two cottage rows, and enough coin to make
   /// one real decision on the first day.
-  factory GameState.newGame({int seed = 20260815}) {
+  factory GameState.newGame({int seed = 20260815, CharterSet? charters}) {
+    final ch = charters ?? CharterSet.none;
     final state = GameState._(
       tick: 0,
       // Deliberately small. Two sheds and five hands is one idea — put people
@@ -211,17 +213,18 @@ class GameState {
         Resource.fish: 18,
         Resource.planks: 10,
       }),
-      coin: 220,
+      coin: 220 + ch.startCoin,
       buildings: [
         Building(defId: 'forest_camp', workers: 2),
         Building(defId: 'fishing_wharf', workers: 2),
         Building(defId: 'house'),
       ],
-      population: 5,
+      population: 5 + ch.startPopulation,
       market: Market(),
       rng: SeededRng(seed),
       lighthouseBuilt: false,
     );
+    state.charters = ch;
     state.placeAll();
     state.syncYards();
     state.unlocked.addAll(kInitiallyUnlocked);
@@ -241,6 +244,9 @@ class GameState {
 
   /// The weather and the wider world. Replaced wholesale on load.
   EventSystem events = EventSystem();
+
+  /// Standing conditions carried in from previous runs.
+  CharterSet charters = CharterSet.none;
 
   /// How closely the Crown is watching. 0 for an honest port, forever.
   double notoriety = 0.0;
@@ -335,7 +341,8 @@ class GameState {
   }
 
   double get storageCapacity =>
-      Balance.baseStorage + buildings.fold(0.0, (s, b) => s + b.def.storage);
+      (Balance.baseStorage + buildings.fold(0.0, (s, b) => s + b.def.storage)) *
+      charters.storage;
 
   /// Warehouses do two jobs: they raise the stores, and they give every shed a
   /// bigger yard. "My sheds keep filling up" should have an answer you can go
@@ -408,10 +415,16 @@ class GameState {
 
   bool get isGrowing => growthBlocker == null;
 
+  int get lighthouseCoinCost =>
+      (Balance.lighthouseCoin * charters.lighthouseCost).round();
+
+  Map<Resource, double> get lighthouseGoodsCost => Balance.lighthouseCost
+      .map((r, q) => MapEntry(r, q * charters.lighthouseCost));
+
   bool get canBuildLighthouse =>
       !lighthouseBuilt &&
-      coin >= Balance.lighthouseCoin &&
-      stock.canAfford(Balance.lighthouseCost);
+      coin >= lighthouseCoinCost &&
+      stock.canAfford(lighthouseGoodsCost);
 
   void log(String text, LogKind kind) {
     logEntries.insert(0, LogEntry(tick, text, kind));
@@ -428,8 +441,8 @@ class GameState {
   void step({bool interactive = true}) {
     tick++;
     arrivalsThisTick = 0;
-    _applyEventTransitions(
-        events.advance(tick, pressure: _eventContext().pressure));
+    _applyEventTransitions(events.advance(tick,
+        pressure: _eventContext().pressure * charters.hazardSeverity));
     _landImports();
     _produce();
     _crewBerths();
@@ -620,6 +633,7 @@ class GameState {
         dailyWageBill: dailyWageBill,
         buildingIds: buildings.map((b) => b.defId).toSet(),
         producingSheds: producingSheds,
+        hazardGap: charters.hazardGap,
       );
 
   /// Spend coin to land raw cargo.
@@ -723,8 +737,8 @@ class GameState {
         // difference is what spoiled flax and a fouled saw blade actually are.
         def.inputs
             .forEach((r, pw) => stock.remove(r, pw * effWorkers * efficiency));
-        def.outputs.forEach((r, pw) => b.hold[r] =
-            (b.hold[r] ?? 0) + pw * effWorkers * efficiency * yieldMul);
+        def.outputs.forEach((r, pw) => b.hold[r] = (b.hold[r] ?? 0) +
+            pw * effWorkers * efficiency * yieldMul * charters.production);
       }
       b.lastEfficiency = efficiency;
     }
@@ -767,8 +781,10 @@ class GameState {
   }
 
   void _feedTown() {
-    var needed =
-        population * Balance.foodPerPersonPerDay * events.effects.foodScale;
+    var needed = population *
+        Balance.foodPerPersonPerDay *
+        events.effects.foodScale *
+        charters.foodUse;
 
     // Fish spoils, grain keeps — so the town eats the sea first.
     for (final r in [Resource.fish, Resource.grain]) {
@@ -807,7 +823,7 @@ class GameState {
     if (population >= housingCapacity) return;
     // Growth needs a genuine buffer, not just a day scraped through.
     if (foodDays < Balance.growthFoodDays) return;
-    if (rng.next() < Balance.growthChance) {
+    if (rng.next() < Balance.growthChance * charters.growth) {
       population += 1;
       arrivalsThisTick += 1;
       log('A new hand arrived looking for work.', LogKind.good);
@@ -1070,7 +1086,8 @@ class GameState {
       gross += qty * r.basePrice * dest.payFor(r);
       units += qty;
     });
-    final net = gross * voyagePayBonus - units * dest.charterPerUnit;
+    final net =
+        gross * voyagePayBonus * charters.salePrice - units * dest.charterPerUnit;
     return net < 0 ? 0 : net.round();
   }
 
@@ -1103,7 +1120,9 @@ class GameState {
     final quote = quoteVoyage(dest, clean);
     // Fixed here and never touched again: hiring a faster captain tomorrow
     // does not reel in a hull that sailed today.
-    final days = (dest.days * voyageSpeedFactor).round().clamp(1, dest.days);
+    final days = (dest.days * voyageSpeedFactor * charters.voyageDays)
+        .round()
+        .clamp(1, dest.days * 3);
     voyages.add(Voyage(
       destinationId: dest.id,
       cargo: clean,
@@ -1296,7 +1315,8 @@ class GameState {
 
     stock.remove(offer.resource, amount);
     offer.quantity -= amount;
-    final earned = amount * offer.pricePerUnit * sellBonus;
+    final earned =
+        amount * offer.pricePerUnit * sellBonus * charters.salePrice;
     coin += earned.round();
 
     if (offer.resource.isContraband) {
@@ -1522,8 +1542,8 @@ class GameState {
 
   bool buildLighthouse() {
     if (!canBuildLighthouse) return false;
-    coin -= Balance.lighthouseCoin;
-    stock.payAll(Balance.lighthouseCost);
+    coin -= lighthouseCoinCost;
+    stock.payAll(lighthouseGoodsCost);
     lighthouseBuilt = true;
     log('The Saltwind Light burns for the first time. The port is made.',
         LogKind.good);
@@ -1546,6 +1566,7 @@ class GameState {
             double.parse(contrabandSeized.toStringAsFixed(3)),
         'voyages': voyages.map((v) => v.toJson()).toList(),
         'unlocked': unlocked.toList(),
+        'charters': charters.ids,
         'captainLevel': captainLevel,
         'merchantLevel': merchantLevel,
         'quartermasterLevel': quartermasterLevel,
@@ -1599,6 +1620,10 @@ class GameState {
         .map((v) => Voyage.fromJson(v as Map<String, dynamic>))
         .whereType<Voyage>());
     state._clampAssignments();
+    // A run keeps the charters it began under, so resuming cannot quietly
+    // change the conditions you started playing on.
+    state.charters =
+        CharterSet.fromIds((j['charters'] as List? ?? []).cast<String>());
     state.placeAll();
     state.syncYards();
     return state;
