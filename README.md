@@ -522,24 +522,33 @@ dart run tool/decode_run_report.dart reports.csv   # or a bare code, or stdin
 **Choosing a destination** — one constant, `ReportEndpoint.destination` in
 `lib/report_endpoint.dart`:
 
-| | GitHub issue *(current)* | Google Form |
-| --- | --- | --- |
-| tester needs an account | **yes** — signed-out testers hit a sign-in wall | no |
-| name attached to the report | their GitHub username, publicly, forever | none |
-| setup | none, works today | ~5 minutes |
-| collects into | the issue tracker | a spreadsheet |
-| 200-day run | thinned to every 2nd day | every day |
-| 300-day run | thinned to every 10th day | every 2nd day |
+| | Email *(current)* | Google Form | GitHub issue |
+| --- | --- | --- | --- |
+| tester needs an account | no | no | **yes** — a sign-in wall |
+| identity attached | their email address | none | their username, publicly |
+| setup | none, works today | ~5 minutes | none |
+| collects into | an inbox | a spreadsheet | the issue tracker |
+| payload budget | 2,600 | 5,500 | 2,800 |
+| 200-day run | every 2nd day | **every day** | every 2nd day |
+| failure mode | silent clipping *(detected — see below)* | none known | 414, or a dead connection |
 
-The resolution difference is real: GitHub's budget is halved because a
-signed-out tester's whole URL is echoed back inside `?return_to=`, so the
-payload has to survive being carried twice. Runs at or under ~120 days keep
-full daily resolution either way.
+Runs at or under ~120 days keep full daily resolution on any of the three.
 
-GitHub is the sensible default while the testers are you and anyone technical.
-Switch to a form before handing builds to friends and family — the sign-in wall
-is the thing most likely to make a non-technical tester give up, and their runs
-are the ones worth having.
+GitHub's budget is halved because a signed-out tester's whole URL is echoed
+back inside `?return_to=`, so the payload has to survive being carried twice.
+
+**Email is the one that can fail quietly.** Mail clients disagree about how
+long a `mailto:` may be and clip rather than refuse. So `RunCode.decode` checks
+the row count against the day count the sender declared in the header, and sets
+`lostInTransit` when they disagree — `tool/decode_run_report.dart` prints that
+loudly and above the table. A clipped report otherwise looks exactly like a
+shorter run, and reading one as the other means drawing a balance conclusion
+from a mail client's URL limit.
+
+The form is the best of the three and the only one with no failure mode: it is
+anonymous, needs no mail client, and its budget is wide enough to keep a
+300-day run at every-other-day. Worth the five minutes before handing builds to
+friends and family.
 
 Neither setting is a secret. A form id appears in every prefilled link the form
 hands out, and the repo is already public. **No token is compiled into the

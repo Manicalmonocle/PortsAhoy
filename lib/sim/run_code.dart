@@ -61,6 +61,8 @@ class DecodedRun {
     required this.stride,
     required this.daysTruncated,
     required this.marksTruncated,
+    required this.declaredDays,
+    required this.lostInTransit,
     required this.marks,
     required this.days,
   });
@@ -80,6 +82,14 @@ class DecodedRun {
   /// sailing, which is a conclusion about balance rather than about storage.
   final bool daysTruncated;
   final bool marksTruncated;
+
+  /// How many days the sending device said this run had.
+  final int declaredDays;
+
+  /// Fewer rows arrived than [declaredDays] implies — the payload was cut in
+  /// transit. Distinct from [daysTruncated], which is the journal hitting its
+  /// own cap on the phone: that one is a known limit, this one is damage.
+  final bool lostInTransit;
 
   final List<DecodedMark> marks;
   final List<JournalDay> days;
@@ -202,7 +212,15 @@ class RunCode {
     for (var i = 0; i < rows.length; i++) {
       if (rows[i].isEmpty) continue;
       final f = rows[i].split('.');
-      if (f.length != 6) throw FormatException('bad PA1 row', rows[i]);
+      if (f.length != 6) {
+        // A cut arrives mid-row far more often than on a boundary, so a
+        // half-row at the very end is the ordinary shape of truncation, not
+        // corruption. Drop it and keep everything before it — throwing here
+        // would discard a report that is 95% intact. Anywhere else it is a
+        // real format error and worth failing on.
+        if (i == rows.length - 1) break;
+        throw FormatException('bad PA1 row', rows[i]);
+      }
       days.add(JournalDay(
         // The day column is not stored: it is position times stride. Storing
         // it would repeat information the row's own index already carries.
@@ -216,6 +234,19 @@ class RunCode {
       ));
     }
 
+    // The header declares how many days the run had. If fewer rows arrived
+    // than that implies, the payload was cut somewhere between the player's
+    // phone and here — a mail client with a URL limit, a chat app wrapping a
+    // long line, a copy that missed the end.
+    //
+    // This is the check that makes sending by email defensible at all.
+    // Without it a clipped report is indistinguishable from a short run, and
+    // the analysis silently reads a truncation as a player who stopped
+    // playing. Loud beats subtle: a decoder that shouts is recoverable, a
+    // number that quietly lies is not.
+    final declared = _dec(parts[6]);
+    final expected = stride <= 1 ? declared : (declared + stride - 1) ~/ stride;
+
     return DecodedRun(
       version: parts[1],
       seed: _dec(parts[2]),
@@ -225,6 +256,8 @@ class RunCode {
       stride: stride,
       daysTruncated: flags & 1 != 0,
       marksTruncated: flags & 2 != 0,
+      declaredDays: declared,
+      lostInTransit: days.length < expected,
       marks: marks,
       days: days,
     );

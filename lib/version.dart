@@ -9,4 +9,4 @@
 ///
 /// Regenerate with `dart run tool/stamp_version.dart` (build_apk.sh does it
 /// for you).
-const String kAppVersion = '1.0.9+10';
+const String kAppVersion = '1.0.10+11';

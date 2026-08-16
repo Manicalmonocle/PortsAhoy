@@ -71,6 +71,15 @@ void _print(String code, int n, int total) {
     print('WARNING:    the journal stopped recording before the run ended. '
         'The quiet tail is missing data, not a quiet port.');
   }
+  if (r.lostInTransit) {
+    // Loud, and above the table rather than buried under it. A clipped report
+    // looks exactly like a shorter run, and reading one as the other is a
+    // wrong conclusion about balance drawn from a mail client's URL limit.
+    print('!!! CUT IN TRANSIT: the sender recorded ${r.declaredDays} days but '
+        'only ${r.days.length} rows arrived. Something between their phone and '
+        'here truncated it — do not read the ending. Ask them to use Copy '
+        'instead, and lower ReportEndpoint.maxPayloadFor(email).');
+  }
 
   // The two numbers the bot has been provably wrong about, so they are worth
   // reading off directly rather than hunting for in the table.

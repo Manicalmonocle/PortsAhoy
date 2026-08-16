@@ -36,6 +36,12 @@ enum ReportDestination {
 
   /// A prefilled GitHub issue. Requires the tester to have a GitHub account.
   githubIssue,
+
+  /// A prefilled email to [ReportEndpoint.inbox]. Needs no account and no
+  /// setup, but see [ReportEndpoint.maxPayloadFor] — mail clients differ
+  /// wildly in what length of mailto: they will carry, and the tester's own
+  /// address is attached to whatever they send.
+  email,
 }
 
 class ReportEndpoint {
@@ -43,7 +49,7 @@ class ReportEndpoint {
   ///
   /// Leave as [ReportDestination.none] and the Send button stays hidden; the
   /// Copy button behaves exactly as it does today. Nothing is half-shipped.
-  static const ReportDestination destination = ReportDestination.githubIssue;
+  static const ReportDestination destination = ReportDestination.email;
 
   // ── Google Form ────────────────────────────────────────────────────────
   //
@@ -64,6 +70,12 @@ class ReportEndpoint {
   // ── GitHub issue ───────────────────────────────────────────────────────
   static const String repo = 'Manicalmonocle/PortsAhoy';
 
+  // ── Email ──────────────────────────────────────────────────────────────
+  //
+  // A dedicated address, not a personal one: it ends up in a public APK and a
+  // public web bundle, where anything readable will eventually be scraped.
+  static const String inbox = 'portsahoy@gmail.com';
+
   /// Whether Send can be offered at all.
   static bool get configured => configuredFor(destination);
 
@@ -72,11 +84,15 @@ class ReportEndpoint {
   /// would otherwise be reachable — and the branch that ships untested is
   /// exactly the one that breaks the day it is switched on.
   static bool configuredFor(ReportDestination d,
-          {String form = formId, String entry = entryId, String gh = repo}) =>
+          {String form = formId,
+          String entry = entryId,
+          String gh = repo,
+          String mail = inbox}) =>
       switch (d) {
         ReportDestination.none => false,
         ReportDestination.googleForm => form.isNotEmpty && entry.isNotEmpty,
         ReportDestination.githubIssue => gh.isNotEmpty,
+        ReportDestination.email => mail.isNotEmpty,
       };
 
   /// The most a destination will carry before it fails.
@@ -92,14 +108,32 @@ class ReportEndpoint {
         ReportDestination.none => 0,
         ReportDestination.googleForm => 5500,
         ReportDestination.githubIssue => 2800,
+        // The least certain number here, and chosen knowing that. Mail
+        // clients disagree violently about how long a mailto: may be — many
+        // carry several KB, Outlook has historically cut near 2,000 — and
+        // they cut SILENTLY rather than refusing.
+        //
+        // Set high enough to keep a typical 120-day run at full daily
+        // resolution rather than half of it. That is the right trade only
+        // because RunCode.decode now sets lostInTransit when fewer rows
+        // arrive than the header declares: an over-long send costs one
+        // report and teaches us the real limit, where an over-cautious
+        // budget would silently halve the resolution of every report
+        // forever. Verify the first real send decodes complete.
+        ReportDestination.email => 2600,
       };
 
   /// The link to open. [payload] must already be a PA1 run code.
   static Uri? url(String payload) => urlFor(destination, payload);
 
   static Uri? urlFor(ReportDestination d, String payload,
-      {String form = formId, String entry = entryId, String gh = repo}) {
-    if (!configuredFor(d, form: form, entry: entry, gh: gh)) return null;
+      {String form = formId,
+      String entry = entryId,
+      String gh = repo,
+      String mail = inbox}) {
+    if (!configuredFor(d, form: form, entry: entry, gh: gh, mail: mail)) {
+      return null;
+    }
     if (payload.length > maxPayloadFor(d)) return null;
     return switch (d) {
       ReportDestination.none => null,
@@ -113,8 +147,50 @@ class ReportEndpoint {
           // gets a 404 instead of the issue form when one is present.
           'body': 'Paste from the game — nothing to edit.\n\n```\n$payload\n```',
         }),
+      // Query parameters, not a hand-built string: the body must be
+      // percent-encoded, and concatenating it by hand is how a payload picks
+      // up a stray '&' and arrives cut in half.
+      ReportDestination.email => Uri(
+          scheme: 'mailto',
+          path: mail,
+          queryParameters: {
+            'subject': 'Ports Ahoy run report',
+            'body': '$payload\n\nNothing to edit — just send. '
+                'Anything you want to add can go below.\n',
+          },
+        ),
     };
   }
+
+  /// Whether the tester's own identity rides along with the report.
+  ///
+  /// The consent sheet must never claim more privacy than the transport
+  /// actually gives. Email attaches the sender's address by construction, and
+  /// a GitHub issue is stamped with their username on a public page — telling
+  /// a player "no name, no email" in either case would be exactly the kind of
+  /// comfortable lie this project is meant not to tell.
+  static bool get revealsSender => switch (destination) {
+        ReportDestination.none => false,
+        ReportDestination.googleForm => false,
+        ReportDestination.githubIssue => true,
+        ReportDestination.email => true,
+      };
+
+  /// How the sheet describes what identity travels, in the player's terms.
+  static String get identityNote => switch (destination) {
+        ReportDestination.none || ReportDestination.googleForm =>
+          'It carries the day-by-day numbers and nothing else: no name, no '
+              'email, no device id, no location.',
+        ReportDestination.githubIssue =>
+          'It carries the day-by-day numbers and nothing else — no device id, '
+              'no location — but GitHub will show your username on the issue '
+              'you file.',
+        ReportDestination.email =>
+          'It carries the day-by-day numbers and nothing else — no device id, '
+              'no location — but it is an email, so your address comes with '
+              'it. Use the Copy button instead if you would rather it did '
+              'not.',
+      };
 
   /// What to call the destination in the consent sheet, so the player is told
   /// where their run is actually going before they send it.
@@ -122,5 +198,6 @@ class ReportEndpoint {
         ReportDestination.none => 'nowhere',
         ReportDestination.googleForm => 'a form in your browser',
         ReportDestination.githubIssue => 'a new issue on GitHub',
+        ReportDestination.email => 'an email to $inbox',
       };
 }

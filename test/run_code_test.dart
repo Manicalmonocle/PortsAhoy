@@ -235,11 +235,38 @@ void _endpointTests() {
           lessThan(ReportEndpoint.maxPayloadFor(ReportDestination.googleForm)));
     });
 
+    test('an email link addresses the inbox and carries the payload', () {
+      final u = ReportEndpoint.urlFor(ReportDestination.email, payload,
+          mail: 'someone@example.com')!;
+      expect(u.scheme, 'mailto');
+      expect(u.path, 'someone@example.com');
+      expect(u.queryParameters['body'], contains(payload));
+      // Percent-encoded by Uri, not concatenated: a raw '&' in the body would
+      // otherwise end the parameter and deliver half a run.
+      expect(u.toString(), contains('%'));
+    });
+
+    // The whole reason email is acceptable as a transport. A mail client that
+    // silently clips a long mailto: produces a payload indistinguishable from
+    // a shorter run, and the analysis would read the truncation as a player
+    // who stopped playing.
+    test('a payload cut in transit is detected, not believed', () {
+      final j = _sampleRun(days: 40, marks: 6);
+      final code = _encode(j);
+      expect(RunCode.decode(code).lostInTransit, isFalse);
+
+      final cut = code.substring(0, code.length - 60);
+      final back = RunCode.decode(cut);
+      expect(back.lostInTransit, isTrue);
+      expect(back.declaredDays, 40);
+      expect(back.days.length, lessThan(40));
+    });
+
     // The app must never hold a credential. Both identifiers here are public
     // by construction, and this is the guard that keeps it that way.
     test('no destination setting looks like a secret', () {
       for (final v in [ReportEndpoint.formId, ReportEndpoint.entryId,
-          ReportEndpoint.repo]) {
+          ReportEndpoint.repo, ReportEndpoint.inbox]) {
         expect(RegExp(r'gh[pousr]_|ghs_|github_pat_|AIza').hasMatch(v), isFalse,
             reason: 'a token must never be compiled into a public build');
       }

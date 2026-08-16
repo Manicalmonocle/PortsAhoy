@@ -112,11 +112,10 @@ class _SendReportSheet extends StatelessWidget {
             Text(
               _canSend
                   ? 'Send opens ${ReportEndpoint.label} with the report above '
-                      'already filled in — submit it there and it comes to me. '
-                      'It carries the day-by-day numbers and nothing else: no '
-                      'name, no email, no device id, no location. Nothing '
-                      'leaves this device unless you tap Send, and the game '
-                      'plays exactly the same if you never do.'
+                      'already filled in — send it from there and it comes to '
+                      'me. ${ReportEndpoint.identityNote} Nothing leaves this '
+                      'device unless you tap Send, and the game plays exactly '
+                      'the same if you never do.'
                   : tooLong
                       ? 'This run is unusually long, so it will not fit in a '
                           'link. Copy it instead and paste it wherever suits '
