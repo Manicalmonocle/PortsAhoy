@@ -127,6 +127,7 @@ class Voyage {
     required this.returnTick,
     required this.quotedCoin,
     this.escorted = false,
+    this.riskFactor = 1.0,
   });
 
   final String destinationId;
@@ -141,6 +142,18 @@ class Voyage {
   final int quotedCoin;
 
   final bool escorted;
+
+  /// The captain's effect on danger, frozen at departure alongside the days and
+  /// the quote.
+  ///
+  /// It used to be read live when the hull came home, while the captain's
+  /// commission had already been taken out of [quotedCoin] at departure — so
+  /// the payment and the benefit came from different moments. Sending with
+  /// nobody retained and hiring a captain while the ships were out bought
+  /// their protection for every hull already at sea without paying a penny of
+  /// commission on any of them. A crossing now carries the terms it left under,
+  /// which is the same rule the rest of the game follows.
+  final double riskFactor;
 
   Destination get destination => destinationById(destinationId);
 
@@ -161,6 +174,7 @@ class Voyage {
         'ret': returnTick,
         'quote': quotedCoin,
         'escort': escorted,
+        'risk': riskFactor,
       };
 
   static Voyage? fromJson(Map<String, dynamic> j) {
@@ -181,6 +195,8 @@ class Voyage {
       returnTick: (j['ret'] as num).toInt(),
       quotedCoin: (j['quote'] as num).toInt(),
       escorted: j['escort'] as bool? ?? false,
+      // Saves written before the factor was frozen sail on their own terms.
+      riskFactor: (j['risk'] as num?)?.toDouble() ?? 1.0,
     );
   }
 }

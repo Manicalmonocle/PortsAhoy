@@ -82,7 +82,8 @@ class _TradePanelState extends State<TradePanel> {
                 : 'A port this size supports ${s.officerCapacity} '
                     'officer${s.officerCapacity == 1 ? "" : "s"}. '
                     'Another berth opens at '
-                    '${s.producingSheds < 9 ? 9 : 16} working sheds.',
+                    '${s.staffedSheds < 9 ? 9 : 16} staffed sheds — '
+                    'you have ${s.staffedSheds}.',
             style: const TextStyle(
                 fontSize: 11, color: Palette.fog, height: 1.4),
           ),
@@ -431,8 +432,9 @@ class _RetinueCard extends StatelessWidget {
                           Text(
                             'No berth free — you keep '
                             '${s.officersRetained} of ${s.officerCapacity} '
-                            'officers. Pay one off, or build up to '
-                            '${s.producingSheds < 9 ? 9 : 16} sheds.',
+                            'officers. Pay one off, or put hands in '
+                            '${s.staffedSheds < 9 ? 9 : 16} sheds '
+                            '(${s.staffedSheds} are worked now).',
                             style: const TextStyle(
                                 fontSize: 11, color: Palette.lamp),
                           ),
@@ -460,7 +462,12 @@ class _RetinueCard extends StatelessWidget {
               Align(
                 alignment: Alignment.centerLeft,
                 child: TextButton(
-                  onPressed: () => controller.act((g) => g.dismiss(track)),
+                  // Confirmed, because it is destructive and irreversible: the
+                  // whole track drops to nobody, nothing is refunded, and
+                  // climbing back costs the full ladder again. It also sits an
+                  // inch from "Hire", and the blocked-hire copy above sends
+                  // players here on purpose.
+                  onPressed: () => _confirmDismiss(context, hired),
                   style: TextButton.styleFrom(
                     foregroundColor: Palette.fog,
                     visualDensity: VisualDensity.compact,
@@ -471,6 +478,39 @@ class _RetinueCard extends StatelessWidget {
               ),
           ],
         ),
+      ),
+    );
+  }
+
+  void _confirmDismiss(BuildContext context, Retainer hired) {
+    final backToLevel = hired.level > 1 ? ' — including the ${hired.level - 1} '
+        'rung${hired.level > 2 ? "s" : ""} below them' : '';
+    showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: Palette.panel,
+        title: Text('Pay off ${hired.name}?'),
+        content: Text(
+          'The whole ${hired.track.name} track goes back to nobody$backToLevel, '
+          'and none of the ${hired.coinCost}c you signed them for comes back. '
+          'Re-hiring means paying the full ladder again.\n\n'
+          'It does free a berth.',
+          style: const TextStyle(height: 1.5),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('Keep them on'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.of(dialogContext).pop();
+              controller.act((g) => g.dismiss(track));
+            },
+            child: const Text('Pay off',
+                style: TextStyle(color: Palette.rust)),
+          ),
+        ],
       ),
     );
   }

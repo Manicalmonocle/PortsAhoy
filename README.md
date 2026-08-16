@@ -223,11 +223,33 @@ to them, so a retained captain makes every crossing quicker and safer and pays
 *less* per voyage — the gain has to come from sailing more of them. The
 quartermaster stays on a flat wage, since carting earns nothing to take a cut of.
 
-**Officer berths.** A port supports one officer until 9 working sheds, two until
-16, three after. The first hire is a choice between price, speed and having your
-yards carted — not the first item on a shopping list you will finish anyway.
+**Officer berths.** A port supports one officer until 9 **staffed** sheds, two
+until 16, three after. The first hire is a choice between price, speed and having
+your yards carted — not the first item on a shopping list you will finish anyway.
 Promoting someone you already retain never needs a new berth. In a probe run the
 second berth opened on day 50 and the third on day 88, against a win around 116.
+
+Staffed, not built, and the distinction is the whole gate: an empty shed costs
+nothing to keep, so counting built ones let a player throw up cheap huts nobody
+worked in and buy all three berths outright for a few hundred coin. A working
+port supports officers; a field of empty huts does not.
+
+### Saving
+
+The game autosaves every ten seconds while the clock runs, on every deliberate
+action, and the moment the app is backgrounded or the tab hidden.
+
+This is worth writing down because for most of the project's life it did none of
+those things. `GameController.save()` existed, was correct, and **had no caller
+anywhere in `lib/`** — no lifecycle observer, no timer, no button. Every run
+lived in memory and died with the process, and the offline catch-up in `load()`
+could never fire because nothing had ever written a timestamp for it to read.
+
+The test suite did not catch it for a simple reason: the test called `save()`
+itself, so it proved that saving *works* rather than that the game *does it*.
+There is now a second test that refuses to call `save()` and asserts a played
+run comes back anyway; it fails against the old code, which is the only reason
+to trust it.
 
 ### Learning it
 

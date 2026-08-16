@@ -446,7 +446,12 @@ class CharterOfferDialog extends StatelessWidget {
         .whereType<Charter>()
         .toList();
 
-    return AlertDialog(
+    // The Android back button dismisses a dialog even with barrierDismissible
+    // false, which lost the charter this run had just earned — and for a first
+    // win left no route back to it at all. The choice has to be made.
+    return PopScope(
+      canPop: false,
+      child: AlertDialog(
       backgroundColor: Palette.panel,
       title: const Text('The light is lit'),
       content: SingleChildScrollView(
@@ -528,6 +533,7 @@ class CharterOfferDialog extends StatelessWidget {
             child: const Text('Back to the harbour'),
           ),
       ],
+      ),
     );
   }
 }

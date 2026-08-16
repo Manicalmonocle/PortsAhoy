@@ -17,7 +17,8 @@ Future<GameController> boot(WidgetTester tester) async {
   addTearDown(tester.view.reset);
 
   SharedPreferences.setMockInitialValues({});
-  final c = GameController();
+  // Pinned: a golden must compare the same world every time.
+  final c = GameController(seedOverride: 20260815);
   await c.load();
   c.setSpeed(0);
   addTearDown(c.dispose);

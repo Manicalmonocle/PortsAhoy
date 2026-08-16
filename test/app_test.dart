@@ -27,7 +27,7 @@ Future<GameController> pumpGame(WidgetTester tester,
   addTearDown(tester.view.reset);
 
   SharedPreferences.setMockInitialValues({});
-  final controller = GameController();
+  final controller = GameController(seedOverride: 20260815);
   await controller.load();
   controller.setSpeed(0);
   addTearDown(controller.dispose);
@@ -478,5 +478,114 @@ void main() {
     expect(reloaded.state.coin, 1234);
 
     await closeGame(tester);
+  });
+
+  group('the game saves itself', () {
+    // THE TEST ABOVE IS WHY THIS ONE EXISTS. It calls save() by hand, so it
+    // passed for the entire life of the project while GameController.save()
+    // had no caller anywhere in lib/ — no lifecycle observer, no timer, no
+    // button. Every run lived in RAM and died with the process. A test that
+    // invokes the mechanism proves the mechanism works; only a test that
+    // refuses to invoke it proves the game uses it.
+    testWidgets('a run is written without anyone calling save', (tester) async {
+      final c = await pumpGame(tester);
+      c.setSpeed(4);
+      // Frame by frame: the controller's clock is a 100ms periodic timer, and
+      // one long pump does not fire it repeatedly.
+      for (var i = 0; i < 40; i++) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+      c.setSpeed(0);
+      await tester.pumpAndSettle();
+
+      expect(c.state.tick, greaterThan(0), reason: 'the clock must have run');
+
+      final reloaded = GameController(seedOverride: 20260815);
+      await reloaded.load();
+      reloaded.setSpeed(0);
+      addTearDown(reloaded.dispose);
+
+      // Not the live tick: autosave is throttled on wall-clock time and this
+      // whole test runs in a few milliseconds, so exactly one write lands. The
+      // point is that a write happened at all without anyone asking — a fresh,
+      // never-saved game reloads at tick 0.
+      expect(reloaded.state.tick, greaterThan(0),
+          reason: 'playing the game must persist it, unprompted');
+
+      await closeGame(tester);
+    });
+
+    testWidgets('a run begun from a cold launch carries the charters',
+        (tester) async {
+      // load()'s no-save path used to call GameState.newGame() with no
+      // charters at all, while startNewRun() passed them — so the two ways
+      // into a run disagreed. A player who set two hardships and relaunched
+      // was quietly given an easy run and, on winning, a record filed under
+      // "No hardship".
+      SharedPreferences.setMockInitialValues({
+        'ports_ahoy_profile': jsonEncode({
+          'owned': ['hard_weather', 'bitter_seas'],
+          'active': ['hard_weather', 'bitter_seas'],
+          'runs': <dynamic>[],
+          'pending': <String>[],
+        }),
+      });
+
+      final c = GameController(seedOverride: 20260815);
+      await c.load();
+      c.setSpeed(0);
+      addTearDown(c.dispose);
+
+      expect(c.state.charters.ids, containsAll(['hard_weather', 'bitter_seas']),
+          reason: 'a cold launch must begin the run the player selected');
+      expect(c.state.charters.difficulty, 4,
+          reason: 'and it must be recorded at the difficulty they chose');
+    });
+
+    testWidgets('every victory in a session is recorded, not just the first',
+        (tester) async {
+      final c = await pumpGame(tester);
+
+      // Win once.
+      c.state.lighthouseBuilt = true;
+      await c.recordVictory();
+      expect(c.profile.runs, hasLength(1));
+      await c.chooseCharter(c.profile.pendingChoice.first);
+
+      // Sail again, and win again in the same sitting.
+      await c.startNewRun();
+      c.setSpeed(0); // startNewRun un-pauses; keep the clock out of the test
+      expect(c.state.victoryRecorded, isFalse,
+          reason: 'a new port has not won anything yet');
+      c.state.lighthouseBuilt = true;
+      await c.recordVictory();
+
+      expect(c.profile.runs, hasLength(2),
+          reason: 'the second run of a session must be filed too');
+
+      await closeGame(tester);
+    });
+
+    testWidgets('suspending the app writes the port immediately',
+        (tester) async {
+      final c = await pumpGame(tester);
+      await tester.pump();
+      c.state.coin = 4321;
+
+      // What Android does when the player switches away.
+      tester.binding
+          .handleAppLifecycleStateChanged(AppLifecycleState.paused);
+      await tester.pumpAndSettle();
+
+      final reloaded = GameController(seedOverride: 20260815);
+      await reloaded.load();
+      reloaded.setSpeed(0);
+      addTearDown(reloaded.dispose);
+
+      expect(reloaded.state.coin, 4321,
+          reason: 'backgrounding the app must not cost the player their port');
+
+      await closeGame(tester);
+    });
   });
 }

@@ -26,11 +26,19 @@ GameState stocked() {
 ///
 /// A starting port supports one, which is the point of the cap — so any test
 /// that retains two tracks has to build up to it first, exactly as a player
-/// does.
+/// does. The sheds must be *staffed*: berths count hands at work, precisely so
+/// that a row of empty huts cannot buy the cap out.
 void openBerths(GameState g, int want) {
+  var guard = 0;
   while (g.officerCapacity < want) {
+    if (++guard > 60) {
+      throw StateError('could not reach $want berths — is officerCapacity '
+          'still keyed on something this loop can grow?');
+    }
     g.buildings.add(Building(defId: 'fishing_wharf'));
+    g.population += 1;
     g.placeAll();
+    g.setWorkers(g.buildings.length - 1, 1);
   }
 }
 
@@ -365,6 +373,79 @@ void retinueTests() {
       // Paying them off frees the berth again.
       g.dismiss(RetinueTrack.merchant);
       expect(g.canHire(retainerAt(RetinueTrack.captain, 1)!), isTrue);
+    });
+
+    test('a crossing sails under the terms it left on', () {
+      // The captain's commission comes out of the quote at departure, so their
+      // protection has to be fixed at departure too. Read live at settlement,
+      // it could be bought for hulls already at sea by hiring while they were
+      // out — the benefit without the cut.
+      final g = stocked();
+      g.coin = 100000;
+      g.stock[Resource.planks] = 200;
+
+      g.captainLevel = 0;
+      expect(
+          g.sendVoyage(kDestinations.first, {Resource.planks: 40.0}), isTrue);
+      final sailed = g.voyages.last;
+      expect(sailed.riskFactor, 1.0, reason: 'she left with nobody aboard');
+
+      // Hiring now must not reach back and protect her.
+      openBerths(g, 1);
+      g.hire(retainerAt(RetinueTrack.captain, 1)!);
+      expect(g.voyageRiskFactor, lessThan(1.0));
+      expect(sailed.riskFactor, 1.0,
+          reason: 'a hull already at sea keeps the terms she sailed under');
+
+      // And the frozen factor survives a save.
+      final restored = GameState.fromJson(
+          jsonDecode(jsonEncode(g.toJson())) as Map<String, dynamic>);
+      expect(restored.voyages.last.riskFactor, 1.0);
+    });
+
+    test('empty huts cannot buy a berth', () {
+      // The cap keys off staffed sheds, not built ones. Counting built sheds
+      // meant a player could throw up cheap huts nobody worked in and unlock
+      // all three officers for a few hundred coin, which is exactly the pacing
+      // gate the cap exists to be.
+      final g = stocked();
+      g.coin = 100000;
+      for (var i = 0; i < 20; i++) {
+        g.buildings.add(Building(defId: 'fishing_wharf'));
+      }
+      g.placeAll();
+
+      final staffedBefore = g.staffedSheds;
+      expect(g.producingSheds, greaterThanOrEqualTo(16),
+          reason: 'enough BUILT sheds to have unlocked every berth');
+      expect(g.staffedSheds, staffedBefore,
+          reason: 'not one of the new huts has a hand in it');
+      expect(g.officerCapacity, 1,
+          reason: 'so a field of empty huts buys no berths at all');
+    });
+
+    test('a save from before berths existed is brought within the cap', () {
+      final g = stocked();
+      g.coin = 100000;
+      openBerths(g, 3);
+      g.hire(retainerAt(RetinueTrack.captain, 1)!);
+      g.hire(retainerAt(RetinueTrack.merchant, 1)!);
+      g.hire(retainerAt(RetinueTrack.quartermaster, 1)!);
+      expect(g.officersRetained, 3);
+
+      // The port shrinks below what three officers need — or the save predates
+      // the cap entirely, which is the same shape of problem.
+      for (final b in g.buildings) {
+        b.workers = 0;
+      }
+
+      final restored = GameState.fromJson(
+          jsonDecode(jsonEncode(g.toJson())) as Map<String, dynamic>);
+
+      expect(restored.officersRetained,
+          lessThanOrEqualTo(restored.officerCapacity),
+          reason: 'loading must not leave a roster exempt from the cap that '
+              'every later run has to live with');
     });
 
     test('commission scales with the cargo, so no hire is ever free money', () {

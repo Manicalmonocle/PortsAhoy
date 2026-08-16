@@ -72,7 +72,14 @@ class Profile {
     final out = <int, RunRecord>{};
     for (final r in runs) {
       final prev = out[r.difficulty];
-      if (prev == null || r.days < prev.days) out[r.difficulty] = r;
+      if (prev == null ||
+          r.days < prev.days ||
+          // Same day count: the larger port is the better showing. Without a
+          // tiebreak the first run always won and the card could go on showing
+          // a smaller town than one you had just bettered it with.
+          (r.days == prev.days && r.population > prev.population)) {
+        out[r.difficulty] = r;
+      }
     }
     return out;
   }
@@ -102,13 +109,18 @@ class Profile {
     return picked;
   }
 
-  /// Drop any active charter that is no longer affordable, cheapest advantage
-  /// first, so a selection can never be left illegal.
+  /// Drop active charters until the selection is affordable again.
+  ///
+  /// The dearest advantage goes first, which settles the overage in the fewest
+  /// removals and so takes the least away from the player. (The comment here
+  /// used to claim the opposite of what the code did — it said cheapest-first
+  /// while sorting dearest-first. The behaviour was the better of the two, so
+  /// the description was what needed correcting.)
   void reconcile() {
     active.removeWhere((id) => !owned.contains(id));
     while (!activeSet.isLegal) {
       final advantages = activeSet.active.where((c) => !c.isHardship).toList()
-        ..sort((a, b) => a.weight.compareTo(b.weight));
+        ..sort((a, b) => a.weight.compareTo(b.weight)); // -2 before -1
       if (advantages.isEmpty) break;
       active.remove(advantages.first.id);
     }

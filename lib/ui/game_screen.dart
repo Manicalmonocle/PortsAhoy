@@ -32,32 +32,49 @@ enum _Panel { none, build, quay, trade, log, sheds, charters }
 class _GameScreenState extends State<GameScreen> {
   _Panel _panel = _Panel.none;
   int? _selected;
-  bool _offerShown = false;
 
-  /// The moment the light is lit, record the run and offer a charter. Guarded
-  /// so a rebuild cannot show it twice.
+  /// True only while the offer dialog is actually up.
+  ///
+  /// Deliberately NOT a once-per-session latch. It used to be `_offerShown`,
+  /// set true forever the first time a light was lit and reset by nothing —
+  /// so the second run you finished in a sitting was thrown away in silence:
+  /// no record, no charter, no dialog. "Once per run" is now answered by
+  /// [GameState.victoryRecorded], which resets with the port and survives a
+  /// reload; this flag only stops a rebuild stacking two dialogs.
+  bool _offerInFlight = false;
+
+  /// The moment the light is lit, record the run and offer a charter.
   void _maybeOfferCharter(BuildContext context) {
     final c = widget.controller;
-    if (!c.state.lighthouseBuilt || _offerShown) return;
-    if (c.profile.runs.length > c.profile.wins) return;
+    if (!c.state.lighthouseBuilt || _offerInFlight) return;
+    // Nothing left to do once the run is filed and any offer answered.
+    if (c.state.victoryRecorded && !c.profile.hasChoicePending) return;
 
-    final alreadyRecorded = c.profile.runs.any((r) =>
-        r.days == c.state.day && r.population == c.state.population);
-    if (!alreadyRecorded && !c.profile.hasChoicePending) {
-      c.recordVictory();
-    }
-    if (!c.profile.hasChoicePending) return;
+    // A win that earns no charter — the player owns all seventeen — still
+    // deserves to be told it happened. Without this the light simply went out
+    // and nothing acknowledged the run at all.
+    final firstFiling = !c.state.victoryRecorded;
 
-    _offerShown = true;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      showDialog<void>(
-        context: context,
-        barrierDismissible: false,
-        builder: (_) => CharterOfferDialog(controller: c),
-      ).then((_) {
-        if (mounted) setState(() => _panel = _Panel.charters);
-      });
+    _offerInFlight = true;
+    // recordVictory notifies listeners, which must not happen during a build.
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) {
+        _offerInFlight = false;
+        return;
+      }
+      await c.recordVictory(); // no-ops if this run is already filed
+      if (mounted && (c.profile.hasChoicePending || firstFiling)) {
+        await showDialog<void>(
+          context: this.context,
+          barrierDismissible: false,
+          builder: (_) => CharterOfferDialog(controller: c),
+        );
+      }
+      if (mounted) setState(() => _panel = _Panel.charters);
+      // Cleared rather than latched: if the choice is still outstanding — the
+      // player pressed back — the next build offers it again instead of
+      // stranding them with a charter they can never claim.
+      _offerInFlight = false;
     });
   }
 

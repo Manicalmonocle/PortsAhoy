@@ -248,6 +248,15 @@ class GameState {
   final SeededRng rng;
   bool lighthouseBuilt;
 
+  /// Whether this run's victory has already been written to the profile.
+  ///
+  /// Belongs to the run rather than to a widget. It used to be a `bool` field
+  /// on the game screen's State, which nothing ever reset — so the second run
+  /// you finished in one sitting was silently discarded: no record, no charter,
+  /// no dialog. Living here it resets with the port and survives a reload,
+  /// which is what "once per run" actually means.
+  bool victoryRecorded = false;
+
   /// The weather and the wider world. Replaced wholesale on load.
   EventSystem events = EventSystem();
 
@@ -1186,6 +1195,9 @@ class GameState {
       returnTick: tick + days * Balance.ticksPerDay,
       quotedCoin: quote,
       escorted: escorted,
+      // Frozen with the quote and the days: a crossing sails under the terms
+      // it left on, and cannot be improved by hiring after it has gone.
+      riskFactor: voyageRiskFactor,
     ));
 
     // Selling abroad never touches your own quay, which is the whole point:
@@ -1202,7 +1214,7 @@ class GameState {
       voyages.remove(v);
 
       final dest = v.destination;
-      var risk = dest.risk * voyageRiskFactor;
+      var risk = dest.risk * v.riskFactor;
       // Privateers in the lanes are exactly when a lone hull goes missing.
       if (events.live(tick).any((e) => e.defId == 'privateer_scare')) {
         risk *= 2;
@@ -1238,6 +1250,17 @@ class GameState {
   /// against, since infrastructure has no yard to cart.
   int get producingSheds =>
       buildings.where((b) => b.def.outputs.isNotEmpty).length;
+
+  /// Sheds with somebody in them.
+  ///
+  /// The berth cap keys off this rather than off [producingSheds], because an
+  /// empty shed costs nothing to keep: a player could throw up cheap huts they
+  /// never staffed and buy all three berths outright for a few hundred coin,
+  /// which is precisely the pacing gate the cap exists to be. A working port is
+  /// the thing that supports officers, not a field of empty buildings.
+  int get staffedSheds => buildings
+      .where((b) => b.def.outputs.isNotEmpty && b.workers > 0)
+      .length;
 
   bool canHire(Retainer r) =>
       r.level == levelOn(r.track) + 1 &&
@@ -1296,7 +1319,7 @@ class GameState {
   int get officersRetained =>
       RetinueTrack.values.where((t) => levelOn(t) > 0).length;
 
-  int get officerCapacity => officerCapacityFor(producingSheds);
+  int get officerCapacity => officerCapacityFor(staffedSheds);
 
   /// A new *track* needs a free berth on the books; promoting someone you
   /// already retain does not, since it is the same person paid better.
@@ -1661,6 +1684,7 @@ class GameState {
         'market': market.toJson(),
         'seed': rng.seed,
         'lighthouseBuilt': lighthouseBuilt,
+        'victoryRecorded': victoryRecorded,
       };
 
   static GameState fromJson(Map<String, dynamic> j) {
@@ -1709,8 +1733,45 @@ class GameState {
     // change the conditions you started playing on.
     state.charters =
         CharterSet.fromIds((j['charters'] as List? ?? []).cast<String>());
+    state.victoryRecorded = j['victoryRecorded'] as bool? ?? false;
     state.placeAll();
     state.syncYards();
+    state._clampRetinueToBerths();
     return state;
+  }
+
+  /// Bring a loaded roster within the berth cap.
+  ///
+  /// Saves written before berths existed can hold all three tracks at a port
+  /// that now supports one, and [canHire] only gates *new* tracks — so an
+  /// over-cap roster would have gone on being promoted forever, exempt from a
+  /// limit every later run has to live with. Officers are let go from the
+  /// cheapest track up, so what survives is the investment the player made
+  /// most heavily in.
+  void _clampRetinueToBerths() {
+    var over = officersRetained - officerCapacity;
+    if (over <= 0) return;
+
+    final held = RetinueTrack.values.where((t) => levelOn(t) > 0).toList()
+      ..sort((a, b) =>
+          (hiredOn(a)?.coinCost ?? 0).compareTo(hiredOn(b)?.coinCost ?? 0));
+
+    for (final t in held) {
+      if (over <= 0) break;
+      final who = hiredOn(t);
+      switch (t) {
+        case RetinueTrack.captain:
+          captainLevel = 0;
+        case RetinueTrack.merchant:
+          merchantLevel = 0;
+        case RetinueTrack.quartermaster:
+          quartermasterLevel = 0;
+      }
+      if (who != null) {
+        log('${who.name} was let go — the port keeps $officerCapacity '
+            'officer${officerCapacity == 1 ? "" : "s"}.', LogKind.info);
+      }
+      over--;
+    }
   }
 }

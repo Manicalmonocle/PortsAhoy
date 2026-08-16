@@ -13,7 +13,14 @@ import 'sim/profile.dart';
 /// timers this is the thing you would sell; here it is a button, and the
 /// difficulty lives in allocation instead of waiting.
 class GameController extends ChangeNotifier {
-  GameController();
+  GameController({this.seedOverride});
+
+  /// Pins the world a new run draws, for tests and for the store screenshots.
+  ///
+  /// Real play wants a different port every time; a golden test wants the same
+  /// one forever. Without this the screenshot suite compares a fresh random
+  /// world against a recorded image and fails at random.
+  final int? seedOverride;
 
   static const String _saveKey = 'ports_ahoy_save_v1';
   static const String _savedAtKey = 'ports_ahoy_saved_at_ms';
@@ -74,7 +81,7 @@ class GameController extends ChangeNotifier {
     final raw = prefs.getString(_saveKey);
 
     if (raw == null) {
-      state = GameState.newGame();
+      state = _freshRun();
     } else {
       try {
         state = GameState.fromJson(jsonDecode(raw) as Map<String, dynamic>);
@@ -90,7 +97,7 @@ class GameController extends ChangeNotifier {
         }
       } catch (_) {
         // A corrupt or incompatible save should not brick the app.
-        state = GameState.newGame();
+        state = _freshRun();
       }
     }
 
@@ -98,6 +105,27 @@ class GameController extends ChangeNotifier {
     _syncTimer();
     notifyListeners();
   }
+
+  /// A brand new port under the charters currently in force.
+  ///
+  /// Every path that begins a run goes through here. It used to be three
+  /// separate `GameState.newGame()` calls and only one of them passed the
+  /// charters, so a run begun from the load fallback was quietly simulated at
+  /// difficulty 0 while the charter screen still listed the hardships as in
+  /// force — and the win was then filed on the "No hardship" ladder.
+  GameState _freshRun() {
+    profile.reconcile();
+    return GameState.newGame(seed: _newSeed(), charters: profile.activeSet);
+  }
+
+  /// A fresh world number.
+  ///
+  /// `millisecondsSinceEpoch % 100000` was periodic with a hundred-second
+  /// wall-clock cycle, so two runs begun a hundred seconds apart drew the same
+  /// world. Microseconds across the full positive range do not repeat in any
+  /// span a player will notice.
+  int _newSeed() =>
+      seedOverride ?? (DateTime.now().microsecondsSinceEpoch & 0x7FFFFFFF);
 
   /// The clock only exists while it has something to do. A paused or finished
   /// game holds no timer at all, which keeps a backgrounded port off the CPU.
@@ -124,7 +152,44 @@ class GameController extends ChangeNotifier {
       state.step();
       steps++;
     }
-    if (steps > 0) notifyListeners();
+    if (steps > 0) {
+      notifyListeners();
+      _autosave();
+    }
+  }
+
+  /// Write the run to storage, at most once every [_autosaveGap].
+  ///
+  /// THIS EXISTS BECAUSE NOTHING CALLED [save]. The method was written, was
+  /// covered by a test that invoked it directly, and had no caller anywhere in
+  /// the app — no lifecycle observer, no timer, no button. A run therefore
+  /// lived only in memory: closing the tab, or Android reclaiming the process,
+  /// silently threw away the whole port. The test passed the entire time,
+  /// because it verified that saving works rather than that saving happens.
+  ///
+  /// The offline catch-up in [load] depends on this too: with no [_savedAtKey]
+  /// ever written, "while you were away" could never have anything to resolve.
+  void _autosave() {
+    if (!ready) return;
+    final now = DateTime.now();
+    if (_lastSaveAt != null && now.difference(_lastSaveAt!) < _autosaveGap) {
+      return;
+    }
+    _lastSaveAt = now;
+    unawaited(save());
+  }
+
+  DateTime? _lastSaveAt;
+
+  /// Often enough that a crash costs seconds, rarely enough that a phone is not
+  /// writing storage every frame.
+  static const Duration _autosaveGap = Duration(seconds: 10);
+
+  /// Persist right now, whatever the gap. For app suspend and for the moments
+  /// that must not be lost — a hire, a voyage, a finished lighthouse.
+  Future<void> saveNow() {
+    _lastSaveAt = DateTime.now();
+    return save();
   }
 
   void setSpeed(double value) {
@@ -144,6 +209,8 @@ class GameController extends ChangeNotifier {
     action(state);
     _syncTimer(); // finishing the lighthouse stops the clock
     notifyListeners();
+    // A deliberate action is exactly what a player would be sick to lose.
+    _autosave();
   }
 
   Future<void> save() async {
@@ -171,23 +238,41 @@ class GameController extends ChangeNotifier {
   /// Called once, the moment the light is lit. The offer is seeded from the
   /// run itself so closing the app cannot reroll it — the choice is meant to
   /// be a decision, not a slot machine.
+  ///
+  /// The record is written before anything can go wrong with the offer. It used
+  /// to return early when an older choice was still unresolved, which threw the
+  /// finished run away entirely — you sailed a hundred and twenty days and the
+  /// ladder never heard about it. A run that is finished is finished; the offer
+  /// is a separate question.
   Future<void> recordVictory() async {
-    if (profile.hasChoicePending) return;
+    if (state.victoryRecorded) return; // this run has already been filed
+    state.victoryRecorded = true;
+
     profile.runs.add(RunRecord(
       days: state.day,
       difficulty: state.charters.difficulty,
       population: state.population,
       charterIds: state.charters.ids,
     ));
-    profile.pendingChoice = profile.offer(state.rng.seed ^ state.day);
+
+    // Only offer if nothing is outstanding, and never overwrite an offer the
+    // player has not answered yet.
+    if (!profile.hasChoicePending) {
+      profile.pendingChoice = profile.offer(state.rng.seed ^ state.day);
+    }
     notifyListeners();
     await saveProfile();
+    await saveNow();
   }
 
   /// Take one of the offered charters into the collection.
+  ///
+  /// An empty id means "no charter" — the all-owned case — and must not be
+  /// written into the collection, or the profile accumulates a charter with no
+  /// name that [charterById] can never resolve.
   Future<void> chooseCharter(String id) async {
     profile.pendingChoice = const [];
-    profile.owned.add(id);
+    if (id.isNotEmpty) profile.owned.add(id);
     notifyListeners();
     await saveProfile();
   }
@@ -207,32 +292,27 @@ class GameController extends ChangeNotifier {
   /// Begin a fresh run under the charters currently in force. The profile
   /// itself is untouched — that is the whole point of keeping it separate.
   Future<void> startNewRun() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_saveKey);
-    await prefs.remove(_savedAtKey);
-    profile.reconcile();
-    state = GameState.newGame(
-      seed: DateTime.now().millisecondsSinceEpoch % 100000,
-      charters: profile.activeSet,
-    );
+    state = _freshRun();
     lastCatchUpTicks = 0;
     speed = 1;
     _syncTimer();
     notifyListeners();
     await saveProfile();
+    // Write the new port immediately rather than deleting the old save and
+    // leaving nothing behind until the next autosave.
+    await saveNow();
   }
 
   Future<void> resetGame() async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_saveKey);
-    await prefs.remove(_savedAtKey);
     await prefs.remove(_hintsKey);
     dismissedHints = {};
-    state = GameState.newGame(seed: DateTime.now().millisecondsSinceEpoch % 100000);
+    state = _freshRun();
     lastCatchUpTicks = 0;
     speed = 1;
     _syncTimer();
     notifyListeners();
+    await saveNow();
   }
 
   @override
