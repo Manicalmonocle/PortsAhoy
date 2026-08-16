@@ -144,6 +144,64 @@ void main() {
     });
   });
 
+  group('the run journal', () {
+    // The balance bot has been wrong twice in ways only real play caught, and
+    // guessing at how a person plays did not fix it. This is the trace a real
+    // run hands over so the bot can be lined up against it.
+    test('records a row a day and the moments worth knowing', () {
+      final g = GameState.newGame(seed: 7);
+      for (var d = 0; d < 20; d++) {
+        for (var t = 0; t < Balance.ticksPerDay; t++) {
+          tickAndCollect(g);
+        }
+      }
+
+      expect(g.journal.days, isNotEmpty);
+      expect(g.journal.days.length, greaterThanOrEqualTo(19),
+          reason: 'one row per day');
+      expect(g.journal.days.map((d) => d.day).toSet().length,
+          g.journal.days.length,
+          reason: 'no day recorded twice');
+
+      // A build is a moment worth knowing the day of.
+      g.coin = 9999;
+      g.stock[Resource.planks] = 500;
+      final before = g.journal.marks.length;
+      g.build(defById('fishing_wharf'));
+      expect(g.journal.marks.length, before + 1);
+      expect(g.journal.marks.last.what, contains('Fishing Wharf'));
+    });
+
+    test('the trace survives a save, or a long run loses its own history', () {
+      final g = GameState.newGame(seed: 7);
+      for (var d = 0; d < 6; d++) {
+        for (var t = 0; t < Balance.ticksPerDay; t++) {
+          tickAndCollect(g);
+        }
+      }
+      final restored = GameState.fromJson(
+          jsonDecode(jsonEncode(g.toJson())) as Map<String, dynamic>);
+
+      expect(restored.journal.days.length, g.journal.days.length);
+      expect(restored.journal.days.last.toCsv(), g.journal.days.last.toCsv());
+    });
+
+    test('a report is small enough to paste', () {
+      final g = GameState.newGame(seed: 7);
+      for (var d = 0; d < 40; d++) {
+        for (var t = 0; t < Balance.ticksPerDay; t++) {
+          tickAndCollect(g);
+        }
+      }
+      final text =
+          g.journal.report(charters: 'poor_soil', difficulty: 1, won: false);
+      expect(text, contains('day,pop,coin,built,staffed,foodDays,atSea'));
+      expect(text, contains('poor_soil'));
+      // Roughly 30 bytes a day; a 400-day cap must stay well inside a message.
+      expect(text.length / g.journal.days.length, lessThan(60));
+    });
+  });
+
   group('worker assignment', () {
     test('cannot assign more workers than are idle', () {
       final g = GameState.newGame();

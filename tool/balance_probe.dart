@@ -12,8 +12,10 @@
 
 import 'package:ports_ahoy/sim/buildings.dart';
 import 'package:ports_ahoy/sim/events.dart';
+import 'package:ports_ahoy/sim/charters.dart';
 import 'package:ports_ahoy/sim/game_state.dart';
 import 'package:ports_ahoy/sim/resources.dart';
+import 'package:ports_ahoy/sim/trade.dart';
 
 /// What the policy builds, in order, whenever it can afford the next item.
 const List<String> buildOrder = [
@@ -97,7 +99,32 @@ Map<String, double> _shortfallOf(GameState g) {
 /// against the previous run honestly, instead of against different weather.
 const List<int> seeds = [12345, 777, 20260815, 31415, 8675309, 4242, 99, 1618];
 
+/// The charters in force for this sweep, from `--charters=id1,id2`.
+///
+/// Added because a hardship was reported from play as changing nothing you
+/// could feel. A charter whose effect cannot be measured against the same eight
+/// seeds is a charter that is not really there.
+CharterSet _charters = CharterSet.none;
+
 void main(List<String> args) {
+  final arg = args.firstWhere((a) => a.startsWith('--charters='),
+      orElse: () => '');
+  if (arg.isNotEmpty) {
+    final ids = arg.substring('--charters='.length).split(',')
+      ..removeWhere((s) => s.isEmpty);
+    for (final id in ids) {
+      if (charterById(id) == null) {
+        final known = kCharters.map((c) => c.id).join(', ');
+        print('No such charter: $id');
+        print('Known: $known');
+        return;
+      }
+    }
+    _charters = CharterSet.fromIds(ids);
+    final held = _charters.ids.join(', ');
+    print('Charters in force: $held  (difficulty ${_charters.difficulty})');
+  }
+
   final verboseSeed = seeds.first;
   final runs = <Run>[];
 
@@ -148,7 +175,7 @@ void _summarise(List<Run> runs) {
 }
 
 Run _play(int seed, {bool verbose = false}) {
-  final g = GameState.newGame(seed: seed);
+  final g = GameState.newGame(seed: seed, charters: _charters);
   var buildIndex = 0;
   var peakCoin = 0;
   var lighthouseDay = -1;
@@ -176,6 +203,7 @@ Run _play(int seed, {bool verbose = false}) {
       _buyWhatWeLack(g);
     }
 
+    _sendConsignments(g);
     buildIndex = _tryBuild(g, buildIndex);
     _reassign(g);
 
@@ -224,6 +252,49 @@ void _sellEverythingOffered(GameState g) {
       final spare = g.stock[offer.resource] - reserve;
       if (spare >= 1) g.sell(ship, offer, spare);
     }
+  }
+}
+
+/// Ship surplus abroad, to the port that pays best per day of crossing.
+///
+/// THE BOT DID NOT DO THIS FOR MOST OF THE PROJECT, and the omission gave two
+/// wrong readings in a row: an A/B of the first merchant showed no effect at
+/// all (they earn most of their keep on consignments), and the Distant Waters
+/// charter — which does nothing BUT lengthen crossings — measured as exactly
+/// zero difficulty. A probe that never sails cannot price anything to do with
+/// sailing.
+///
+/// Deliberately simple: hold back the same reserves as the quay policy, fill a
+/// hull with whatever is spare, and pick the destination paying the best rate
+/// per day. A human would do better; this only has to be non-zero and
+/// consistent between runs.
+void _sendConsignments(GameState g) {
+  while (g.canSendVoyage) {
+    final cargo = <Resource, double>{};
+    for (final r in Resource.values) {
+      // Finished goods only. Shipping food starves the town while the hull is
+      // away, and shipping raws exports the very inputs the workshops are
+      // waiting on — the first version of this did both and cost six of eight
+      // seeds their win. A consignment is surplus leaving, not supply.
+      if (r.category != ResourceCategory.good) continue;
+      final spare = g.stock[r] - (reserves[r] ?? 0);
+      if (spare >= 20) cargo[r] = spare;
+    }
+    if (cargo.isEmpty) return;
+
+    Destination? best;
+    var bestRate = 0.0;
+    for (final d in kDestinations) {
+      final crossing = g.daysBreakdown(d);
+      if (crossing.days <= 0) continue;
+      final rate = g.quoteVoyage(d, cargo) / crossing.days;
+      if (rate > bestRate) {
+        bestRate = rate;
+        best = d;
+      }
+    }
+    if (best == null || bestRate <= 0) return;
+    if (!g.sendVoyage(best, cargo)) return;
   }
 }
 

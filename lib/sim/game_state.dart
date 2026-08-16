@@ -1,5 +1,6 @@
 import 'buildings.dart';
 import 'charters.dart';
+import 'journal.dart';
 import 'events.dart';
 import 'market.dart';
 import 'progression.dart';
@@ -247,6 +248,10 @@ class GameState {
   final Market market;
   final SeededRng rng;
   bool lighthouseBuilt;
+
+  /// A day-by-day trace of this run, for lining the balance bot up against
+  /// real play. Recording only; nothing reads it during a game.
+  RunJournal journal = RunJournal();
 
   /// Whether this run's victory has already been written to the profile.
   ///
@@ -817,6 +822,19 @@ class GameState {
     _payWages();
     _growTown();
     if (interactive) _rivalRaid();
+    _recordDay();
+  }
+
+  void _recordDay() {
+    journal.record(JournalDay(
+      day: day,
+      population: population,
+      coin: coin,
+      buildings: buildings.length,
+      staffed: staffedSheds,
+      foodDays: foodDays.isFinite ? foodDays : 0,
+      atSea: voyages.length,
+    ));
   }
 
   void _feedTown() {
@@ -1234,6 +1252,8 @@ class GameState {
     // Selling abroad never touches your own quay, which is the whole point:
     // it is how you move volume without collapsing the local price.
     final units = clean.values.fold(0.0, (s, v) => s + v).round();
+    journal.mark(day, 'sent $units units to ${dest.name}, '
+        '${crossing.label}, quoted ${quote}c');
     log('Sent $units units to ${dest.name}. Due back in ${crossing.label}, '
         'quoted ${quote}c.', LogKind.good);
     return true;
@@ -1331,6 +1351,8 @@ class GameState {
     }
     log('${r.name}, ${r.title.toLowerCase()}, signed on at '
         '${r.dailyWage}c a day.', LogKind.good);
+    journal.mark(day, 'hired ${r.track.name} L${r.level} (${r.name}) '
+        'for ${r.coinCost}c');
     return true;
   }
 
@@ -1462,6 +1484,7 @@ class GameState {
     autoPlace(b);
     buildings.add(b);
     log('${def.name} raised on the waterfront.', LogKind.good);
+    journal.mark(day, 'built ${def.name} (${buildings.length} total)');
     checkUnlocks(); // raising one shed often reveals the next
     return true;
   }
@@ -1704,6 +1727,7 @@ class GameState {
     coin -= lighthouseCoinCost;
     stock.payAll(lighthouseGoodsCost);
     lighthouseBuilt = true;
+    journal.mark(day, 'LIGHTHOUSE LIT — population $population');
     log('The Saltwind Light burns for the first time. The port is made.',
         LogKind.good);
     return true;
@@ -1740,6 +1764,7 @@ class GameState {
         'seed': rng.seed,
         'lighthouseBuilt': lighthouseBuilt,
         'victoryRecorded': victoryRecorded,
+        'journal': journal.toJson(),
       };
 
   static GameState fromJson(Map<String, dynamic> j) {
@@ -1789,6 +1814,8 @@ class GameState {
     state.charters =
         CharterSet.fromIds((j['charters'] as List? ?? []).cast<String>());
     state.victoryRecorded = j['victoryRecorded'] as bool? ?? false;
+    state.journal =
+        RunJournal.fromJson(j['journal'] as Map<String, dynamic>?);
     state.placeAll();
     state.syncYards();
     state._clampRetinueToBerths();
