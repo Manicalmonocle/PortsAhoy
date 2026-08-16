@@ -62,6 +62,7 @@ class DecodedRun {
     required this.daysTruncated,
     required this.marksTruncated,
     required this.declaredDays,
+    required this.unattendedDays,
     required this.lostInTransit,
     required this.marks,
     required this.days,
@@ -85,6 +86,11 @@ class DecodedRun {
 
   /// How many days the sending device said this run had.
   final int declaredDays;
+
+  /// How many of those ran while the app was closed. The game ticks in the
+  /// background, so a long run can contain stretches nobody played — and the
+  /// bot this is compared against plays every day actively.
+  final int unattendedDays;
 
   /// Fewer rows arrived than [declaredDays] implies — the payload was cut in
   /// transit. Distinct from [daysTruncated], which is the journal hitting its
@@ -155,6 +161,7 @@ class RunCode {
         _enc(j.days.length),
         (j.daysTruncated ? 1 : 0) + (j.marksTruncated ? 2 : 0),
         _enc(stride),
+        _enc(j.unattendedDays),
       ].join('~');
 
       final marks = <String>[];
@@ -195,11 +202,17 @@ class RunCode {
     final flags = int.parse(parts[7]);
     final stride = _dec(parts[8]);
 
-    final markField = parts[9];
-    final dayField = parts[10];
-    if (!markField.startsWith('M') || !dayField.startsWith('D')) {
-      throw FormatException('PA1 sections out of order', s);
-    }
+    // Located by their marker, not by position. Every other field is base-36
+    // or lowercase, so an uppercase M or D can only be a section head — and
+    // finding them this way means adding a header field later cannot silently
+    // shift the parse onto the wrong data.
+    final markField = parts.firstWhere((p) => p.startsWith('M'),
+        orElse: () => throw FormatException('PA1 has no milestone section', s));
+    final dayField = parts.firstWhere((p) => p.startsWith('D'),
+        orElse: () => throw FormatException('PA1 has no daily section', s));
+
+    final headerFields = parts.indexOf(markField);
+    final unattended = headerFields > 9 ? _dec(parts[9]) : 0;
 
     final marks = <DecodedMark>[];
     for (final raw in markField.substring(1).split('_')) {
@@ -257,6 +270,7 @@ class RunCode {
       daysTruncated: flags & 1 != 0,
       marksTruncated: flags & 2 != 0,
       declaredDays: declared,
+      unattendedDays: unattended,
       lostInTransit: days.length < expected,
       marks: marks,
       days: days,

@@ -842,10 +842,29 @@ class GameState {
     _payWages();
     _growTown();
     if (interactive) _rivalRaid();
-    _recordDay();
+    _recordDay(interactive: interactive);
   }
 
-  void _recordDay() {
+  void _recordDay({bool interactive = true}) {
+    // A run is over when the light is lit. Everything after it is a port
+    // nobody is steering, and it does not belong in a trace of how the run
+    // was played.
+    //
+    // This cost a real report. A save from before the journal existed was
+    // reopened in a later build, left running, and sent: 89 rows of
+    // population 0, coin 0, no milestones, 27 buildings still standing — a
+    // port whose people had starved and whose coin had gone to wages, which
+    // reads as a catastrophic collapse rather than as the win it followed.
+    // Left alone it would also have evicted the real days at the 400-day cap.
+    if (lighthouseBuilt) return;
+
+    // Days simulated while the app was closed are real days, but nobody made
+    // a decision on them. Counting them separately is the difference between
+    // "a player took 120 days" and "a player played 70 days and left it
+    // running for 50" — which are not the same reading at all, and the bot
+    // plays every day actively.
+    if (!interactive) journal.unattendedDays += 1;
+
     journal.record(JournalDay(
       day: day,
       population: population,
@@ -1762,6 +1781,9 @@ class GameState {
     if (!canBuildLighthouse) return false;
     coin -= lighthouseCoinCost;
     stock.payAll(lighthouseGoodsCost);
+    // Capture the winning day BEFORE the flag closes recording, or the run's
+    // last and most interesting row is the one row missing from it.
+    _recordDay();
     lighthouseBuilt = true;
     journal.mark(day, 'LIGHTHOUSE LIT — population $population',
         code: RunCode.winMark(day, population));

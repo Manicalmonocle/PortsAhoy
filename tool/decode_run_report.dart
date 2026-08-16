@@ -67,6 +67,12 @@ void _print(String code, int n, int total) {
   print('outcome:    ${r.won ? "lighthouse lit" : "unfinished"}');
   print('days:       ${r.days.length}'
       '${r.stride > 1 ? " (every ${r.stride} days — run was too long to send in full)" : ""}');
+  if (r.unattendedDays > 0) {
+    // The bot plays every day actively, so a curve half of which ran in the
+    // background is not a curve to tune against.
+    print('unattended: ${r.unattendedDays} of ${r.declaredDays} days ran with '
+        'the app closed — nobody was steering on those.');
+  }
   if (r.daysTruncated || r.marksTruncated) {
     print('WARNING:    the journal stopped recording before the run ended. '
         'The quiet tail is missing data, not a quiet port.');

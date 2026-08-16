@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:ports_ahoy/sim/buildings.dart';
+import 'package:ports_ahoy/sim/game_state.dart';
 import 'package:ports_ahoy/sim/journal.dart';
 import 'package:ports_ahoy/sim/run_code.dart';
 import 'package:ports_ahoy/report_endpoint.dart';
@@ -167,6 +168,61 @@ void main() {
     test('truncation survives a save and load', () {
       final j = _sampleRun(days: RunJournal.maxDays + 10);
       expect(RunJournal.fromJson(j.toJson()).daysTruncated, isTrue);
+    });
+
+    // The exact failure that produced the first real report ever sent: a save
+    // from before the journal existed, reopened in a later build and left
+    // running. The game ticks in the background, so it recorded 89 days of a
+    // won port whose people had starved — population 0, coin 0, no
+    // milestones, buildings still standing. That reads as a catastrophic
+    // collapse rather than the victory it followed.
+    test('a won port records nothing more, however long it is left running',
+        () {
+      final g = GameState.newGame(seed: 20260816);
+      void playDays(int n, {bool interactive = true}) {
+        for (var d = 0; d < n; d++) {
+          for (var t = 0; t < Balance.ticksPerDay; t++) {
+            g.step(interactive: interactive);
+          }
+        }
+      }
+
+      playDays(10);
+      final atWin = g.journal.days.length;
+      expect(atWin, greaterThan(0));
+
+      g.lighthouseBuilt = true;
+      playDays(40, interactive: false);
+
+      expect(g.journal.days.length, atWin,
+          reason: 'the run ended when the light was lit; days after it are a '
+              'port nobody is steering');
+      expect(g.journal.days.every((d) => d.population > 0), isTrue,
+          reason: 'no starved-port rows should have been appended');
+    });
+
+    test('days simulated with the app closed are counted', () {
+      final g = GameState.newGame(seed: 20260816);
+      for (var d = 0; d < 6; d++) {
+        for (var t = 0; t < Balance.ticksPerDay; t++) {
+          g.step(interactive: d < 3);
+        }
+      }
+      expect(g.journal.unattendedDays, 3);
+      expect(g.journal.days.length, 6);
+    });
+
+    test('days run in the background are counted and reported', () {
+      final j = _sampleRun(days: 20, marks: 3)..unattendedDays = 12;
+      final back = RunCode.decode(_encode(j));
+      expect(back.unattendedDays, 12);
+      expect(j.report(charters: '', difficulty: 0, won: false),
+          contains('unattended: 12'));
+    });
+
+    test('unattended survives a save and load', () {
+      final j = _sampleRun(days: 5, marks: 1)..unattendedDays = 3;
+      expect(RunJournal.fromJson(j.toJson()).unattendedDays, 3);
     });
 
     test('rejects input that is not a run code', () {

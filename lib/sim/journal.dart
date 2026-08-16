@@ -122,6 +122,15 @@ class RunJournal {
   bool daysTruncated = false;
   bool marksTruncated = false;
 
+  /// How many recorded days were simulated while the app was closed.
+  ///
+  /// The game keeps running in the background, so a trace can contain long
+  /// stretches nobody played. "120 days" and "70 days played, 50 left
+  /// running" are completely different readings of the same run, and the
+  /// balance bot plays every day actively — comparing it against a curve half
+  /// of which was unattended would tune the game against nobody.
+  int unattendedDays = 0;
+
   void record(JournalDay d) {
     if (days.length >= maxDays) {
       daysTruncated = true;
@@ -152,6 +161,10 @@ class RunJournal {
       ..writeln('difficulty: $difficulty')
       ..writeln('outcome: ${won ? "lighthouse lit" : "in progress"}')
       ..writeln('days recorded: ${days.length}');
+    if (unattendedDays > 0) {
+      b.writeln('unattended: $unattendedDays of ${days.length} days ran while '
+          'the app was closed — nobody was steering on those.');
+    }
     if (daysTruncated || marksTruncated) {
       b.writeln('TRUNCATED: this run outgrew the journal '
           '(${daysTruncated ? "days" : ""}'
@@ -180,6 +193,7 @@ class RunJournal {
         'marks': marks.map((m) => m.toJson()).toList(),
         if (daysTruncated) 'td': true,
         if (marksTruncated) 'tm': true,
+        if (unattendedDays > 0) 'ud': unattendedDays,
       };
 
   static RunJournal fromJson(Map<String, dynamic>? j) {
@@ -195,6 +209,7 @@ class RunJournal {
       // Survives a save/load, or a long run reloaded on a phone would forget
       // that its own tail is missing.
       ..daysTruncated = j['td'] == true
-      ..marksTruncated = j['tm'] == true;
+      ..marksTruncated = j['tm'] == true
+      ..unattendedDays = (j['ud'] as num?)?.toInt() ?? 0;
   }
 }
