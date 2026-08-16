@@ -33,6 +33,12 @@ class Balance {
   /// Days of food the town wants in store before anyone new moves in.
   static const double growthFoodDays = 2.0;
 
+  /// Chance an unpaid hand leaves on a given day, and the headcount below
+  /// which nobody leaves at all. Together these stop an empty treasury from
+  /// emptying the town.
+  static const double wageLossChance = 0.3;
+  static const int wageLossFloor = 4;
+
   /// The victory project.
   ///
   /// Deliberately demands one good from every chain rather than a big pile of
@@ -213,7 +219,7 @@ class GameState {
         Resource.fish: 18,
         Resource.planks: 10,
       }),
-      coin: 220 + ch.startCoin,
+      coin: 300 + ch.startCoin,
       buildings: [
         Building(defId: 'forest_camp', workers: 2),
         Building(defId: 'fishing_wharf', workers: 2),
@@ -393,6 +399,16 @@ class GameState {
     }
     return null;
   }
+
+  /// Days of wages the treasury can still cover.
+  double get wageRunwayDays {
+    final bill = dailyWageBill + retinueWageBill;
+    return bill <= 0 ? double.infinity : coin / bill;
+  }
+
+  /// True when the purse is running down and nothing has been sold to refill
+  /// it. Surfaced before the money is gone, not after.
+  bool get payrollAtRisk => wageRunwayDays < 4;
 
   /// True when the blocker is something gone wrong rather than simply a full
   /// town, so the HUD only shouts when there is something to fix.
@@ -810,7 +826,13 @@ class GameState {
     }
 
     coin = 0;
-    if (population > 0 && rng.next() < 0.5) {
+    // An unpaid crew is a spiral: fewer hands means less output, which means
+    // less coin, which means more unpaid wages. Left unfloored it walks a port
+    // all the way down with no way back. Losses are rarer than they were and
+    // stop at a skeleton crew, so a bad stretch is recoverable by selling your
+    // way out rather than terminal.
+    if (population > Balance.wageLossFloor &&
+        rng.next() < Balance.wageLossChance) {
       population -= 1;
       _clampAssignments();
       log('Wages went unpaid. A worker signed onto another crew.', LogKind.bad);

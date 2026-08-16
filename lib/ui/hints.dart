@@ -41,6 +41,15 @@ final List<HintDef> kHints = [
     when: (s) => s.market.ships.isNotEmpty && s.day >= 2,
   ),
   HintDef(
+    id: 'wages',
+    title: 'The purse is running down',
+    body: 'Every posted hand draws four coin a day whether or not the shed is '
+        'earning. Nothing you make turns into coin until you sell it, so a '
+        'port that never trades runs itself broke — and unpaid hands drift '
+        'off to other crews. Send something out on the next ship.',
+    when: (s) => s.payrollAtRisk && s.day >= 4,
+  ),
+  HintDef(
     id: 'idle_hands',
     title: 'Idle hands',
     body: 'Some of your people are not posted to anything. They still eat and '

@@ -113,7 +113,16 @@ class _GameScreenState extends State<GameScreen> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     _TopHud(controller: controller),
-                    if (state.growthIsStalled)
+                    if (state.payrollAtRisk)
+                      _StalledBanner(
+                        icon: Icons.savings_outlined,
+                        text: state.coin <= 0
+                            ? 'The purse is empty and wages are going unpaid. '
+                                'Sell something at the Quay.'
+                            : 'About ${state.wageRunwayDays.floor()} days of '
+                                'wages left in the purse. Sell something.',
+                      ),
+                    if (state.growthIsStalled && !state.payrollAtRisk)
                       _StalledBanner(text: state.growthBlocker!),
                     if (live.isNotEmpty || omens.isNotEmpty)
                       EventBanner(state: state),
@@ -366,8 +375,9 @@ class _TopHud extends StatelessWidget {
 /// A one-line reason the town has stopped growing, right under the HUD where
 /// the population figure is.
 class _StalledBanner extends StatelessWidget {
-  const _StalledBanner({required this.text});
+  const _StalledBanner({required this.text, this.icon = Icons.people_outline});
   final String text;
+  final IconData icon;
 
   @override
   Widget build(BuildContext context) => Container(
@@ -380,7 +390,7 @@ class _StalledBanner extends StatelessWidget {
         ),
         child: Row(
           children: [
-            const Icon(Icons.people_outline, size: 14, color: Palette.lamp),
+            Icon(icon, size: 14, color: Palette.lamp),
             const SizedBox(width: 7),
             Expanded(
               child: Text(text,
