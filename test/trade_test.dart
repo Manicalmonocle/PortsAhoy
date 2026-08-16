@@ -375,6 +375,46 @@ void retinueTests() {
       expect(g.canHire(retainerAt(RetinueTrack.captain, 1)!), isTrue);
     });
 
+    test('every captain saves real time on every lane', () {
+      // Found by showing the number to the player: crossings were rounded to
+      // whole days, so a first captain on the 3-day lane turned 2.55 into 3
+      // and delivered nothing while still taking her commission — a trap on
+      // the shortest, most-used route, bought by the first hire of the run.
+      // Crossings are measured in hours now.
+      final g = stocked();
+      for (final dest in kDestinations) {
+        g.captainLevel = 0;
+        final bare = g.daysBreakdown(dest);
+        expect(bare.days, dest.days.toDouble());
+
+        for (final level in [1, 2, 3]) {
+          g.captainLevel = level;
+          final withCaptain = g.daysBreakdown(dest);
+          expect(withCaptain.ticks, lessThan(bare.ticks),
+              reason: 'captain L$level must actually shorten the '
+                  '${dest.days}-day run to ${dest.name}, not round back to it');
+        }
+      }
+      g.captainLevel = 0;
+    });
+
+    test('the panel quotes the crossing the hull actually sails', () {
+      final g = stocked();
+      g.coin = 100000;
+      g.stock[Resource.planks] = 300;
+      openBerths(g, 1);
+      g.hire(retainerAt(RetinueTrack.captain, 1)!);
+
+      final dest = kDestinations.first;
+      final quoted = g.daysBreakdown(dest);
+      final before = g.tick;
+      expect(g.sendVoyage(dest, {Resource.planks: 40.0}), isTrue);
+
+      expect(g.voyages.last.returnTick - before, quoted.ticks,
+          reason: 'a panel that rounds differently from the hull quotes a '
+              'crossing the ship does not sail');
+    });
+
     test('a crossing sails under the terms it left on', () {
       // The captain's commission comes out of the quote at departure, so their
       // protection has to be fixed at departure too. Read live at settlement,

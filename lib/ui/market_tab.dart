@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../game_controller.dart';
 import '../sim/market.dart';
 import '../sim/resources.dart';
+import '../sim/retinue.dart';
 import 'theme.dart';
 
 class MarketTab extends StatelessWidget {
@@ -406,6 +407,25 @@ class _OfferRow extends StatelessWidget {
                   style: TextStyle(
                       fontSize: 10, color: Palette.fog.withValues(alpha: 0.8)),
                 ),
+                // What your factor is doing to this bid. The badge above is
+                // the market's premium over the going rate and has nothing to
+                // do with them — which is precisely what got misread as the
+                // merchant's work.
+                if (state.hiredOn(RetinueTrack.merchant) != null)
+                  Builder(builder: (_) {
+                    final m = state.hiredOn(RetinueTrack.merchant)!;
+                    final net = state.quayNetPerUnit(offer);
+                    final up = net >= offer.pricePerUnit;
+                    return Text(
+                      '${m.name}: ${net.toStringAsFixed(2)}c a unit to you '
+                      '(+${((m.sellBonus - 1) * 100).round()}% '
+                      '−${(m.commission * 100).toStringAsFixed(1)}%)',
+                      style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
+                          color: up ? Palette.moss : Palette.rust),
+                    );
+                  }),
               ],
             ),
           ),

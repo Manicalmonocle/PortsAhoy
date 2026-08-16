@@ -1139,21 +1139,54 @@ class GameState {
   bool get canSendVoyage => voyages.length < Balance.maxVoyages;
 
   /// What a factor at [dest] will pay for this manifest, after the charter.
-  int quoteVoyage(Destination dest, Map<Resource, double> cargo) {
+  int quoteVoyage(Destination dest, Map<Resource, double> cargo) =>
+      quoteBreakdown(dest, cargo).net;
+
+  /// The same quote, itemised, so the panel can show who moved the number.
+  ///
+  /// Built here rather than reassembled in the UI: a breakdown that recomputes
+  /// the arithmetic separately is a breakdown that will eventually disagree
+  /// with the figure beside it.
+  VoyageQuote quoteBreakdown(Destination dest, Map<Resource, double> cargo) {
     var gross = 0.0;
     var units = 0.0;
     cargo.forEach((r, qty) {
       gross += qty * r.basePrice * dest.payFor(r);
       units += qty;
     });
+
+    final afterMerchant = gross * voyagePayBonus * charters.salePrice;
+    final commission = afterMerchant * voyageCommission;
+    final fee = units * dest.charterPerUnit;
     // The retinue is paid out of the proceeds, before the charter is settled,
     // so the quote you are shown is what actually reaches your strongbox.
-    final net = gross *
-            voyagePayBonus *
-            charters.salePrice *
-            (1.0 - voyageCommission) -
-        units * dest.charterPerUnit;
-    return net < 0 ? 0 : net.round();
+    final net = afterMerchant - commission - fee;
+
+    return VoyageQuote(
+      gross: gross,
+      merchantBonus: afterMerchant - gross,
+      commission: commission,
+      charterFee: fee,
+      net: net < 0 ? 0 : net.round(),
+    );
+  }
+
+  /// How long a crossing to [dest] would take if sent now, itemised.
+  ///
+  /// The one place a crossing's length is worked out. sendVoyage uses it too,
+  /// so a panel can never quote a crossing the hull does not sail.
+  VoyageDays daysBreakdown(Destination dest) {
+    final exact = dest.days *
+        voyageSpeedFactor *
+        charters.voyageDays *
+        Balance.ticksPerDay;
+    return VoyageDays(
+      base: dest.days,
+      captainFactor: voyageSpeedFactor,
+      charterFactor: charters.voyageDays,
+      ticks: exact.round().clamp(1, dest.days * 3 * Balance.ticksPerDay),
+      ticksPerDay: Balance.ticksPerDay,
+    );
   }
 
   /// Load cargo and send it. Returns false — changing nothing — if the hold
@@ -1185,14 +1218,12 @@ class GameState {
     final quote = quoteVoyage(dest, clean);
     // Fixed here and never touched again: hiring a faster captain tomorrow
     // does not reel in a hull that sailed today.
-    final days = (dest.days * voyageSpeedFactor * charters.voyageDays)
-        .round()
-        .clamp(1, dest.days * 3);
+    final crossing = daysBreakdown(dest);
     voyages.add(Voyage(
       destinationId: dest.id,
       cargo: clean,
       departTick: tick,
-      returnTick: tick + days * Balance.ticksPerDay,
+      returnTick: tick + crossing.ticks,
       quotedCoin: quote,
       escorted: escorted,
       // Frozen with the quote and the days: a crossing sails under the terms
@@ -1203,7 +1234,7 @@ class GameState {
     // Selling abroad never touches your own quay, which is the whole point:
     // it is how you move volume without collapsing the local price.
     final units = clean.values.fold(0.0, (s, v) => s + v).round();
-    log('Sent $units units to ${dest.name}. Due back in $days days, '
+    log('Sent $units units to ${dest.name}. Due back in ${crossing.label}, '
         'quoted ${quote}c.', LogKind.good);
     return true;
   }
@@ -1308,6 +1339,16 @@ class GameState {
   /// The factor's cut of a sale at your own quay.
   double get quayCommission =>
       hiredOn(RetinueTrack.merchant)?.commission ?? 0.0;
+
+  /// What one unit sold into [offer] actually puts in the strongbox.
+  ///
+  /// The single arithmetic for a quay sale, so the price the panel shows and
+  /// the coin [sell] pays can never disagree.
+  double quayNetPerUnit(Offer offer) =>
+      offer.pricePerUnit *
+      sellBonus *
+      charters.salePrice *
+      (1.0 - quayCommission);
 
   /// The cut taken from a consignment abroad. The captain shares in the
   /// venture as well as the factor, which is why a fast hull is not free.
@@ -1416,11 +1457,7 @@ class GameState {
 
     stock.remove(offer.resource, amount);
     offer.quantity -= amount;
-    final earned = amount *
-        offer.pricePerUnit *
-        sellBonus *
-        charters.salePrice *
-        (1.0 - quayCommission);
+    final earned = amount * quayNetPerUnit(offer);
     coin += earned.round();
 
     if (offer.resource.isContraband) {

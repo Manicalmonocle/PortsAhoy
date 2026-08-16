@@ -116,7 +116,10 @@ class _TradePanelState extends State<TradePanel> {
                     // what it works out at per day — which is the comparison
                     // that decides where a hull goes.
                     final q = s.quoteVoyage(d, _cargo);
-                    final perDay = d.days > 0 ? q / d.days : 0;
+                    // Per day of the crossing you will actually sail: a
+                    // captain changes which port is worth the hull.
+                    final crossing = s.daysBreakdown(d);
+                    final perDay = crossing.days > 0 ? q / crossing.days : 0;
                     return GestureDetector(
                       onTap: () => setState(() => _destId = d.id),
                       child: Container(
@@ -139,9 +142,17 @@ class _TradePanelState extends State<TradePanel> {
                                     fontWeight: FontWeight.w700,
                                     color:
                                         on ? Palette.brass : Palette.fog)),
-                            Text('${d.days}d · ${(d.risk * 100).round()}% risk',
-                                style: const TextStyle(
-                                    fontSize: 10, color: Palette.fog)),
+                            // The crossing your captain will actually sail,
+                            // and the risk after her, rather than the lane's
+                            // bare numbers.
+                            Text(
+                                '${s.daysBreakdown(d).label} · '
+                                '${(d.risk * s.voyageRiskFactor * 100).round()}% risk',
+                                style: TextStyle(
+                                    fontSize: 10,
+                                    color: s.voyageRiskFactor < 1.0
+                                        ? Palette.moss
+                                        : Palette.fog)),
                             if (units >= 1)
                               Text(
                                 '${q}c · ${perDay.round()}c/day',
@@ -212,8 +223,10 @@ class _TradePanelState extends State<TradePanel> {
                                   fontWeight: FontWeight.w700,
                                   color: Colors.white)),
                           Text(
+                            // The captain's days, not the lane's: this used to
+                            // promise a return date she would beat.
                             'Quoted ${quote}c, back on day '
-                            '${s.day + _dest.days}',
+                            '${(s.tick + s.daysBreakdown(_dest).ticks) ~/ Balance.ticksPerDay + 1}',
                             style: const TextStyle(
                                 fontSize: 11, color: Palette.brass),
                           ),
@@ -254,6 +267,7 @@ class _TradePanelState extends State<TradePanel> {
                     ),
                   ],
                 ),
+                if (units >= 1) _QuoteBreakdown(state: s, dest: _dest, cargo: _cargo),
                 if (s.stock[Resource.powder] >= Balance.escortPowderCost)
                   CheckboxListTile(
                     value: _escort,
@@ -514,6 +528,114 @@ class _RetinueCard extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Who moved the quote, and by how much.
+///
+/// The retinue's whole effect used to be invisible at the point of decision:
+/// the panel showed one total and never said that your factor had earned eight
+/// percent of it and taken three and a half back, or that your captain was
+/// shaving a day off the crossing. A hire you cannot see working is a hire you
+/// cannot judge — which is how the merchant came to feel like a formality.
+class _QuoteBreakdown extends StatelessWidget {
+  const _QuoteBreakdown({
+    required this.state,
+    required this.dest,
+    required this.cargo,
+  });
+
+  final GameState state;
+  final Destination dest;
+  final Map<Resource, double> cargo;
+
+  @override
+  Widget build(BuildContext context) {
+    final q = state.quoteBreakdown(dest, cargo);
+    final d = state.daysBreakdown(dest);
+    final merchant = state.hiredOn(RetinueTrack.merchant);
+    final captain = state.hiredOn(RetinueTrack.captain);
+
+    if (!q.anyoneInvolved && !d.anyoneInvolved && q.charterFee < 0.5) {
+      return const SizedBox.shrink();
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 9),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _row('Cargo at ${dest.name}', '${q.gross.round()}c', Palette.fog),
+          if (q.merchantBonus.abs() >= 0.5)
+            _row(
+              merchant == null
+                  ? 'Your charter'
+                  : '${merchant.name} haggling',
+              '+${q.merchantBonus.round()}c',
+              Palette.moss,
+            ),
+          if (q.commission >= 0.5)
+            _row(
+              _commissionLabel(merchant, captain),
+              '−${q.commission.round()}c',
+              Palette.rust,
+            ),
+          if (q.charterFee >= 0.5)
+            _row('Harbour charter', '−${q.charterFee.round()}c', Palette.fog),
+          const Divider(height: 11, color: Palette.line),
+          _row('You receive', '${q.net}c', Palette.brass, bold: true),
+          if (d.anyoneInvolved)
+            Padding(
+              padding: const EdgeInsets.only(top: 5),
+              child: Text(
+                captain == null
+                    ? '${d.base}d crossing → ${d.label} under your charter'
+                    : '${d.base}d crossing → ${d.label} with ${captain.name} '
+                        '(${((1 - d.captainFactor) * 100).round()}% faster)',
+                style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: d.saved > 0 ? Palette.moss : Palette.rust),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  String _commissionLabel(Retainer? merchant, Retainer? captain) {
+    final both = merchant != null && captain != null;
+    if (both) return 'Their commission';
+    if (merchant != null) {
+      return '${merchant.name}\'s commission '
+          '(${(merchant.commission * 100).toStringAsFixed(1)}%)';
+    }
+    if (captain != null) {
+      return '${captain.name}\'s share '
+          '(${(captain.commission * 100).toStringAsFixed(1)}%)';
+    }
+    return 'Commission';
+  }
+
+  Widget _row(String label, String value, Color color, {bool bold = false}) =>
+      Padding(
+        padding: const EdgeInsets.symmetric(vertical: 1.5),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(label,
+                  style: TextStyle(
+                      fontSize: 11,
+                      color: color,
+                      fontWeight: bold ? FontWeight.w700 : FontWeight.w400)),
+            ),
+            Text(value,
+                style: TextStyle(
+                    fontSize: 11,
+                    color: color,
+                    fontWeight: bold ? FontWeight.w800 : FontWeight.w600)),
+          ],
+        ),
+      );
 }
 
 class _Label extends StatelessWidget {

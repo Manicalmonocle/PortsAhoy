@@ -200,3 +200,85 @@ class Voyage {
     );
   }
 }
+
+/// A voyage quote, itemised — who moved the number, and by how much.
+///
+/// Exists because the effect of a hire was invisible exactly where the player
+/// makes the decision. The quay showed a price and the panel showed a total;
+/// neither said "your factor got you eight percent of this, and took three and
+/// a half back". A retinue you cannot see working is one you cannot judge.
+class VoyageQuote {
+  const VoyageQuote({
+    required this.gross,
+    required this.merchantBonus,
+    required this.commission,
+    required this.charterFee,
+    required this.net,
+  });
+
+  /// What the cargo is worth at the destination before anyone is involved.
+  final double gross;
+
+  /// Added by the merchant's price bonus and any charter on sale prices.
+  final double merchantBonus;
+
+  /// Taken by the retinue as their cut. Always a cost.
+  final double commission;
+
+  /// The port's charge per unit landed. Nothing to do with the retinue.
+  final double charterFee;
+
+  /// What actually reaches the strongbox.
+  final int net;
+
+  bool get anyoneInvolved => merchantBonus.abs() >= 0.5 || commission >= 0.5;
+}
+
+/// The length of a crossing, itemised.
+///
+/// Measured in ticks rather than whole days, because rounding to days ate the
+/// benefit outright in the one case that mattered most: a first captain on the
+/// nearest lane. Three days at 0.85 is 2.55, which rounds straight back to
+/// three — so she took her commission and delivered nothing, on the shortest
+/// and most-used crossing in the game. A quarter of a day is eleven hours, and
+/// the clock already runs in hours.
+class VoyageDays {
+  const VoyageDays({
+    required this.base,
+    required this.captainFactor,
+    required this.charterFactor,
+    required this.ticks,
+    required this.ticksPerDay,
+  });
+
+  /// The lane's own length in days, with nobody retained.
+  final int base;
+
+  /// The captain's multiplier. Below 1 is faster.
+  final double captainFactor;
+
+  /// The charter's multiplier. Above 1 is a longer season.
+  final double charterFactor;
+
+  /// What the crossing actually takes, in game-hours.
+  final int ticks;
+
+  final int ticksPerDay;
+
+  /// The crossing in days, fractional.
+  double get days => ticks / ticksPerDay;
+
+  bool get anyoneInvolved => captainFactor != 1.0 || charterFactor != 1.0;
+
+  /// Days saved against the bare lane. Negative if a charter has lengthened it.
+  double get saved => base - days;
+
+  /// "3d", or "2.6d" when a crossing no longer lands on a whole day.
+  String get label {
+    final d = days;
+    final whole = d.roundToDouble();
+    return (d - whole).abs() < 0.05
+        ? '${whole.round()}d'
+        : '${d.toStringAsFixed(1)}d';
+  }
+}

@@ -234,6 +234,20 @@ nothing to keep, so counting built ones let a player throw up cheap huts nobody
 worked in and buy all three berths outright for a few hundred coin. A working
 port supports officers; a field of empty huts does not.
 
+**Seeing them work.** A consignment quote is itemised — cargo value, what the
+factor added, what they took back, the harbour charter, and what actually
+reaches you — and the crossing shows the lane's own length against the one your
+captain will sail. The quay rows name the factor's net price per unit. All of it
+is computed by the sim and handed to the panel rather than reassembled in the
+UI, because a breakdown that does its own arithmetic will eventually disagree
+with the figure beside it.
+
+Showing the number is what caught the next bug: crossings were rounded to whole
+days, so a first captain on the 3-day lane turned 2.55 into 3 and delivered
+nothing while still charging commission — a trap on the shortest, most-used
+route, bought by the first hire of a run. Crossings are measured in hours now,
+and every captain tier saves real time on every lane, which a test asserts.
+
 ### Saving
 
 The game autosaves every ten seconds while the clock runs, on every deliberate
