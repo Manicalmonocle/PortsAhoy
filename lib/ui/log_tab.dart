@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 
 import '../game_controller.dart';
 import '../sim/game_state.dart';
+import '../version.dart';
 import 'theme.dart';
 
 class LogTab extends StatelessWidget {
@@ -99,7 +100,7 @@ class _ExportRow extends StatelessWidget {
             children: [
               Expanded(
                 child: Text(
-                  'Run report · ${journal.days.length} days, '
+                  'Ports Ahoy! $kAppVersion · ${journal.days.length} days, '
                   '${journal.marks.length} milestones',
                   style: const TextStyle(fontSize: 11, color: Palette.fog),
                 ),
@@ -110,6 +111,7 @@ class _ExportRow extends StatelessWidget {
                     charters: s.charters.ids.join(', '),
                     difficulty: s.charters.difficulty,
                     won: s.lighthouseBuilt,
+                    version: kAppVersion,
                   );
                   await Clipboard.setData(ClipboardData(text: text));
                   if (!context.mounted) return;

@@ -26,6 +26,10 @@ VERSION=$(grep '^version:' pubspec.yaml | awk '{print $2}')
 echo "Building Ports Ahoy! $VERSION from $REPO"
 echo
 
+# Keep the version the app reports in step with pubspec, so a build can never
+# misreport itself in a bug report.
+dart run tool/stamp_version.dart
+
 flutter build apk --release
 
 APK="$REPO/build/app/outputs/flutter-apk/app-release.apk"

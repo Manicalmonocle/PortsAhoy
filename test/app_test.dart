@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -8,6 +9,7 @@ import 'package:ports_ahoy/sim/events.dart';
 import 'package:ports_ahoy/sim/resources.dart';
 import 'package:ports_ahoy/ui/theme.dart';
 import 'package:ports_ahoy/ui/world_view.dart';
+import 'package:ports_ahoy/version.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// Boots the app with an empty save and the clock paused, so assertions are
@@ -505,6 +507,20 @@ void main() {
     expect(reloaded.state.coin, 1234);
 
     await closeGame(tester);
+  });
+
+  // A version string that silently lies is worse than none: a bug report
+  // stamped with the wrong build sends you looking in the wrong place. The
+  // player runs the web build and the APK side by side, and the web one
+  // updates itself while the APK does not — so the two genuinely do drift.
+  test('the version in the app matches pubspec', () {
+    final pubspec = File('pubspec.yaml').readAsStringSync();
+    final declared =
+        RegExp(r'^version:\s*(\S+)', multiLine: true).firstMatch(pubspec);
+    expect(declared, isNotNull, reason: 'pubspec has no version: line');
+    expect(kAppVersion, declared!.group(1),
+        reason: 'lib/version.dart is stale — run '
+            '`dart run tool/stamp_version.dart`');
   });
 
   group('the game saves itself', () {

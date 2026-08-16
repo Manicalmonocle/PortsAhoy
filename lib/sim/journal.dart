@@ -110,9 +110,11 @@ class RunJournal {
     required String charters,
     required int difficulty,
     required bool won,
+    String version = 'unknown',
   }) {
     final b = StringBuffer()
       ..writeln('# Ports Ahoy run report')
+      ..writeln('build: $version')
       ..writeln('charters: ${charters.isEmpty ? "none" : charters}')
       ..writeln('difficulty: $difficulty')
       ..writeln('outcome: ${won ? "lighthouse lit" : "in progress"}')
