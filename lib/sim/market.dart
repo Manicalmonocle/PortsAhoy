@@ -9,9 +9,25 @@ class SeededRng {
   SeededRng(this.seed);
   int seed;
 
+  /// A plain LCG modulo a power of two has famously weak low-order bits, and
+  /// the game samples it at fixed strides — the town's growth roll happens
+  /// once a day, always the same number of draws apart. Sampled that way the
+  /// raw sequence is strongly correlated, which showed up in play as a town
+  /// sitting at the same population for eleven days against a supposed 50%
+  /// daily chance.
+  ///
+  /// The state advance is unchanged (full period, cheap, serialisable); the
+  /// output is passed through an avalanche finalizer so every bit of state
+  /// affects every bit of the result. Same determinism, no stride artefacts.
   double next() {
     seed = (seed * 1103515245 + 12345) & 0x7FFFFFFF;
-    return seed / 0x7FFFFFFF;
+    var x = seed;
+    x ^= x >> 15;
+    x = (x * 0x2C1B3C6D) & 0x7FFFFFFF;
+    x ^= x >> 12;
+    x = (x * 0x297A2D39) & 0x7FFFFFFF;
+    x ^= x >> 15;
+    return x / 0x7FFFFFFF;
   }
 
   /// Uniform double in [min, max).

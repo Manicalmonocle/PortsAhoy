@@ -106,6 +106,42 @@ void main() {
       }
       expect(g.population, lessThanOrEqualTo(g.housingCapacity));
     });
+
+    // Reported from play twice: "day 10 I hit 9 population then stagnant until
+    // day 21 while staying above the limits". Growth used to be a daily coin
+    // flip, which averages correctly and still produces dead fortnights. It now
+    // accumulates, so a fed and solvent port must never stall for long.
+    //
+    // This test exists because the accumulating version was once written and
+    // silently did not apply — the suite passed, the average was right, and the
+    // stall survived. Asserting the *gap* is what catches that.
+    test('a fed, solvent port grows steadily with no long stalls', () {
+      for (final seed in [1, 2, 3, 777, 4242, 8675309]) {
+        final g = GameState.newGame(seed: seed);
+        g.buildings.add(Building(defId: 'house'));
+        g.placeAll();
+
+        var stalled = 0, longest = 0, last = g.population;
+        for (var d = 1; d <= 40; d++) {
+          for (var t = 0; t < Balance.ticksPerDay; t++) {
+            tickAndCollect(g);
+          }
+          g.coin = 5000;
+          g.stock[Resource.fish] = 300;
+          if (g.population >= g.housingCapacity) break;
+
+          if (g.population == last) {
+            stalled++;
+            if (stalled > longest) longest = stalled;
+          } else {
+            stalled = 0;
+          }
+          last = g.population;
+        }
+        expect(longest, lessThanOrEqualTo(2),
+            reason: 'seed $seed stalled $longest days while fed and solvent');
+      }
+    });
   });
 
   group('worker assignment', () {

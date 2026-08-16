@@ -340,6 +340,18 @@ class _TownCard extends StatelessWidget {
                 style: TextStyle(
                     fontSize: 10.5,
                     color: Palette.fog.withValues(alpha: 0.85))),
+            if (state.isGrowing) ...[
+              const SizedBox(height: 8),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(3),
+                child: LinearProgressIndicator(
+                  value: state.growthProgress.clamp(0.0, 1.0),
+                  minHeight: 5,
+                  backgroundColor: Palette.deep,
+                  valueColor: const AlwaysStoppedAnimation(Palette.moss),
+                ),
+              ),
+            ],
             const SizedBox(height: 6),
             Row(
               children: [

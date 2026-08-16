@@ -262,6 +262,9 @@ class GameState {
 
   double contrabandSeized = 0.0;
 
+  /// How far word has spread toward the next arrival, 0..1.
+  double growthProgress = 0;
+
   /// Someone moved in on this tick. Transient — the UI reads it to show a
   /// flash, and it is cleared at the start of the next step.
   int arrivalsThisTick = 0;
@@ -425,11 +428,22 @@ class GameState {
     final blocked = growthBlocker;
     if (blocked != null) return blocked;
     final room = housingCapacity - population;
-    return 'The town is growing — a new hand every day or two, '
+    final due = daysToNextArrival;
+    final when = due <= 1.0
+        ? 'someone arrives tomorrow'
+        : 'next hand in about ${due.ceil()} days';
+    return 'The town is growing — $when, '
         '$room ${room == 1 ? "roof" : "roofs"} still free';
   }
 
   bool get isGrowing => growthBlocker == null;
+
+  /// Days until the next hand turns up, if nothing changes.
+  double get daysToNextArrival {
+    final rate = Balance.growthChance * charters.growth;
+    if (rate <= 0) return double.infinity;
+    return (1.0 - growthProgress) / rate;
+  }
 
   int get lighthouseCoinCost =>
       (Balance.lighthouseCoin * charters.lighthouseCost).round();
@@ -841,11 +855,26 @@ class GameState {
     }
   }
 
+  /// Word gets round at a steady rate rather than on a coin flip.
+  ///
+  /// A 50% daily roll averages one arrival every two days but produces long
+  /// dead stretches — reported from play as a town sitting at the same number
+  /// for eleven days. Accumulating progress gives the same average with none
+  /// of the streaks, and it can be shown as a bar, which a dice roll never
+  /// could. Conditions pause it rather than resetting it, so a hungry week
+  /// costs you time and not the progress you had already made.
   void _growTown() {
-    if (population >= housingCapacity) return;
+    if (population >= housingCapacity) {
+      growthProgress = 0;
+      return;
+    }
     // Growth needs a genuine buffer, not just a day scraped through.
     if (foodDays < Balance.growthFoodDays) return;
-    if (rng.next() < Balance.growthChance * charters.growth) {
+    if (coin <= 0) return; // an unpaid port attracts nobody
+
+    growthProgress += Balance.growthChance * charters.growth;
+    if (growthProgress >= 1.0) {
+      growthProgress -= 1.0;
       population += 1;
       arrivalsThisTick += 1;
       log('A new hand arrived looking for work.', LogKind.good);
@@ -1584,6 +1613,8 @@ class GameState {
         'cutterInspectTick': cutterInspectTick,
         'marqueTons': marqueTons,
         'prizesTaken': prizesTaken,
+        'growthProgress':
+            double.parse(growthProgress.toStringAsFixed(3)),
         'contrabandSeized':
             double.parse(contrabandSeized.toStringAsFixed(3)),
         'voyages': voyages.map((v) => v.toJson()).toList(),
@@ -1628,6 +1659,8 @@ class GameState {
     state.prizesTaken = (j['prizesTaken'] as num?)?.toInt() ?? 0;
     state.contrabandSeized =
         (j['contrabandSeized'] as num?)?.toDouble() ?? 0.0;
+    state.growthProgress =
+        (j['growthProgress'] as num?)?.toDouble() ?? 0.0;
     final saved = j['unlocked'] as List?;
     // A save from before the tree existed has seen everything already; taking
     // buildings away from an established port would be nonsense.
