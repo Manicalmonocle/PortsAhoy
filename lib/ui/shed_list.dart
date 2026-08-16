@@ -398,6 +398,34 @@ class _TownCard extends StatelessWidget {
                       label: 'Hidden', value: fmt(state.concealCapacity)),
                 ],
               ),
+              // What the whole layer has actually been worth. Reported from
+              // play as "no real payoff" — measured against eight seeds it is
+              // worth about twelve days of a hundred and twenty, which is real
+              // and completely invisible while the only numbers on screen are
+              // the ones it costs you.
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      state.darkNet.abs() < 1
+                          ? 'The dark trade has neither made nor cost you '
+                              'anything yet.'
+                          : 'The dark trade has ${state.darkNet >= 0 ? "made" : "cost"} '
+                              'you ${state.darkNet.abs().round()}c — '
+                              '${state.darkEarned.round()}c traded, '
+                              '${state.darkLost.round()}c taken.',
+                      style: TextStyle(
+                          fontSize: 11,
+                          height: 1.35,
+                          fontWeight: FontWeight.w600,
+                          color: state.darkNet >= 0
+                              ? Palette.moss
+                              : Palette.rust),
+                    ),
+                  ),
+                ],
+              ),
             ],
           ],
         ),

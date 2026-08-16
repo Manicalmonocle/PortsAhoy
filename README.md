@@ -272,6 +272,35 @@ There is now a second test that refuses to call `save()` and asserts a played
 run comes back anyway; it fails against the old code, which is the only reason
 to trust it.
 
+### Is the dark trade worth it?
+
+A player's verdict, after several full runs: *"I skip it because it doesn't
+feel worth the investment. It doesn't speed up progress or anything, just adds
+another layer for no real payoff."*
+
+Measured rather than argued. Per worker-hour at base prices the honest Smithy
+pays 2.85 and the Distillery 1.50, so contraband **sold for coin is 0.53x the
+best honest chain**. Counting the barter premium free traders pay for it
+(parity 1.25-1.70 on bulk raws) it reaches 1.10x at typical parity and 1.36x at
+best — and the layer still charges you hands in a cellar, permanent notoriety,
+seizure of whatever is exposed, and raids keyed to the hoard.
+
+Then the bot learned to play it (`--dark`), building the contraband chain in
+place of the second smithy and weaver:
+
+| | wins | win day (min / median / max) |
+| --- | --- | --- |
+| honest | 8/8 | 89 / 120 / 143 |
+| dark | 8/8 | 82 / **108** / 120 |
+
+So it is worth about **twelve days of a hundred and twenty** — real, and
+completely invisible while every number on screen was one it *cost* you. The
+port now keeps the other half of the account: what the dark trade has earned in
+sales and barter margin, against what the Revenue and the rivals have taken.
+
+This is the same shape as the merchant, and the third time a thing that "felt
+like nothing" turned out to be a thing nobody was shown.
+
 ### Learning it
 
 The port opens deliberately small: **two sheds and five hands**, which is one

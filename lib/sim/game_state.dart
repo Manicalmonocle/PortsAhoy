@@ -253,6 +253,23 @@ class GameState {
   /// real play. Recording only; nothing reads it during a game.
   RunJournal journal = RunJournal();
 
+  /// What the dark trade has actually been worth, and what it has cost.
+  ///
+  /// Reported from play: "I skip it because it doesn't feel worth the
+  /// investment... just adds another layer for no real payoff." Measured
+  /// against the same eight seeds it is worth about twelve days of a hundred
+  /// and twenty — real, but a tenth of a run is invisible without a control run
+  /// to compare against, and nothing on screen ever said so. A layer whose
+  /// payoff the player cannot see is one they are right to skip.
+  ///
+  /// Coin from selling contraband, and the market value of goods taken in
+  /// barter, against the value of everything seized or raided.
+  double darkEarned = 0;
+  double darkLost = 0;
+
+  /// Net worth of the dark trade so far, in coin.
+  double get darkNet => darkEarned - darkLost;
+
   /// Whether this run's victory has already been written to the profile.
   ///
   /// Belongs to the run rather than to a widget. It used to be a `bool` field
@@ -584,6 +601,7 @@ class GameState {
     for (final r in Resource.contraband) {
       final taken = exposedShareOf(r);
       if (taken <= 0) continue;
+      darkLost += taken * market.priceOf(r);
       stock.remove(r, taken);
       total += taken;
     }
@@ -620,6 +638,7 @@ class GameState {
     var taken = 0.0;
     for (final r in Resource.contraband) {
       final loss = stock[r] * frac;
+      darkLost += loss * market.priceOf(r);
       stock.remove(r, loss);
       taken += loss;
     }
@@ -1502,6 +1521,7 @@ class GameState {
     coin += earned.round();
 
     if (offer.resource.isContraband) {
+      darkEarned += earned;
       // The dark market is thin, so it moves further on less volume.
       market.applySalePressure(
           offer.resource, amount * Market.saleImpactScale / Market.contrabandImpactScale);
@@ -1537,6 +1557,9 @@ class GameState {
     stock.remove(deal.give, deal.giveQty);
     stock.add(deal.take, deal.takeQty);
     deal.taken = true;
+    // What you received, less what you handed over, both at the going rate.
+    darkEarned += deal.takeQty * market.priceOf(deal.take) -
+        deal.giveQty * market.priceOf(deal.give);
     _addHeat(deal.giveQty * deal.give.heatWeight * Balance.heatPerBarterUnit);
 
     log('Traded ${deal.giveQty.round()} ${deal.give.label.toLowerCase()} to the '
@@ -1765,6 +1788,8 @@ class GameState {
         'lighthouseBuilt': lighthouseBuilt,
         'victoryRecorded': victoryRecorded,
         'journal': journal.toJson(),
+        'darkEarned': double.parse(darkEarned.toStringAsFixed(1)),
+        'darkLost': double.parse(darkLost.toStringAsFixed(1)),
       };
 
   static GameState fromJson(Map<String, dynamic> j) {
@@ -1816,6 +1841,8 @@ class GameState {
     state.victoryRecorded = j['victoryRecorded'] as bool? ?? false;
     state.journal =
         RunJournal.fromJson(j['journal'] as Map<String, dynamic>?);
+    state.darkEarned = (j['darkEarned'] as num?)?.toDouble() ?? 0;
+    state.darkLost = (j['darkLost'] as num?)?.toDouble() ?? 0;
     state.placeAll();
     state.syncYards();
     state._clampRetinueToBerths();

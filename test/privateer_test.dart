@@ -389,6 +389,75 @@ void main() {
     });
   });
 
+  // Reported from play: "I skip it because it doesn't feel worth the
+  // investment... just adds another layer for no real payoff." Measured against
+  // the same eight seeds the dark trade is worth about twelve days of a hundred
+  // and twenty — real, and invisible, because every number on screen was one it
+  // COST you. The ledger is the other half of that sentence.
+  group('the dark trade keeps its own accounts', () {
+    test('a barter counts what you gained, not what you handed over', () {
+      final g = darkPort();
+      g.stock[Resource.spirits] = 200;
+      expect(g.darkEarned, 0);
+
+      final deal = Barter(
+          give: Resource.spirits, giveQty: 50, take: Resource.ore, takeQty: 100);
+      final ship = Ship(
+          name: 'Dark Wake',
+          departTick: 99999,
+          allegiance: 'free',
+          offers: const [],
+          barters: [deal]);
+      expect(g.barter(ship, deal), isTrue);
+
+      final gained = 100 * g.market.priceOf(Resource.ore) -
+          50 * g.market.priceOf(Resource.spirits);
+      expect(g.darkEarned, closeTo(gained, 0.01),
+          reason: 'the ledger records the margin, not the gross');
+    });
+
+    test('selling contraband counts, selling planks does not', () {
+      final g = darkPort();
+      g.stock[Resource.spirits] = 100;
+      g.stock[Resource.planks] = 100;
+
+      final dark = freeTraderBuying(Resource.spirits, 50, 40);
+      g.sell(dark, dark.offers.first, 50);
+      final afterContraband = g.darkEarned;
+      expect(afterContraband, greaterThan(0));
+
+      final honest = freeTraderBuying(Resource.planks, 50, 8);
+      g.sell(honest, honest.offers.first, 50);
+      expect(g.darkEarned, afterContraband,
+          reason: 'an honest sale is not the dark trade doing well');
+    });
+
+    test('what the Revenue takes is charged against it', () {
+      final g = darkPort();
+      g.stock[Resource.spirits] = 100;
+      g.notoriety = 100;
+      final before = g.darkLost;
+
+      // Board now; the resolution runs inside the tick.
+      g.cutterInspectTick = g.tick;
+      tickAndCollect(g);
+
+      expect(g.darkLost, greaterThan(before),
+          reason: 'a seizure is a cost of the layer, and has to show as one');
+      expect(g.darkNet, g.darkEarned - g.darkLost);
+    });
+
+    test('the accounts survive a save', () {
+      final g = darkPort();
+      g.darkEarned = 1234.5;
+      g.darkLost = 234.5;
+      final restored = GameState.fromJson(
+          jsonDecode(jsonEncode(g.toJson())) as Map<String, dynamic>);
+      expect(restored.darkEarned, closeTo(1234.5, 0.1));
+      expect(restored.darkNet, closeTo(1000.0, 0.2));
+    });
+  });
+
   group('rival raids', () {
     test('a small hoard is never raided', () {
       final g = darkPort();
