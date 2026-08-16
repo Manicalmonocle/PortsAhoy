@@ -69,8 +69,10 @@ Verify a change:
 
 ```sh
 flutter analyze                     # clean
-flutter test                        # 210 tests
+flutter test                        # 319 tests
 dart run tool/balance_probe.dart    # 8-seed headless pacing check
+dart run tool/balance_probe.dart --dark              # ...playing the dark trade
+dart run tool/balance_probe.dart --charters=poor_soil  # ...under a hardship
 ```
 
 ## How the game works
@@ -458,6 +460,13 @@ whoever happens to be at the quay. Measured: the cheapest retinue hire looked
 affordable on day 23 by the model, and was bought on day 13 in play. Assume
 anything priced against the probe will be reachable sooner than it says.
 
+It has closed some of that gap. The bot now sends consignments, which it did not
+do for most of the project — an omission that made the first merchant A/B as
+worthless and measured a charter that does nothing but lengthen crossings at
+exactly zero difficulty. With sailing added its range is 89-143 days against a
+player's reported 94, where before its *best* seed was 105 and real play beat it
+by eleven days.
+
 **Known caveat:** the probe fully reallocates its labour every single day, so it
 absorbs disruption a human never would. Events moved its median by only ~7 days;
 expect them to bite considerably harder in real play. Do not tune event severity
@@ -469,15 +478,34 @@ lists — adding a chain or an event is one entry.
 
 ## What is not built yet
 
-- **Never played by a human.** All balance evidence comes from a bot, and the
-  bot does not hire a retinue, send voyages or use the chandler — so the
-  reported pacing ignores three of the systems a real player will lean on.
-- **Never run on a physical device** — only web plus widget tests at four phone
-  viewports.
-- **No Android build has ever been produced.** The dev sandbox has no Android
-  SDK; see below.
 - No sound, no animation beyond the harbour swell, emoji placeholder art
 - No tech or upgrade progression beyond building more sheds
-- Nothing past the lighthouse — no endgame content after the win
 - The archipelago/trade-route map (ships' origins, lanes, blockades) — only the
   harbour scene exists
+- **The bot still does not hire a retinue or use the chandler**, so pacing
+  measured against it ignores two systems a real player leans on. It does send
+  consignments and can work the dark trade (`--dark`) — both were added after
+  their absence produced two wrong readings.
+- Not on the Play Store. That needs twelve testers running a closed track for
+  fourteen unbroken days; internal testing does not count toward it.
+
+### What used to be here, and is no longer true
+
+This section claimed for a long while that the game had **never been played by a
+human**, had **never run on a physical device**, and that **no Android build had
+ever been produced**. All three are now wrong and were left stale far too long —
+a README that overstates what is untested is as misleading as one that
+overstates what works.
+
+The game has been played through to the lighthouse repeatedly on a **Pixel 9 Pro
+XL**, both as the installed APK and as the web build, in sessions of 45 to 55
+minutes. Signed release APKs are produced routinely from this repo. And there is
+now content past the lighthouse — a finished run earns a charter to carry into
+the next one.
+
+Nearly every bug of consequence in the last stretch came out of those sessions
+rather than out of the test suite: population stalling for eleven days, the
+merchant being a formality, consignments not leaving the stores, the charter
+screen describing the wrong run, an event whose description said nothing, the
+import berth not counting as a working shed. The suite is 300-odd tests and
+green throughout; play found what it could not.
