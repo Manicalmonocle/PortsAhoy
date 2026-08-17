@@ -147,7 +147,7 @@ void main(List<String> args) {
     n++;
   }
   if (n > 0) {
-    print('\nmean absolute error over the reference run\'s ${n} days');
+    print('\nmean absolute error over the reference run\'s $n days');
     print('  population  ${(errPop / n * 100).toStringAsFixed(1)}%');
     print('  coin        ${(errCoin / n * 100).toStringAsFixed(1)}%');
     print('  buildings   ${(errBuilt / n * 100).toStringAsFixed(1)}%');

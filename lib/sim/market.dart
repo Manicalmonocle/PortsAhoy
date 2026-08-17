@@ -324,12 +324,33 @@ class Market {
       Resource.grain,
       Resource.planks,
     ];
+
+    // Spice buys what nothing else can shortcut.
+    //
+    // Raws were never the bottleneck: the lighthouse wants 80 tools, 120 rope
+    // and 90 sailcloth, and a swap that lands ore still needs the sheds and
+    // the hands to turn it into any of those. That is why the dark trade
+    // measured as a trap — it paid in the one thing the port already had.
+    // Spice is taken off a hull rather than made, so it is the one currency
+    // that can buy finished work.
+    const spiceTakePool = [
+      Resource.tools,
+      Resource.rope,
+      Resource.sailcloth,
+    ];
+
     final barters = <Barter>[];
     final swaps = rng.rangeInt(1, 2);
     for (var i = 0; i < swaps; i++) {
       final give = Resource.contraband[rng.rangeInt(0, Resource.contraband.length - 1)];
-      final take = takePool[rng.rangeInt(0, takePool.length - 1)];
-      final takeQty = rng.range(60, 160).roundToDouble();
+      final pool = give == Resource.spice ? spiceTakePool : takePool;
+      final take = pool[rng.rangeInt(0, pool.length - 1)];
+      // Finished goods move in smaller lots than bulk raws — a hull does not
+      // carry 160 tools — and the quantity is what sets how much of a run a
+      // single swap can shorten.
+      final takeQty = give == Resource.spice
+          ? rng.range(25, 60).roundToDouble()
+          : rng.range(60, 160).roundToDouble();
       final parity = rng.range(1.25, 1.70) * shade;
       final giveQty =
           (takeQty * take.basePrice) / (give.basePrice * parity);

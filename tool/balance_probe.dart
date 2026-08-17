@@ -48,13 +48,31 @@ const List<String> darkBuildOrder = [
   'forest_camp', 'sawmill', 'house', 'flax_field', 'ropewalk',
   'warehouse', 'farm', 'flax_field', 'weaver', 'house',
   'mine', 'sawmill', 'smithy', 'warehouse', 'house',
-  'import_berth', 'forest_camp', 'distillery', 'mine', 'bonded_cellar',
-  'house', 'import_berth', 'powder_mill', 'distillery', 'warehouse',
+  // COOPERAGE BEFORE DISTILLERY, and it is not optional: a distillery costs 10
+  // barrels and barrels come from nowhere else. Without it the queue stopped
+  // dead at the distillery forever — 20 sheds, 25 people and 47,000 coin at
+  // day 400, having never built a single dark shed. Every "the dark trade
+  // loses 8 of 8" figure measured before this was a stalled honest port, not
+  // the dark trade.
+  'import_berth', 'cooperage', 'distillery', 'mine', 'bonded_cellar',
+  // The berth is the whole point of the chain and was missing: without it the
+  // port makes powder it can only sell, never boards a hull, and never sees a
+  // grain of spice. A "dark" run that cannot take a prize was measuring the
+  // contraband sheds alone, which is exactly the losing half.
+  'house', 'privateer_berth', 'powder_mill', 'import_berth', 'warehouse',
   'farm', 'house', 'import_berth', 'sawmill', 'house',
 ];
 
 /// True when `--dark` was passed: build the contraband chain and trade it.
 bool kDark = false;
+
+/// Powder kept back for boarding rather than sold as cargo.
+const double darkPowderReserve = 60;
+
+int kPrizesTaken = 0;
+int kPrizeBlocked = 0;
+int kSpiceDealsSeen = 0;
+int kSpiceDealsTaken = 0;
 
 /// True when `--hire` was passed: take on officers.
 ///
@@ -152,8 +170,31 @@ bool inEndgame(GameState g) =>
 /// finishing it holds the lighthouse's whole bill, because a sale that shaves
 /// the win out from under a finished run is the one mistake worth being
 /// completely rigid about.
+/// How far down the build order the policy has got. Kept where the selling
+/// policy can see it, because what you must not sell depends on what you are
+/// about to build.
+int kBuildIndex = 0;
+
 Map<Resource, double> reservesNow(GameState g) {
   final out = <Resource, double>{...workingReserve};
+
+  // NEVER SELL THE NEXT BUILDING.
+  //
+  // The flat plank floor of 40 was below the cost of the next shed, so the
+  // quay stripped the yard to 40 every tick and the queue could never afford
+  // anything again. Measured: a port stuck on 20 buildings and 25 people from
+  // day 100 to day 400 while its coin climbed to 28,000 — rich, capped, and
+  // unable to lay a single plank. The honest order survived this by luck; the
+  // dark one, which needs a house at exactly the wrong moment, did not.
+  final order = kDark ? darkBuildOrder : buildOrder;
+  if (kBuildIndex < order.length) {
+    defById(order[kBuildIndex]).cost.forEach((r, need) {
+      final keep = need * 1.2;
+      final current = out[r] ?? 0;
+      out[r] = keep > current ? keep : current;
+    });
+  }
+
   if (!inEndgame(g)) return out;
   g.lighthouseGoodsCost.forEach((r, need) {
     final banked = need * endgameMargin;
@@ -259,6 +300,10 @@ void main(List<String> args) {
   }
 
   _summarise(runs);
+  if (kDark) {
+    print('prizes taken $kPrizesTaken · blocked $kPrizeBlocked · '
+        'spice deals seen $kSpiceDealsSeen · taken $kSpiceDealsTaken');
+  }
 }
 
 void _summarise(List<Run> runs) {
@@ -333,6 +378,7 @@ Run _play(int seed, {bool verbose = false}) {
     _sendConsignments(g);
     if (kHire) _hireRetinue(g);
     buildIndex = _tryBuild(g, buildIndex);
+    kBuildIndex = buildIndex;
     _reassign(g);
 
     if (g.coin > peakCoin) peakCoin = g.coin;
@@ -407,13 +453,44 @@ void _sellEverythingOffered(GameState g) {
 /// Revenue seizes and what rivals raid, so a policy that sits on it would be
 /// measuring a mistake rather than the mechanic.
 void _workTheDarkTrade(GameState g) {
+  // Take every lawful prize on offer. Spice cannot be made, imported or
+  // bought, so a hull at the quay is the only place it comes from — and the
+  // powder spent is the cheapest thing the chain produces.
+  for (final ship in List.of(g.market.ships)) {
+    if (g.prizeBlocker(ship) != null) {
+      if (ship.foreign && ship.prizeTons > 0) kPrizeBlocked++;
+      continue;
+    }
+    if (g.prizeSuccessChance(ship) < 0.5) continue; // don't feed the sea
+    if (g.takePrize(ship)) kPrizesTaken++;
+  }
+
   for (final ship in List.of(g.market.ships)) {
     if (!ship.isFreeTrader) continue;
     for (final deal in List.of(ship.barters)) {
-      if (g.stock[deal.give] >= deal.giveQty) g.barter(ship, deal);
+      if (deal.give == Resource.powder &&
+          g.stock[Resource.powder] - deal.giveQty < darkPowderReserve) {
+        continue;
+      }
+      if (deal.give == Resource.spice) kSpiceDealsSeen++;
+      if (g.stock[deal.give] >= deal.giveQty) {
+        if (deal.give == Resource.spice) kSpiceDealsTaken++;
+        g.barter(ship, deal);
+      }
     }
     for (final offer in ship.offers.where((o) => !o.isFilled)) {
       if (!offer.resource.isContraband) continue;
+      // Powder is ammunition before it is cargo. Selling it all is why the
+      // port boarded 3 hulls in eight runs and was blocked 5,897 times for
+      // want of a charge — and with no prizes there is no spice, so the whole
+      // chain paid for itself in nothing.
+      if (offer.resource == Resource.powder &&
+          g.stock[Resource.powder] <= darkPowderReserve) {
+        continue;
+      }
+      // Spice is never sold. It is the only currency that buys finished work,
+      // and coin is the thing this port already has too much of.
+      if (offer.resource == Resource.spice) continue;
       final held = g.stock[offer.resource];
       if (held >= 1) g.sell(ship, offer, held);
     }
@@ -589,6 +666,24 @@ void _reassign(GameState g) {
         Balance.lighthouseCost.entries.any((e) => g.stock[e.key] < e.value);
     if (g.coin > importCoinThreshold && stillShort) {
       while (g.buildings[i].workers < def.maxWorkers && g.idleWorkers > 0) {
+        g.setWorkers(i, g.buildings[i].workers + 1);
+      }
+    }
+  }
+
+  // 1b. Crew the privateer berth, in dark runs only.
+  //
+  // The general allocation below ranks sheds by marginPerWorkerTick, and a
+  // berth produces nothing — so it scored zero and was never staffed. The port
+  // built the whole chain, made the powder, and then had no crew to board
+  // anybody with. Prizes are the only source of spice, so this one omission
+  // was the difference between measuring the dark trade and measuring a
+  // distillery.
+  if (kDark) {
+    for (var i = 0; i < g.buildings.length; i++) {
+      if (g.buildings[i].defId != 'privateer_berth') continue;
+      final def = g.buildings[i].def;
+      while (g.buildings[i].workers < def.maxWorkers && g.idleWorkers > 1) {
         g.setWorkers(i, g.buildings[i].workers + 1);
       }
     }

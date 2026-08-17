@@ -586,4 +586,47 @@ void main() {
       }
     });
   });
+  _spiceTests();
+}
+
+void _spiceTests() {
+  group('spice', () {
+    // The one thing in the game you cannot manufacture, import or buy. If any
+    // of these ever becomes false, spice stops being a reason to run the dark
+    // chain and becomes just another good.
+    test('can only be taken, never made or bought', () {
+      expect(kBuildingDefs.any((d) => d.outputs.containsKey(Resource.spice)),
+          isFalse, reason: 'no shed may produce spice');
+      expect(kImportables.contains(Resource.spice), isFalse,
+          reason: 'an import berth must not be able to land spice');
+      expect(Balance.prizeTable.containsKey(Resource.spice), isTrue,
+          reason: 'a boarded hull is the only source');
+      expect(Resource.spice.isContraband, isTrue);
+    });
+
+    // The player asked for this directly: holding it should draw pirates and
+    // the Crown. Both fall out of these two numbers rather than any new
+    // mechanic — raids scale with contrabandBaseValue (stock x basePrice) and
+    // Crown attention with heatWeight.
+    test('holding it is the most dangerous thing in the port', () {
+      for (final r in Resource.values) {
+        if (r == Resource.spice) continue;
+        expect(Resource.spice.heatWeight, greaterThan(r.heatWeight),
+            reason: 'spice must be the most conspicuous thing to hold, but '
+                '${r.label} weighs as much or more');
+        expect(Resource.spice.basePrice, greaterThan(r.basePrice),
+            reason: 'raid chance scales with hoard value, so spice must be the '
+                'richest target — ${r.label} is not below it');
+      }
+    });
+
+    test('a hoard of spice raises raid chance above the same weight of spirits',
+        () {
+      final withSpice = GameState.newGame(seed: 4)..stock.add(Resource.spice, 50);
+      final withSpirits =
+          GameState.newGame(seed: 4)..stock.add(Resource.spirits, 50);
+      expect(withSpice.contrabandBaseValue,
+          greaterThan(withSpirits.contrabandBaseValue));
+    });
+  });
 }

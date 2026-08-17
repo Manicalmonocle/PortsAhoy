@@ -158,6 +158,9 @@ class Balance {
     Resource.grain: 8,
     Resource.tools: 8,
     Resource.sailcloth: 6,
+    // The only source of spice in the game. Small, because a hull's worth is
+    // not meant to solve a run — several prizes are a shortcut, one is a taste.
+    Resource.spice: 6,
   };
 
   static const double heatPerUncoveredPrizeTon = 0.05;

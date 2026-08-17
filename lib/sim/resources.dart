@@ -19,10 +19,32 @@ enum Resource {
   tools('Tools', ResourceCategory.good, 40.0, '🔨', 4.0),
 
   // Contraband. None of these can be bought from a ship — spirits and powder
-  // are manufactured in sheds you staffed, silk only ever arrives as prize
-  // cargo. A port that never builds a dark shed never sees any of them.
+  // are manufactured in sheds you staffed, and spice ONLY ever arrives as
+  // prize cargo. A port that never builds a dark shed never sees any of them.
   spirits('Spirits', ResourceCategory.contraband, 34.0, '🥃', 1.0),
-  powder('Powder', ResourceCategory.contraband, 55.0, '💥', 1.6);
+  powder('Powder', ResourceCategory.contraband, 55.0, '💥', 1.6),
+
+  // The one thing in the game you cannot manufacture, import or buy.
+  //
+  // WHY IT EXISTS. Measured, the dark trade lost 8 of 8 runs while ending 3.8x
+  // richer than the honest path — because coin was never the constraint. The
+  // lighthouse wants 80 tools, 120 rope and 90 sailcloth, and those come only
+  // from sheds and hands. Barter existed but paid in raws, which still need
+  // refining, so it never touched the bottleneck either. A subsystem that
+  // produces surplus coin cannot be worth the hands it costs.
+  //
+  // Spice is the answer to that: it is taken off a boarded hull and swapped
+  // for FINISHED goods, so the dark trade becomes a way to convert risk into
+  // the exact thing that is scarce. That makes it worth most on a hard run,
+  // where production is throttled, and nearly pointless on an easy one — a
+  // pull toward the dark trade rather than a gate in front of the game.
+  //
+  // The price and the weight are both deliberately the highest here, and they
+  // are the whole of its risk: rival raids scale with contrabandBaseValue
+  // (stock x basePrice) and Crown attention with heatWeight, so a hold full of
+  // spice is the most raided and most searched thing a port can be sitting on.
+  // Nothing new enforces that — it falls out of these two numbers.
+  spice('Spice', ResourceCategory.contraband, 95.0, '🌶️', 5.0);
 
   const Resource(
       this.label, this.category, this.basePrice, this.icon, this.heatWeight);
