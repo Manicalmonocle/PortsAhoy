@@ -153,6 +153,15 @@ class _ExportRow extends StatelessWidget {
                       difficulty: s.charters.difficulty,
                       charters: s.charters.ids.toList(),
                       won: s.lighthouseBuilt,
+                      // So a "can't raise the lighthouse" report can be
+                      // answered from the report.
+                      lighthouse: LighthouseState(
+                        coinNeeded: s.lighthouseCoinCost,
+                        have: {
+                          for (final e in s.lighthouseGoodsCost.entries)
+                            e.key.label: s.stock[e.key],
+                        },
+                      ),
                       maxChars: ReportEndpoint.maxPayload,
                     ),
                     readable: journal.report(

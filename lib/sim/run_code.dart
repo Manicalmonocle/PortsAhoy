@@ -63,6 +63,8 @@ class DecodedRun {
     required this.marksTruncated,
     required this.declaredDays,
     required this.unattendedDays,
+    required this.lighthouseCoinNeeded,
+    required this.lighthouseHave,
     required this.lostInTransit,
     required this.marks,
     required this.days,
@@ -91,6 +93,12 @@ class DecodedRun {
   /// background, so a long run can contain stretches nobody played — and the
   /// bot this is compared against plays every day actively.
   final int unattendedDays;
+
+  /// Coin the lighthouse wanted in this run, charters included, and what the
+  /// stores held of each good it asks for (keyed by three-letter code). Null
+  /// and empty on reports written before this was recorded.
+  final int? lighthouseCoinNeeded;
+  final Map<String, int> lighthouseHave;
 
   /// Fewer rows arrived than [declaredDays] implies — the payload was cut in
   /// transit. Distinct from [daysTruncated], which is the journal hitting its
@@ -147,6 +155,7 @@ class RunCode {
     required int difficulty,
     required List<String> charters,
     required bool won,
+    LighthouseState? lighthouse,
     int maxChars = 5500,
   }) {
     String build(int stride) {
@@ -184,7 +193,21 @@ class RunCode {
         ].join('.'));
       }
 
-      return '$head~M${marks.join('_')}~D${rows.join('_')}';
+      // What the light still wants, and what is in the stores for it.
+      //
+      // Added because a player reported "can't raise lighthouse" and the
+      // report could not answer it: it carries population and coin but no
+      // goods, so the one question a stuck run asks was the one question the
+      // trace could not settle.
+      final light = lighthouse == null
+          ? ''
+          : '~L${[
+              _enc(lighthouse.coinNeeded),
+              ...lighthouse.have.entries
+                  .map((e) => '${shortCode(e.key)}${_enc(e.value.round())}'),
+            ].join('.')}';
+
+      return '$head$light~M${marks.join('_')}~D${rows.join('_')}';
     }
 
     for (final s in strides) {
@@ -212,7 +235,21 @@ class RunCode {
         orElse: () => throw FormatException('PA1 has no daily section', s));
 
     final headerFields = parts.indexOf(markField);
-    final unattended = headerFields > 9 ? _dec(parts[9]) : 0;
+    final unattended =
+        headerFields > 9 && !parts[9].startsWith('L') ? _dec(parts[9]) : 0;
+
+    final lightField = parts.firstWhere((p) => p.startsWith('L'),
+        orElse: () => '');
+    int? coinNeeded;
+    final have = <String, int>{};
+    if (lightField.isNotEmpty) {
+      final f = lightField.substring(1).split('.');
+      coinNeeded = _dec(f.first);
+      for (final part in f.skip(1)) {
+        final m = RegExp(r'^([a-z]{1,3})([0-9a-z]+)$').firstMatch(part);
+        if (m != null) have[m.group(1)!] = _dec(m.group(2)!);
+      }
+    }
 
     final marks = <DecodedMark>[];
     for (final raw in markField.substring(1).split('_')) {
@@ -271,6 +308,8 @@ class RunCode {
       marksTruncated: flags & 2 != 0,
       declaredDays: declared,
       unattendedDays: unattended,
+      lighthouseCoinNeeded: coinNeeded,
+      lighthouseHave: have,
       lostInTransit: days.length < expected,
       marks: marks,
       days: days,
@@ -320,4 +359,18 @@ class RunCode {
 
   static String winMark(int day, int population) =>
       'W${_enc(day)}.${_enc(population)}';
+}
+
+
+/// What the light is asking for, at the moment a report is written.
+class LighthouseState {
+  const LighthouseState({required this.coinNeeded, required this.have});
+
+  /// Charter-scaled, so it is the figure the game actually enforces rather
+  /// than the base one. Showing the base cost is precisely the bug that made
+  /// this worth recording.
+  final int coinNeeded;
+
+  /// Stock of each good the light wants, keyed by resource label.
+  final Map<String, double> have;
 }

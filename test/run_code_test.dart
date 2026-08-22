@@ -338,4 +338,56 @@ void _endpointTests() {
       }
     });
   });
+  _lighthouseSectionTests();
+}
+
+void _lighthouseSectionTests() {
+  group('the report can answer "why will it not raise"', () {
+    // A player on A Grander Light reported exactly that, and the trace could
+    // not settle it: it carried population and coin but no goods, so the one
+    // question a stuck run asks was the one question the report could not
+    // answer. Worse, the coin figure it needed was the charter-scaled one,
+    // which nothing recorded.
+    test('carries the scaled coin bill and what the stores held', () {
+      final j = _sampleRun(days: 20, marks: 3);
+      final code = RunCode.encode(j,
+          version: '1.3.0+21',
+          seed: 7,
+          difficulty: 4,
+          charters: const ['a_grander_light'],
+          won: false,
+          lighthouse: const LighthouseState(
+            coinNeeded: 13500,
+            have: {'Planks': 212, 'Tools': 44, 'Rope': 91, 'Sailcloth': 133},
+          ));
+
+      final back = RunCode.decode(code);
+      expect(back.lighthouseCoinNeeded, 13500);
+      expect(back.lighthouseHave['pla'], 212);
+      expect(back.lighthouseHave['too'], 44);
+      expect(back.lighthouseHave['rop'], 91);
+      expect(back.lighthouseHave['sai'], 133);
+    });
+
+    test('still URL-safe with the section present', () {
+      final code = RunCode.encode(_sampleRun(days: 20, marks: 3),
+          version: '1.3.0+21',
+          seed: 7,
+          difficulty: 4,
+          charters: const ['a_grander_light'],
+          won: false,
+          lighthouse: const LighthouseState(
+              coinNeeded: 13500, have: {'Planks': 212, 'Tools': 44}));
+      expect(RegExp(r'^[A-Za-z0-9._~-]+$').hasMatch(code), isTrue);
+    });
+
+    test('older reports without the section still decode', () {
+      final code = _encode(_sampleRun(days: 10, marks: 2));
+      final back = RunCode.decode(code);
+      expect(back.lighthouseCoinNeeded, isNull);
+      expect(back.lighthouseHave, isEmpty);
+      expect(back.days.length, 10);
+      expect(back.unattendedDays, 0);
+    });
+  });
 }

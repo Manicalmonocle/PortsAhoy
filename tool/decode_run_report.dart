@@ -94,6 +94,17 @@ void _print(String code, int n, int total) {
   print('first hire: ${firstHire.isEmpty ? "never" : "day ${firstHire.first.day}"}');
   print('first sail: ${firstVoyage.isEmpty ? "never" : "day ${firstVoyage.first.day}"}');
 
+  final need = r.lighthouseCoinNeeded;
+  if (need != null) {
+    final short = need - (r.days.isEmpty ? 0 : r.days.last.coin);
+    print('light wants: ${need}c'
+        '${short > 0 ? "  (SHORT BY $short)" : "  (coin met)"}');
+    final holds = r.lighthouseHave.entries
+        .map((e) => '${e.key} ${e.value}')
+        .join(', ');
+    if (holds.isNotEmpty) print('in the stores: $holds');
+  }
+
   print('');
   print('## milestones');
   for (final m in r.marks) {

@@ -124,7 +124,19 @@ class _LighthouseCard extends StatelessWidget {
       );
     }
 
-    final coinPct = (state.coin / Balance.lighthouseCoin).clamp(0.0, 1.0);
+    // THE NUMBERS THE GAME ACTUALLY ENFORCES.
+    //
+    // This card used to read Balance.lighthouseCoin and Balance.lighthouseCost
+    // — the BASE costs — while the Raise button is gated on
+    // state.canBuildLighthouse, which uses the charter-scaled ones. Under
+    // A Grander Light (x1.5) a player saw "Coin 9,513 / 9,000" with every row
+    // satisfied and a button that would not press, because the real bill was
+    // 13,500 and 240 planks. Reported as "Can't raise lighthouse", and they
+    // were right: the screen was describing a different lighthouse.
+    final coinNeed = state.lighthouseCoinCost.toDouble();
+    final goodsNeed = state.lighthouseGoodsCost;
+    final coinPct = (state.coin / coinNeed).clamp(0.0, 1.0);
+    final scale = state.charters.lighthouseCost;
 
     return Card(
       child: Padding(
@@ -165,13 +177,24 @@ class _LighthouseCard extends StatelessWidget {
               style: TextStyle(fontSize: 11, color: Palette.fog, height: 1.4),
             ),
             const SizedBox(height: 10),
+            if (scale != 1.0)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Text(
+                  'Your charters ask for '
+                  '${scale > 1 ? "${((scale - 1) * 100).round()}% more" : "${((1 - scale) * 100).round()}% less"} '
+                  'than a plain run. These are the real figures.',
+                  style: const TextStyle(
+                      fontSize: 11, color: Palette.lamp, height: 1.4),
+                ),
+              ),
             _Requirement(
               label: 'Coin',
               have: state.coin.toDouble(),
-              need: Balance.lighthouseCoin.toDouble(),
+              need: coinNeed,
               progress: coinPct,
             ),
-            ...Balance.lighthouseCost.entries.map((e) => _Requirement(
+            ...goodsNeed.entries.map((e) => _Requirement(
                   label: e.key.label,
                   have: state.stock[e.key],
                   need: e.value,

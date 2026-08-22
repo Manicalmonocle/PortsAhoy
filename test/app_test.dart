@@ -7,7 +7,9 @@ import 'package:ports_ahoy/game_controller.dart';
 import 'package:ports_ahoy/report_endpoint.dart';
 import 'package:ports_ahoy/sim/profile.dart';
 import 'package:ports_ahoy/main.dart';
+import 'package:ports_ahoy/sim/charters.dart';
 import 'package:ports_ahoy/sim/events.dart';
+import 'package:ports_ahoy/sim/game_state.dart';
 import 'package:ports_ahoy/sim/resources.dart';
 import 'package:ports_ahoy/ui/theme.dart';
 import 'package:ports_ahoy/ui/world_view.dart';
@@ -842,5 +844,54 @@ void _privacyTests() {
       expect(manifest, isNot(contains('android.permission.INTERNET')));
       expect(policy, contains('no internet permission'));
     });
+  });
+  _lighthouseCardTests();
+}
+
+void _lighthouseCardTests() {
+  // A player on A Grander Light reported "Can't raise lighthouse". They were
+  // right, and the fault was this card: it printed Balance.lighthouseCoin and
+  // Balance.lighthouseCost — the BASE bill — while the Raise button is gated
+  // on canBuildLighthouse, which uses the charter-scaled one. At x1.5 they saw
+  // "Coin 9,513 / 9,000" with every row met and a dead button, because the
+  // real requirement was 13,500 and 240 planks.
+  testWidgets('the lighthouse card shows the bill the game enforces',
+      (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final c = GameController(seedOverride: 20260815);
+    await c.load();
+    c.setSpeed(0);
+    addTearDown(c.dispose);
+
+    // The charter set from the reported run: x1.5 on everything.
+    c.state.charters = CharterSet.fromIds(const ['a_grander_light']);
+    expect(c.state.charters.lighthouseCost, 1.5);
+
+    // Exactly the base bill — enough under a plain run, not nearly enough here.
+    c.state.coin = Balance.lighthouseCoin;
+    Balance.lighthouseCost.forEach((r, q) => c.state.stock.add(r, q));
+
+    expect(c.state.canBuildLighthouse, isFalse,
+        reason: 'the base bill must not satisfy a x1.5 charter');
+
+    tester.view.physicalSize = const Size(420, 2600);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(PortsAhoyApp(controller: c));
+    await tester.pump();
+    await openPanel(tester, 'Build');
+    await tester.pumpAndSettle();
+
+    // The card must not claim the coin requirement is met when it is not.
+    // fmt() renders 13500 as "13.5k" and 240 as "240".
+    expect(find.textContaining('13.5k'), findsWidgets,
+        reason: 'the card must print the scaled coin cost, not the base 9000');
+    expect(find.textContaining('/ 9000'), findsNothing,
+        reason: 'printing the base coin cost is what caused the report');
+    expect(find.textContaining('/ 240'), findsWidgets,
+        reason: 'planks must show the scaled 240, not the base 160');
+    expect(find.textContaining('/ 160'), findsNothing);
+
+    await closeGame(tester);
   });
 }
