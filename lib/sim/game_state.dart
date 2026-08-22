@@ -248,6 +248,7 @@ class GameState {
       lighthouseBuilt: false,
     );
     state.charters = ch;
+    state.worldSeed = seed;
     state.placeAll();
     state.syncYards();
     state.unlocked.addAll(kInitiallyUnlocked);
@@ -263,6 +264,15 @@ class GameState {
   int population;
   final Market market;
   final SeededRng rng;
+
+  /// The seed this run BEGAN with.
+  ///
+  /// [SeededRng.seed] is the live LCG state and advances on every draw, so it
+  /// is useless as an identifier: two reports from the same run carried two
+  /// different "seeds" and looked like two different runs. It also cannot
+  /// reproduce anything, which the privacy policy had been claiming it could.
+  /// This one never changes.
+  int worldSeed = 0;
   bool lighthouseBuilt;
 
   /// A day-by-day trace of this run, for lining the balance bot up against
@@ -1721,6 +1731,14 @@ class GameState {
     }
     if (sold > 0) coin += sold.round();
 
+    // Recorded, because it was not. A player built the powder mill and the
+    // privateer berth and reported the dark trade slowed them down, and the
+    // trace could not say whether they ever boarded anybody — the one event
+    // the whole chain exists to produce left no mark at all.
+    journal.mark(day, 'took a prize of ${ship.prizeTons} tons',
+        code: RunCode.prizeMark(day, ship.prizeTons,
+            stock[Resource.spice].round()));
+
     if (!covered) {
       _addHeat(ship.prizeTons * Balance.heatPerUncoveredPrizeTon);
     }
@@ -1836,6 +1854,8 @@ class GameState {
         'population': population,
         'market': market.toJson(),
         'seed': rng.seed,
+        // Separate from the live RNG state above, which advances every draw.
+        'worldSeed': worldSeed,
         'lighthouseBuilt': lighthouseBuilt,
         'victoryRecorded': victoryRecorded,
         'journal': journal.toJson(),
@@ -1890,6 +1910,11 @@ class GameState {
     state.charters =
         CharterSet.fromIds((j['charters'] as List? ?? []).cast<String>());
     state.victoryRecorded = j['victoryRecorded'] as bool? ?? false;
+    // Saves written before worldSeed existed have only the live RNG state, so
+    // they cannot recover the run's true seed — falling back to it keeps the
+    // field populated without pretending it is reproducible.
+    state.worldSeed =
+        (j['worldSeed'] as num?)?.toInt() ?? (j['seed'] as num).toInt();
     state.journal =
         RunJournal.fromJson(j['journal'] as Map<String, dynamic>?);
     state.darkEarned = (j['darkEarned'] as num?)?.toDouble() ?? 0;

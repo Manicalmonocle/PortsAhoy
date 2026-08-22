@@ -338,6 +338,11 @@ class RunCode {
           'days': _dec(f[3]) / 10.0,
           'quote': _dec(f[4]),
         });
+      case 'p':
+        return DecodedMark(_dec(f[0]), 'prize', {
+          'tons': _dec(f[1]),
+          'spiceHeld': f.length > 2 ? _dec(f[2]) : 0,
+        });
       case 'W':
         return DecodedMark(_dec(f[0]), 'win', {'population': _dec(f[1])});
       default:
@@ -356,6 +361,10 @@ class RunCode {
           int day, int units, String destination, double days, int quote) =>
       'v${_enc(day)}.${_enc(units)}.${shortCode(destination)}'
       '.${_enc((days * 10).round())}.${_enc(quote)}';
+
+  /// A boarded hull: tonnage taken, and the spice held afterwards.
+  static String prizeMark(int day, int tons, int spiceHeld) =>
+      'p${_enc(day)}.${_enc(tons)}.${_enc(spiceHeld)}';
 
   static String winMark(int day, int population) =>
       'W${_enc(day)}.${_enc(population)}';

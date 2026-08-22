@@ -149,7 +149,7 @@ class _ExportRow extends StatelessWidget {
                     payload: RunCode.encode(
                       journal,
                       version: kAppVersion,
-                      seed: s.rng.seed,
+                      seed: s.worldSeed,
                       difficulty: s.charters.difficulty,
                       charters: s.charters.ids.toList(),
                       won: s.lighthouseBuilt,

@@ -629,4 +629,52 @@ void _spiceTests() {
           greaterThan(withSpirits.contrabandBaseValue));
     });
   });
+  _seedIdentityTests();
+}
+
+void _seedIdentityTests() {
+  group('the run seed identifies the run', () {
+    // Two reports from the SAME run carried two different "seeds" — 1702415616
+    // at day 97 and 219727936 at day 126 — because the field was
+    // SeededRng.seed, which is the live LCG state and advances on every draw.
+    // It made one run look like two, and it could not reproduce anything,
+    // which the privacy policy had been claiming it could.
+    test('does not change as the run is played', () {
+      final g = GameState.newGame(seed: 424242);
+      expect(g.worldSeed, 424242);
+
+      for (var i = 0; i < Balance.ticksPerDay * 30; i++) {
+        g.step();
+      }
+      expect(g.worldSeed, 424242,
+          reason: 'the world seed must not move while the run is played');
+      expect(g.rng.seed, isNot(424242),
+          reason: 'the live RNG state is expected to have advanced — that is '
+              'exactly why it cannot be used as an identifier');
+    });
+
+    test('survives a save and load', () {
+      final g = GameState.newGame(seed: 987654);
+      for (var i = 0; i < Balance.ticksPerDay * 5; i++) {
+        g.step();
+      }
+      final back = GameState.fromJson(g.toJson());
+      expect(back.worldSeed, 987654);
+    });
+
+    // The claim the privacy policy makes about this field: same seed, same
+    // run. The island itself is a fixed layout — Terrain is static — so what
+    // the seed actually determines is the draw sequence: weather, shipping,
+    // prices. Worth stating precisely, because the policy first said it laid
+    // out the island, which was simply untrue.
+    test('the same seed replays the same weather and shipping', () {
+      List<double> draws(int seed) {
+        final g = GameState.newGame(seed: seed);
+        return List.generate(200, (_) => g.rng.next());
+      }
+
+      expect(draws(555), draws(555));
+      expect(draws(555), isNot(draws(556)));
+    });
+  });
 }
