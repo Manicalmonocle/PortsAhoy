@@ -518,11 +518,13 @@ class _ScenePainter extends CustomPainter {
     _queue.clear();
 
     _paintSky(canvas, size);
-    // The ground is a single smooth mesh, drawn straight to the canvas before
-    // the depth-sorted props that stand on it.
+    // A sea to the horizon, then the island mesh on top of it, then the
+    // depth-sorted props that stand on the ground.
+    _paintOcean(canvas);
     _paintTerrainMesh(canvas);
     _buildScatter();
     _buildBuildings();
+    _buildShips();
     _buildPeople();
     _buildDropHint();
 
@@ -666,6 +668,57 @@ class _ScenePainter extends CustomPainter {
   /// ground is drawn first as one mesh, and the props (buildings, trees) sort
   /// among themselves on top of it — safe because the island is nearly flat,
   /// so terrain never occludes a prop standing on it.
+  /// A sea that reaches past the island in every direction and dissolves into
+  /// the sky, so the world is not a diamond of water floating in a void.
+  ///
+  /// The island's own water tiles only cover the 20x20 grid; beyond it there
+  /// was nothing but the background. This is a large low mesh under everything,
+  /// riding the same swell, deep blue near the island and fading to the sky's
+  /// own bottom colour at the rim — so there is no hard edge to see.
+  void _paintOcean(Canvas canvas) {
+    final tick = state.tick;
+    const reach = 120.0; // far past the island in world units
+    const n = 12; // enough cells for a smooth fade and gentle waves
+    const step = (reach * 2) / n;
+    const near = Color(0xFF1B5F79);
+    const far = Color(0xFF0E2C3B); // the sky gradient's bottom colour
+    final y = heightOf(Tile.water);
+    final half = Terrain.size / 2 * kTile;
+
+    Offset? proj(double x, double z) {
+      final p = _p.project(Vector3(x, y + _waveY(x, z, tick), z));
+      return p.visible ? p.screen : null;
+    }
+
+    Color shade(double x, double z) {
+      // Fade by how far outside the island this point is.
+      final d = (math.max(x.abs(), z.abs()) - half) / reach;
+      return Color.lerp(near, far, d.clamp(0.0, 1.0))!;
+    }
+
+    final positions = <Offset>[];
+    final colors = <Color>[];
+    void tri(double ax, double az, double bx, double bz, double cx, double cz) {
+      final pa = proj(ax, az), pb = proj(bx, bz), pc = proj(cx, cz);
+      if (pa == null || pb == null || pc == null) return;
+      positions..add(pa)..add(pb)..add(pc);
+      colors..add(shade(ax, az))..add(shade(bx, bz))..add(shade(cx, cz));
+    }
+
+    for (var i = 0; i < n; i++) {
+      for (var j = 0; j < n; j++) {
+        final x0 = -reach + i * step, x1 = x0 + step;
+        final z0 = -reach + j * step, z1 = z0 + step;
+        tri(x0, z0, x1, z0, x1, z1);
+        tri(x0, z0, x1, z1, x0, z1);
+      }
+    }
+    if (positions.isEmpty) return;
+    canvas.drawVertices(
+        ui.Vertices(ui.VertexMode.triangles, positions, colors: colors),
+        BlendMode.modulate, Paint()..color = const Color(0xFFFFFFFF));
+  }
+
   void _paintTerrainMesh(Canvas canvas) {
     final tick = state.tick;
     const n = Terrain.size;
@@ -835,6 +888,99 @@ class _ScenePainter extends CustomPainter {
       final wz = math.cos(tick * 0.037 + seed * 1.3) * 0.18;
       _person(home.x + ox + wx, home.z + oz + wz, tick, seed,
           _coats[seed % _coats.length]);
+    }
+  }
+
+  /// Ships moored off the island whenever there are traders at the quay.
+  ///
+  /// "A ship is at the quay" was only ever a line of text; now the ships are
+  /// there to see. One hull per trader in the market, moored in the water just
+  /// off a shore tile, bobbing on the same swell, drawn into the depth-sorted
+  /// queue so the island occludes them correctly.
+  void _buildShips() {
+    final ships = state.market.ships;
+    if (ships.isEmpty) return;
+
+    // Mooring spots: a water tile just outside a shore, facing the land.
+    // Collected in a stable order so a given ship keeps its berth frame to
+    // frame rather than hopping around the coast.
+    final spots = <List<double>>[]; // [x, z, facingAngle]
+    for (var col = 0; col < Terrain.size && spots.length < 12; col++) {
+      for (var row = 0; row < Terrain.size && spots.length < 12; row++) {
+        if (!Terrain.isShore(col, row)) continue;
+        for (final d in const [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+          if (Terrain.at(col + d[0], row + d[1]) != Tile.water) continue;
+          final c = tileCorner(col + 0.5 + d[0], row + 0.5 + d[1], 0);
+          spots.add([c.x, c.z, math.atan2(-d[1].toDouble(), -d[0].toDouble())]);
+          break;
+        }
+      }
+    }
+    if (spots.isEmpty) return;
+
+    final tick = state.tick;
+    for (var i = 0; i < ships.length && i < spots.length; i++) {
+      final s = spots[(i * 5) % spots.length];
+      final x = s[0], z = s[1], ang = s[2];
+      final y = heightOf(Tile.water) + _waveY(x, z, tick) + 0.02;
+      final foreign = ships[i].foreign;
+      _ship(x, z, y, ang, tick + i * 6, foreign);
+    }
+  }
+
+  /// One boat: a hull that sits low, a mast, and a sail — bows toward [ang]
+  /// (the shore). Foreign hulls fly a dark pennant instead of a pale sail.
+  void _ship(double x, double z, double y, double ang, int tick, bool foreign) {
+    final dx = math.cos(ang), dz = math.sin(ang); // along the hull, toward land
+    final px = -dz, pz = dx; // across the beam
+    const hullC = Color(0xFF6B4A30);
+    const hullDk = Color(0xFF4E3522);
+    const deckC = Color(0xFF8A6A46);
+    final bob = math.sin(tick * 0.3) * 0.02;
+    final yy = y + bob;
+
+    Vector3 hp(double along, double beam, double up) => Vector3(
+        x + dx * along + px * beam, yy + up, z + dz * along + pz * beam);
+    // Freeboard: the hull sits partly in the water (keel below) and rises to a
+    // gunwale well above it, so it has real volume instead of reading as a raft.
+    const stern = -0.5, bow = 0.66, beam = 0.26;
+    const keel = -0.12, rim = 0.22;
+    final ctr = Vector3(x, yy, z);
+
+    // Hull sides, sloping from a narrow keel out to the gunwale, tapering to
+    // the bow — the shape that reads as a boat.
+    _poly([hp(stern, -beam * 0.5, keel), hp(bow, 0, keel + 0.04),
+      hp(bow, 0, rim), hp(stern, -beam, rim)], hullDk, awayFrom: ctr);
+    _poly([hp(stern, beam * 0.5, keel), hp(bow, 0, keel + 0.04),
+      hp(bow, 0, rim), hp(stern, beam, rim)], hullDk, awayFrom: ctr);
+    // Stern transom.
+    _poly([hp(stern, -beam * 0.5, keel), hp(stern, beam * 0.5, keel),
+      hp(stern, beam, rim), hp(stern, -beam, rim)], hullC, awayFrom: ctr);
+    // Deck, inset a little inside the gunwale.
+    _poly([hp(stern, -beam * 0.8, rim), hp(stern, beam * 0.8, rim),
+      hp(bow - 0.06, 0, rim)], deckC);
+    // A raised gunwale rim along each side, for a crisp edge.
+    _poly([hp(stern, -beam, rim), hp(bow, 0, rim), hp(bow, 0, rim + 0.05),
+      hp(stern, -beam, rim + 0.05)], hullC, awayFrom: ctr);
+    _poly([hp(stern, beam, rim), hp(bow, 0, rim), hp(bow, 0, rim + 0.05),
+      hp(stern, beam, rim + 0.05)], hullC, awayFrom: ctr);
+
+    // Mast a touch forward of centre, a boom, and the sail.
+    final mx = x + dx * 0.04, mz = z + dz * 0.04;
+    _box(Vector3(mx - 0.03, yy + rim, mz - 0.03),
+        Vector3(mx + 0.03, yy + rim + 0.8, mz + 0.03), const Color(0xFF3A2C20));
+    if (foreign) {
+      final flap = math.sin(tick * 0.4) * 0.06;
+      _poly([Vector3(mx, yy + rim + 0.78, mz),
+        Vector3(mx + px * 0.36, yy + rim + 0.64 + flap, mz + pz * 0.36),
+        Vector3(mx, yy + rim + 0.5, mz)], const Color(0xFF15120F),
+          awayFrom: Vector3(x, yy, z - 1));
+    } else {
+      // A square sail bellying forward, filling most of the mast.
+      final belly = 0.08 + math.sin(tick * 0.25) * 0.03;
+      _poly([hp(0.02, -beam * 0.7, rim + 0.72), hp(0.02, beam * 0.7, rim + 0.72),
+        hp(0.02 + belly, beam * 0.7, rim + 0.28), hp(0.02 + belly, -beam * 0.7, rim + 0.28)],
+          const Color(0xFFEBE1C8), awayFrom: ctr);
     }
   }
 

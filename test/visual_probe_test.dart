@@ -13,8 +13,10 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:ports_ahoy/game_controller.dart';
 import 'package:ports_ahoy/sim/buildings.dart';
+import 'package:ports_ahoy/sim/market.dart';
 import 'package:ports_ahoy/sim/terrain.dart';
 import 'package:ports_ahoy/ui/world_view.dart';
+import 'package:vector_math/vector_math_64.dart' show Vector3;
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
@@ -60,12 +62,41 @@ void main() {
         ..row = spots[i][1]
         ..workers = def.maxWorkers > 0 ? (i % 3 == 2 ? 0 : def.maxWorkers) : 0);
     }
+    // A few ships at the quay so the moored hulls render.
+    g.market.ships.add(Ship(name: 'Test Crown', departTick: 99999,
+        offers: const [], foreign: false));
+    g.market.ships.add(Ship(name: 'Test Free', departTick: 99999,
+        offers: const [], foreign: true));
+    g.market.ships.add(Ship(name: 'Test Crown 2', departTick: 99999,
+        offers: const [], foreign: false));
     g.population = 80;
     g.tick = 240; // mid-morning, so anything tick-driven is mid-motion
 
+    // Aim at the first moored ship, for judging boat geometry.
+    List<double>? shipSpot;
+    if (Platform.environment['VISUAL_SHIP'] != null) {
+      outer:
+      for (var col = 0; col < Terrain.size; col++) {
+        for (var row = 0; row < Terrain.size; row++) {
+          if (!Terrain.isShore(col, row)) continue;
+          for (final d in const [[1,0],[-1,0],[0,1],[0,-1]]) {
+            if (Terrain.at(col + d[0], row + d[1]) == Tile.water) {
+              final c = tileCorner(col + 0.5 + d[0], row + 0.5 + d[1], 0);
+              shipSpot = [c.x, c.z];
+              break outer;
+            }
+          }
+        }
+      }
+    }
+
     // Close in on the middle of the lineup, or nothing is big enough to judge.
     final zoom = Platform.environment['VISUAL_ZOOM'];
-    final cam = zoom == null
+    final cam = shipSpot != null
+        ? (Camera3D(
+            target: Vector3(shipSpot[0], 0, shipSpot[1]),
+            distance: 5, pitch: 0.6))
+        : zoom == null
         ? null
         : Camera3D(
             target: tileCorner(
