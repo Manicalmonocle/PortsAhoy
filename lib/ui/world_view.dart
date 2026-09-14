@@ -28,7 +28,13 @@ class WorldView extends StatefulWidget {
     this.onTapEmpty,
     this.selected,
     this.fullBleed = false,
+    this.initialCamera,
   });
+
+  /// Where the camera starts. Null frames the whole island, which is what the
+  /// game wants; the visual harness passes a close orbit so a single shed can
+  /// be judged at a size where its details are visible.
+  final Camera3D? initialCamera;
 
   final GameController controller;
   final void Function(int buildingIndex) onInspect;
@@ -192,7 +198,8 @@ Vector3 tileCorner(num col, num row, double y) => Vector3(
     );
 
 class _WorldViewState extends State<WorldView> {
-  late final Camera3D _camera = Camera3D(target: Vector3.zero());
+  late final Camera3D _camera =
+      widget.initialCamera ?? Camera3D(target: Vector3.zero());
 
   int? _dragging;
   Point? _dropAt;
@@ -746,6 +753,134 @@ class _ScenePainter extends CustomPainter {
     }
   }
 
+
+  // ---- Shape vocabulary for the sheds ------------------------------------
+  //
+  // Every building used to be one _box and one _cone, in a different brown.
+  // Seventeen sheds, one silhouette: a farm, a smithy and a mine were the
+  // same pyramid-roofed cube, and the only way to tell them apart was the
+  // label. These few primitives are enough to give each its own outline —
+  // a ridge instead of a point, a chimney, a jetty, a wheel, a crop row —
+  // and they stay in the same flat-lit low-poly language as everything else,
+  // so the orbit camera keeps working from any angle.
+
+  /// A lit, depth-sorted polygon. The normal is taken from the winding
+  /// unless [awayFrom] is given, in which case it is flipped to face away from
+  /// that point — which is what a wall or a roof slope always wants.
+  void _poly(List<Vector3> pts, Color base, {Vector3? awayFrom}) {
+    var n = (pts[1] - pts[0]).cross(pts[2] - pts[0]);
+    if (n.length2 == 0) return;
+    n.normalize();
+    if (awayFrom != null) {
+      final centroid = pts.fold(Vector3.zero(), (a, b) => a + b) / pts.length.toDouble();
+      if (n.dot(centroid - awayFrom) < 0) n = -n;
+    }
+    final screen = <Offset>[];
+    var depth = 0.0;
+    for (final p in pts) {
+      final pr = _p.project(p);
+      if (!pr.visible) return;
+      screen.add(pr.screen);
+      depth += pr.depth;
+    }
+    _queue.add(_Face(depth / pts.length, screen, _lit(base, n)));
+  }
+
+  /// Walls plus a ridged roof, the shape a shed actually has.
+  void _gable(Vector3 min, Vector3 max, double wallH, double ridgeH,
+      Color wall, Color roof, {bool alongX = true, double overhang = 0.08}) {
+    _box(min, Vector3(max.x, min.y + wallH, max.z), wall);
+    final y0 = min.y + wallH;
+    final top = y0 + ridgeH;
+    final cx = (min.x + max.x) / 2, cz = (min.z + max.z) / 2;
+    final centre = Vector3(cx, y0, cz);
+    final o = overhang;
+    // The gable ends sit a hair inside the roof line. Depth-sorting by
+    // centroid can put a far gable in front of a near slope, and then its
+    // point shows through the roof; tucking it under makes the order moot.
+    final gt = top - 0.03;
+    if (alongX) {
+      _poly([Vector3(min.x - o, y0, min.z - o), Vector3(max.x + o, y0, min.z - o),
+        Vector3(max.x + o, top, cz), Vector3(min.x - o, top, cz)], roof, awayFrom: centre);
+      _poly([Vector3(min.x - o, y0, max.z + o), Vector3(max.x + o, y0, max.z + o),
+        Vector3(max.x + o, top, cz), Vector3(min.x - o, top, cz)], roof, awayFrom: centre);
+      _poly([Vector3(min.x, y0, min.z), Vector3(min.x, y0, max.z), Vector3(min.x, gt, cz)],
+          wall, awayFrom: centre);
+      _poly([Vector3(max.x, y0, min.z), Vector3(max.x, y0, max.z), Vector3(max.x, gt, cz)],
+          wall, awayFrom: centre);
+    } else {
+      _poly([Vector3(min.x - o, y0, min.z - o), Vector3(min.x - o, y0, max.z + o),
+        Vector3(cx, top, max.z + o), Vector3(cx, top, min.z - o)], roof, awayFrom: centre);
+      _poly([Vector3(max.x + o, y0, min.z - o), Vector3(max.x + o, y0, max.z + o),
+        Vector3(cx, top, max.z + o), Vector3(cx, top, min.z - o)], roof, awayFrom: centre);
+      _poly([Vector3(min.x, y0, min.z), Vector3(max.x, y0, min.z), Vector3(cx, gt, min.z)],
+          wall, awayFrom: centre);
+      _poly([Vector3(min.x, y0, max.z), Vector3(max.x, y0, max.z), Vector3(cx, gt, max.z)],
+          wall, awayFrom: centre);
+    }
+  }
+
+  /// A thin upright post.
+  void _pole(double x, double z, double y0, double h, double t, Color c) =>
+      _box(Vector3(x - t, y0, z - t), Vector3(x + t, y0 + h, z + t), c);
+
+  /// A flat lying block: a plank, a crate, a crop row, a jetty.
+  void _slab(double x0, double z0, double x1, double z1, double y0, double h,
+          Color c, {Color? top}) =>
+      _box(Vector3(x0, y0, z0), Vector3(x1, y0 + h, z1), c, topColour: top);
+
+  /// A barrel: a squat block with a darker band, which at this size reads.
+  void _barrel(double x, double z, double y0, Color c) {
+    const r = 0.11;
+    _box(Vector3(x - r, y0, z - r), Vector3(x + r, y0 + 0.22, z + r), c,
+        topColour: Color.lerp(c, Colors.black, 0.35));
+    _box(Vector3(x - r - 0.01, y0 + 0.08, z - r - 0.01),
+        Vector3(x + r + 0.01, y0 + 0.12, z + r + 0.01),
+        Color.lerp(c, Colors.black, 0.45)!);
+  }
+
+  /// Rising smoke: a few soft squares, offset and thinned by the tick so a
+  /// working chimney visibly works. Tick-driven, like the water, so a paused
+  /// port is genuinely still.
+  void _smoke(double x, double y0, double z, int tick) {
+    for (var i = 0; i < 4; i++) {
+      final t = ((tick * 0.15) + i * 0.25) % 1.0;
+      final y = y0 + t * 0.9;
+      final r = 0.06 + t * 0.09;
+      final drift = math.sin((tick + i * 7) * 0.2) * 0.05 + t * 0.12;
+      final a = (1 - t) * 0.5;
+      // A small cube rather than a screen-space blob: it lives in the world,
+      // so it is the right size at every distance and from every angle the
+      // camera can be turned to, and it depth-sorts with the chimney.
+      _box(Vector3(x + drift - r, y - r, z - r), Vector3(x + drift + r, y + r, z + r),
+          Color.fromRGBO(222, 222, 228, a));
+    }
+  }
+
+  /// A low-poly tree: a trunk and two stacked cones.
+  void _tree(double x, double z, double y0, double h, Color leaf, Color trunk) {
+    _pole(x, z, y0, h * 0.35, 0.05, trunk);
+    _cone(Vector3(x, y0 + h * 0.25, z), h * 0.34, h * 0.55, leaf);
+    _cone(Vector3(x, y0 + h * 0.55, z), h * 0.24, h * 0.45, leaf);
+  }
+
+  /// Four blades turning about a horizontal axle along z. Windmill sails, or
+  /// the spokes of a wheel — the same thing at two sizes.
+  void _blades(double x, double y, double z, double r, double w, Color c,
+      double angle) {
+    for (var i = 0; i < 4; i++) {
+      final a = angle + i * math.pi / 2;
+      final dx = math.cos(a), dy = math.sin(a);
+      final px = -dy * w, py = dx * w; // perpendicular, for blade width
+      _poly([
+        Vector3(x + px * 0.3, y + py * 0.3, z),
+        Vector3(x + dx * r + px, y + dy * r + py, z),
+        Vector3(x + dx * r - px, y + dy * r - py, z),
+        Vector3(x - px * 0.3, y - py * 0.3, z),
+      ], c, awayFrom: Vector3(x, y, z - 1));
+    }
+  }
+
   double _groundUnder(int col, int row, int f) {
     var y = -1.0;
     for (var c = col; c < col + f; c++) {
@@ -764,26 +899,202 @@ class _ScenePainter extends CustomPainter {
     final staffed = b.workers > 0;
     final y = _groundUnder(col, row, f);
 
-    final inset = 0.14;
+    const inset = 0.14;
     final min = tileCorner(col, row, y) + Vector3(inset, 0, inset);
     final max = tileCorner(col + f, row + f, y) - Vector3(inset, 0, inset);
 
+    // Unstaffed sheds sit dim and, where they have one, cold: no smoke, no
+    // turning wheel. The scene should tell you what is working.
     final dim = staffed ? 1.0 : 0.66;
-    Color shade(Color c) => Color.lerp(const Color(0xFF33402C), c, dim)!;
+    Color sh(Color c) => Color.lerp(const Color(0xFF33402C), c, dim)!;
 
-    _box(
-      Vector3(min.x, y, min.z),
-      Vector3(max.x, y + style.height, max.z),
-      shade(style.wall),
-    );
+    final wall = sh(style.wall), roof = sh(style.roof);
+    final cx = (min.x + max.x) / 2, cz = (min.z + max.z) / 2;
+    final w = max.x - min.x, d = max.z - min.z;
+    final tick = state.tick;
+    const timber = Color(0xFF6B4E2E);
+    const dark = Color(0xFF2A2420);
+    const leaf = Color(0xFF3F6B3A);
+    final crate = sh(const Color(0xFF9C7B4F));
 
-    // A pitched roof sitting on the walls.
-    _cone(
-      Vector3((min.x + max.x) / 2, y + style.height, (min.z + max.z) / 2),
-      (max.x - min.x) / 2 + 0.07,
-      style.roofHeight,
-      shade(style.roof),
-    );
+    switch (def.id) {
+      case 'house':
+        _gable(min, max, 0.5, 0.42, wall, roof);
+        _pole(max.x - 0.22, cz - 0.2, y + 0.5, 0.42, 0.06, sh(dark));
+        // A door on the sunward face.
+        _poly([Vector3(cx - 0.12, y, min.z - 0.001), Vector3(cx + 0.12, y, min.z - 0.001),
+          Vector3(cx + 0.12, y + 0.32, min.z - 0.001), Vector3(cx - 0.12, y + 0.32, min.z - 0.001)],
+          dark, awayFrom: Vector3(cx, y, cz));
+
+      case 'farm':
+        // A small farmhouse in one corner, and the rest of the plot in rows.
+        _gable(Vector3(min.x, y, min.z), Vector3(min.x + 0.62, y, min.z + 0.62),
+            0.4, 0.34, wall, roof);
+        for (var i = 0; i < 5; i++) {
+          final z0 = min.z + 0.05 + i * (d - 0.1) / 5;
+          final g = i.isEven ? const Color(0xFF6E9A3E) : const Color(0xFF86AC4A);
+          _slab(min.x + 0.75, z0 + 0.03, max.x - 0.05, z0 + (d - 0.1) / 5 - 0.06,
+              y, 0.09, sh(const Color(0xFF7C5A32)), top: sh(g));
+        }
+
+      case 'flax_field':
+        // Flax flowers blue. Rows and nothing else — it is a field.
+        for (var i = 0; i < 6; i++) {
+          final z0 = min.z + 0.03 + i * (d - 0.06) / 6;
+          final blue = i.isEven ? const Color(0xFF6F8FB0) : const Color(0xFF7FA0C0);
+          _slab(min.x + 0.04, z0 + 0.02, max.x - 0.04, z0 + (d - 0.06) / 6 - 0.05,
+              y, 0.11, sh(const Color(0xFF5E7A3A)), top: sh(blue));
+        }
+
+      case 'forest_camp':
+        _tree(min.x + 0.4, min.z + 0.45, y, 1.05, sh(leaf), sh(timber));
+        _tree(max.x - 0.38, min.z + 0.5, y, 0.9, sh(leaf), sh(timber));
+        // A lean-to: a slab roof on two posts.
+        _pole(min.x + 0.35, max.z - 0.3, y, 0.42, 0.04, sh(timber));
+        _pole(min.x + 0.95, max.z - 0.3, y, 0.42, 0.04, sh(timber));
+        _poly([Vector3(min.x + 0.25, y + 0.42, max.z - 0.2),
+          Vector3(min.x + 1.05, y + 0.42, max.z - 0.2),
+          Vector3(min.x + 1.05, y + 0.28, max.z - 0.8),
+          Vector3(min.x + 0.25, y + 0.28, max.z - 0.8)], roof, awayFrom: Vector3(cx, y, cz));
+        // A log pile.
+        for (var i = 0; i < 3; i++) {
+          _slab(max.x - 0.55, max.z - 0.62 + i * 0.02, max.x - 0.08,
+              max.z - 0.5 + i * 0.02, y + i * 0.11, 0.1, sh(timber));
+        }
+
+      case 'fishing_wharf':
+        _gable(Vector3(min.x, y, min.z), Vector3(min.x + 0.8, y, min.z + 0.7),
+            0.4, 0.32, wall, roof);
+        // A jetty running out past the plot, and a boat alongside it.
+        _slab(cx - 0.12, min.z + 0.9, cx + 0.12, max.z + 0.55, y + 0.05, 0.06, sh(timber));
+        for (final zz in [min.z + 1.0, max.z + 0.4]) {
+          _pole(cx - 0.12, zz, y, 0.22, 0.03, sh(timber));
+          _pole(cx + 0.12, zz, y, 0.22, 0.03, sh(timber));
+        }
+        _slab(cx + 0.2, max.z - 0.1, cx + 0.5, max.z + 0.5, y + 0.02, 0.12,
+            sh(const Color(0xFF4E3B2A)), top: sh(const Color(0xFF8A6E4E)));
+        _pole(cx + 0.35, max.z + 0.2, y + 0.14, 0.6, 0.02, sh(timber));
+
+      case 'mine':
+        // A spoil heap, and the adit cut into it with a timber frame.
+        _cone(Vector3(cx + 0.15, y, cz + 0.1), 0.72, 0.62, sh(const Color(0xFF6E665A)));
+        _box(Vector3(min.x + 0.1, y, min.z + 0.05), Vector3(min.x + 0.62, y + 0.4, min.z + 0.45), dark);
+        _pole(min.x + 0.1, min.z + 0.03, y, 0.44, 0.04, sh(timber));
+        _pole(min.x + 0.62, min.z + 0.03, y, 0.44, 0.04, sh(timber));
+        _slab(min.x + 0.04, min.z - 0.02, min.x + 0.68, min.z + 0.08, y + 0.42, 0.07, sh(timber));
+
+      case 'sawmill':
+        _gable(Vector3(min.x, y, min.z), Vector3(max.x - 0.55, y, max.z), 0.62, 0.42, wall, roof);
+        // A wheel turning beside the wall when hands are on it.
+        final angle = staffed ? tick * 0.35 : 0.0;
+        _blades(max.x - 0.32, y + 0.42, cz, 0.38, 0.045, sh(timber), angle);
+        _pole(max.x - 0.32, cz - 0.42, y, 0.42, 0.03, sh(timber));
+        _pole(max.x - 0.32, cz + 0.42, y, 0.42, 0.03, sh(timber));
+        for (var i = 0; i < 3; i++) {
+          _slab(min.x + 0.1 + i * 0.03, max.z + 0.05, min.x + 0.7 - i * 0.03,
+              max.z + 0.17, y + i * 0.11, 0.1, sh(timber));
+        }
+
+      case 'ropewalk':
+        // Long and low, because a ropewalk is a corridor you walk rope down.
+        _gable(Vector3(min.x, y, cz - 0.24), Vector3(max.x, y, cz + 0.24), 0.36, 0.3,
+            wall, roof, overhang: 0.06);
+        for (var i = 0; i < 3; i++) {
+          _pole(min.x + 0.25 + i * (w - 0.5) / 2, cz + 0.5, y, 0.3, 0.025, sh(timber));
+        }
+        _slab(min.x + 0.22, cz + 0.49, max.x - 0.22, cz + 0.51, y + 0.28, 0.02,
+            sh(const Color(0xFFB8A070)));
+
+      case 'cooperage':
+        _gable(Vector3(min.x, y, min.z), Vector3(max.x - 0.5, y, max.z), 0.55, 0.42, wall, roof);
+        final oak = sh(const Color(0xFF8A6238));
+        _barrel(max.x - 0.24, min.z + 0.3, y, oak);
+        _barrel(max.x - 0.24, min.z + 0.62, y, oak);
+        _barrel(max.x - 0.24, min.z + 0.94, y, oak);
+        _barrel(max.x - 0.24, min.z + 0.46, y + 0.22, oak);
+
+      case 'weaver':
+        _gable(Vector3(min.x, y, min.z + 0.5), Vector3(max.x, y, max.z), 0.55, 0.42,
+            wall, roof, alongX: true);
+        // Cloth drying on a line out front.
+        _pole(min.x + 0.15, min.z + 0.2, y, 0.62, 0.03, sh(timber));
+        _pole(max.x - 0.15, min.z + 0.2, y, 0.62, 0.03, sh(timber));
+        for (var i = 0; i < 3; i++) {
+          final x0 = min.x + 0.28 + i * 0.48;
+          _poly([Vector3(x0, y + 0.6, min.z + 0.2), Vector3(x0 + 0.34, y + 0.6, min.z + 0.2),
+            Vector3(x0 + 0.34, y + 0.22, min.z + 0.2), Vector3(x0, y + 0.22, min.z + 0.2)],
+            sh(const Color(0xFFE6DCC3)), awayFrom: Vector3(cx, y, cz + 1));
+        }
+
+      case 'smithy':
+        _gable(min, max, 0.6, 0.4, wall, roof);
+        _pole(max.x - 0.25, max.z - 0.28, y + 0.6, 0.62, 0.09, sh(const Color(0xFF3C3430)));
+        if (staffed) _smoke(max.x - 0.25, y + 1.24, max.z - 0.28, tick);
+        // An anvil on a stump by the door.
+        _pole(min.x - 0.1, cz, y, 0.22, 0.09, sh(timber));
+        _slab(min.x - 0.28, cz - 0.07, min.x + 0.08, cz + 0.07, y + 0.22, 0.09, dark);
+
+      case 'warehouse':
+        // Tall, flat-roofed, a wide door, and crates that did not fit inside.
+        _box(Vector3(min.x, y, min.z), Vector3(max.x, y + 0.95, max.z), wall,
+            topColour: roof);
+        _slab(min.x - 0.05, min.z - 0.05, max.x + 0.05, max.z + 0.05, y + 0.95, 0.07, roof);
+        _poly([Vector3(cx - 0.3, y, min.z - 0.001), Vector3(cx + 0.3, y, min.z - 0.001),
+          Vector3(cx + 0.3, y + 0.55, min.z - 0.001), Vector3(cx - 0.3, y + 0.55, min.z - 0.001)],
+          dark, awayFrom: Vector3(cx, y, cz));
+        _slab(max.x + 0.08, cz - 0.3, max.x + 0.38, cz, y, 0.28, crate);
+        _slab(max.x + 0.08, cz + 0.06, max.x + 0.38, cz + 0.36, y, 0.28, crate);
+        _slab(max.x + 0.12, cz - 0.26, max.x + 0.34, cz - 0.04, y + 0.28, 0.24, crate);
+
+      case 'import_berth':
+        // A crane over a platform: the coin goes out, the cargo comes in.
+        _slab(min.x, min.z, max.x, max.z, y, 0.08, sh(const Color(0xFF7A6A52)));
+        _pole(min.x + 0.4, cz, y + 0.08, 1.15, 0.07, sh(timber));
+        _slab(min.x + 0.33, cz - 0.05, max.x + 0.35, cz + 0.05, y + 1.1, 0.09, sh(timber));
+        _pole(max.x + 0.25, cz, y + 0.5, 0.6, 0.012, dark);
+        _slab(max.x + 0.1, cz - 0.15, max.x + 0.4, cz + 0.15, y + 0.28, 0.24, crate);
+        _slab(min.x + 0.85, min.z + 0.15, min.x + 1.15, min.z + 0.45, y + 0.08, 0.26, crate);
+
+      case 'distillery':
+        _gable(Vector3(min.x, y, min.z), Vector3(max.x - 0.6, y, max.z), 0.6, 0.4, wall, roof);
+        // A copper still and its pipe, out where it can vent.
+        final copper = sh(const Color(0xFFB87333));
+        _box(Vector3(max.x - 0.5, y, cz - 0.22), Vector3(max.x - 0.06, y + 0.42, cz + 0.22), copper);
+        _cone(Vector3(max.x - 0.28, y + 0.42, cz), 0.24, 0.34, copper);
+        _pole(max.x - 0.12, cz + 0.3, y + 0.3, 0.55, 0.025, sh(const Color(0xFF8A5A2A)));
+        if (staffed) _smoke(max.x - 0.12, y + 0.85, cz + 0.3, tick + 9);
+        _barrel(max.x - 0.24, max.z - 0.14, y, sh(const Color(0xFF8A6238)));
+
+      case 'powder_mill':
+        // A windmill: the one thing on the island that moves when it works.
+        final tower = sh(const Color(0xFF8F8478));
+        _box(Vector3(cx - 0.32, y, cz - 0.32), Vector3(cx + 0.32, y + 0.55, cz + 0.32), tower);
+        _box(Vector3(cx - 0.24, y + 0.55, cz - 0.24), Vector3(cx + 0.24, y + 1.05, cz + 0.24), tower);
+        _cone(Vector3(cx, y + 1.05, cz), 0.3, 0.32, roof);
+        final angle = staffed ? tick * 0.3 : 0.6;
+        _blades(cx, y + 1.0, cz - 0.3, 0.62, 0.08, sh(const Color(0xFFE2D6BC)), angle);
+        _pole(cx, cz - 0.3, y + 0.96, 0.08, 0.05, dark);
+
+      case 'bonded_cellar':
+        // Dug into a mound. All you see is the door.
+        _cone(Vector3(cx, y - 0.05, cz), 0.85, 0.5, sh(const Color(0xFF5F7F3C)));
+        _box(Vector3(cx - 0.22, y, min.z + 0.02), Vector3(cx + 0.22, y + 0.34, min.z + 0.34), dark);
+        _slab(cx - 0.28, min.z - 0.02, cx + 0.28, min.z + 0.08, y + 0.32, 0.07, sh(timber));
+        _barrel(cx + 0.5, min.z + 0.2, y, sh(const Color(0xFF8A6238)));
+
+      case 'privateer_berth':
+        _gable(Vector3(min.x, y, min.z), Vector3(min.x + 0.75, y, min.z + 0.7), 0.42, 0.32, wall, roof);
+        // A hull at the quay, a mast, and the black pennant.
+        _slab(cx - 0.05, min.z + 0.8, cx + 0.6, max.z + 0.35, y + 0.02, 0.16,
+            sh(const Color(0xFF3A2C22)), top: sh(const Color(0xFF7A604A)));
+        _pole(cx + 0.28, cz + 0.4, y + 0.18, 1.1, 0.025, sh(timber));
+        final flap = math.sin(tick * 0.4) * 0.05;
+        _poly([Vector3(cx + 0.28, y + 1.26, cz + 0.4), Vector3(cx + 0.28 + 0.34, y + 1.16 + flap, cz + 0.4),
+          Vector3(cx + 0.28, y + 1.06, cz + 0.4)], const Color(0xFF15120F), awayFrom: Vector3(cx, y, cz - 1));
+
+      default:
+        _gable(min, max, style.height * 0.75, style.roofHeight * 0.7, wall, roof);
+    }
 
     if (index == selected) {
       final ring = Colors.white.withValues(alpha: 0.9);
