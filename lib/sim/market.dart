@@ -373,7 +373,14 @@ class Market {
 
   /// Share of ordinary arrivals flying a foreign flag, once the dark trade is
   /// open. Zero before that, so an honest port never sees a target.
-  static const double foreignShipChance = 0.30;
+  ///
+  /// Raised from 0.30. In the first real dark-trade trace the privateer berth
+  /// stood on day 71 and the first prize came on day 93 — twenty-two days of
+  /// a crewed berth eating stores and boarding nobody, in a run that ended on
+  /// 126. Five prizes in the thirty days that followed. A chain that only
+  /// starts paying in the last quarter of a run cannot be worth building in
+  /// the first half of one.
+  static const double foreignShipChance = 0.45;
 
   Ship _rollShip(int tick, SeededRng rng,
       [double demandScale = 1.0,

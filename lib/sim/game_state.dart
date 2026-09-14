@@ -158,9 +158,20 @@ class Balance {
     Resource.grain: 8,
     Resource.tools: 8,
     Resource.sailcloth: 6,
-    // The only source of spice in the game. Small, because a hull's worth is
-    // not meant to solve a run — several prizes are a shortcut, one is a taste.
-    Resource.spice: 6,
+    // The only source of spice in the game.
+    //
+    // This was 6 — about 6% of a hull — on the theory that a prize should be
+    // a taste rather than a solution. Measured against the first real
+    // dark-trade run (tool/reference_runs, difficulty 4): the full chain by
+    // day 74, five hulls boarded for 278 tons, roughly 17 spice for the entire
+    // run, and EXACTLY THE SAME WIN DAY as the run before it that built none
+    // of it. Four sheds, ~1,800 coin and ~11 hands for nothing.
+    //
+    // A quarter of a hull is what makes boarding worth the powder: the same
+    // five prizes now land ~70 spice, which barters for roughly the light's
+    // whole tools bill. The other 94% of a prize was raws the port already
+    // makes, which is why it never mattered how many hulls were taken.
+    Resource.spice: 30,
   };
 
   static const double heatPerUncoveredPrizeTon = 0.05;

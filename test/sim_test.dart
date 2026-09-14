@@ -677,4 +677,22 @@ void _seedIdentityTests() {
       expect(draws(555), isNot(draws(556)));
     });
   });
+  _spiceYieldTests();
+}
+
+void _spiceYieldTests() {
+  // Measured, not asserted: at 6% of a hull the full dark chain — four sheds,
+  // ~1,800 coin, ~11 hands, five boardings — produced EXACTLY the same win day
+  // as building none of it (126 vs 126, difficulty 4, tool/reference_runs).
+  // The other 94% of a prize was raws the port already makes. If spice ever
+  // drops back under a fifth of a hull, the dark trade is a trap again and
+  // this says so before a tester has to.
+  test('a prize is substantially spice, or boarding is not worth the powder',
+      () {
+    final total = Balance.prizeTable.values.fold(0, (s, v) => s + v);
+    final share = Balance.prizeTable[Resource.spice]! / total;
+    expect(share, greaterThanOrEqualTo(0.20),
+        reason: 'spice is ${(share * 100).toStringAsFixed(0)}% of a prize; '
+            'at 6% five boardings yielded ~17 spice and zero days');
+  });
 }

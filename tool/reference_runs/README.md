@@ -18,6 +18,7 @@ dart run tool/decode_run_report.dart tool/reference_runs/<file>.pa1
 | file | charters | diff | won | notes |
 | --- | --- | --- | --- | --- |
 | `human-2026-08-16-full_purse-poor_soil.pa1` | a_full_purse, poor_soil | 1 | day 93, pop 40 | first complete human trace. No merchant hired, no dark trade at all. |
+| `human-2026-09-13-dark-full-chain-diff4.pa1` | + full_nets, a_grander_light, swift_hulls, rich_contracts | 4 | day 126, pop 51 | **first real dark-trade trace.** Full chain by day 74, five hulls boarded, ~17 spice total — and the same win day as the run before it without the chain. Net zero. The baseline any spice retune is measured against. |
 
 These are gameplay numbers only — no name, no email, no device id. See
 `lib/sim/run_code.dart` for what the format can and cannot carry.

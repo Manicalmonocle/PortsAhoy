@@ -84059,7 +84059,7 @@ l=b.dl()
 g=B.c.jn(20+b.dl()*50)
 f=n.e
 e=r.i(0,n)
-i.push(new A.dq(n,g,A.fT(B.c.N(f*(e==null?1:e)*(1.1+l*0.44999999999999996),2))))}d=a2&&b.dl()<0.3
+i.push(new A.dq(n,g,A.fT(B.c.N(f*(e==null?1:e)*(1.1+l*0.44999999999999996),2))))}d=a2&&b.dl()<0.45
 c=b.Ah(B.py)
 r=b.Ah(B.pk)
 q=b.kj(30,70)
@@ -85094,7 +85094,7 @@ A.Da.prototype={
 F(a){var s,r,q,p,o=null,n=this.c.b
 n===$&&A.a()
 s=n.y
-r=A.O("Ports Ahoy! 1.3.2+23 \xb7 "+s.a.length+" days, "+s.b.length+" milestones",o,o,B.c3,o)
+r=A.O("Ports Ahoy! 1.4.0+24 \xb7 "+s.a.length+" days, "+s.b.length+" milestones",o,o,B.c3,o)
 q=t.p
 p=A.b([A.aAF(B.IO,B.ZB,new A.akJ(s,n,a),A.md(o,o,o,o,o,o,o,o,o,B.B,o,o,o,o,o,B.ci,o,o,o,B.bf))],q)
 if(A.avO(B.dt,"","","Manicalmonocle/PortsAhoy","portsahoy@gmail.com"))p.push(A.aAF(B.II,B.Zu,new A.akK(a,s,n),A.md(o,o,o,o,o,o,o,o,o,B.B,o,o,o,o,o,B.ci,o,o,o,B.bf)))
@@ -85105,7 +85105,7 @@ var $async$$0=A.T(function(a,b){if(a===1)return A.P(b,r)
 for(;;)switch(s){case 0:o=p.a
 n=p.b
 s=3
-return A.U(A.x5(new A.o0(o.XJ(B.b.aS(n.ax.gqj(),", "),n.ax.gil(),"1.3.2+23",n.x))),$async$$0)
+return A.U(A.x5(new A.o0(o.XJ(B.b.aS(n.ax.gqj(),", "),n.ax.gil(),"1.4.0+24",n.x))),$async$$0)
 case 3:n=p.c
 if(n.e==null){s=1
 break}n.an(t.Pu).f.Bu(A.aBD(null,null,null,B.bS,null,B.a7,null,A.O("Run report copied \u2014 "+o.a.length+" days. Paste it wherever it is useful.",null,null,B.cY,null),null,B.kf,null,null,null,null,null,null,null,null,null,null))
@@ -85113,7 +85113,7 @@ case 1:return A.Q(q,r)}})
 return A.R($async$$0,r)},
 $S:33}
 A.akK.prototype={
-$0(){var s,r,q,p,o,n,m,l="1.3.2+23",k=this.b,j=this.c,i=j.w,h=j.ax.gil(),g=j.ax.gqj()
+$0(){var s,r,q,p,o,n,m,l="1.4.0+24",k=this.b,j=this.c,i=j.w,h=j.ax.gil(),g=j.ax.gqj()
 g=A.b(g.slice(0),A.M(g))
 s=j.x
 r=B.c.R(9000*j.ax.gqq())
@@ -91268,7 +91268,7 @@ B.SP=new A.a8(B.aY,!1,!1,!0,!1,B.p)
 B.Tb=new A.a8(B.aZ,!1,!0,!0,!1,B.p)
 B.T1=new A.a8(B.aZ,!1,!1,!0,!1,B.p)
 B.vC=new A.aI([B.T6,B.t,B.SD,B.t,B.Ae,B.t,B.Ab,B.t,B.SY,B.t,B.SP,B.t,B.Tb,B.t,B.T1,B.t],t.Fp)
-B.NE=new A.aI([B.cf,22,B.b1,18,B.c0,16,B.ap,14,B.cc,8,B.ce,8,B.bK,6,B.iu,6],A.an("aI<be,p>"))
+B.NE=new A.aI([B.cf,22,B.b1,18,B.c0,16,B.ap,14,B.cc,8,B.ce,8,B.bK,6,B.iu,30],A.an("aI<be,p>"))
 B.OS={type:0}
 B.NQ=new A.bn(B.OS,["line"],t.li)
 B.NT=new A.bn(B.b_,[],A.an("bn<c5,p>"))
