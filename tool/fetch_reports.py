@@ -168,9 +168,24 @@ def fetch_sheet(url):
     downloads it. Nothing on this machine can log in to anything, which is a
     strictly better position than holding a full-mailbox app password.
     """
+    import time
     import urllib.request
-    with urllib.request.urlopen(url, timeout=60) as r:
-        return codes_in(r.read().decode("utf-8", "replace"))
+
+    # Google serves a published sheet from several edge caches, and for a few
+    # minutes after a submission they disagree: five fetches in a row returned
+    # the new row, the new row, nothing, nothing, nothing. A single fetch can
+    # therefore miss a report that is genuinely there. Fetch a few times and
+    # take the union — dedupe downstream makes repeats free.
+    seen, out = set(), []
+    for attempt in range(4):
+        if attempt:
+            time.sleep(4)
+        with urllib.request.urlopen(url, timeout=60) as r:
+            for code in codes_in(r.read().decode("utf-8", "replace")):
+                if code not in seen:
+                    seen.add(code)
+                    out.append(code)
+    return out
 
 
 def save_codes(codes, seen, source):
