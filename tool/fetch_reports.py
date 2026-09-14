@@ -11,6 +11,17 @@ collecting them. This does the whole trip in one command:
 New reports land in tool/reference_runs/incoming/ as .pa1 files and are decoded
 to a readable trace beside them.
 
+TWO SOURCES, AND THE FORM ONE NEEDS NO PASSWORD.
+If reports come in through a Google Form, publish the Sheet it fills
+(File -> Share -> Publish to web -> the response tab -> CSV) and put that URL
+in ~/.config/ports_ahoy/mail.env as
+
+    PORTS_AHOY_SHEET_CSV=https://docs.google.com/spreadsheets/d/e/.../pub?output=csv
+
+That is a read-only public URL to a sheet that holds nothing but run codes;
+nothing on this machine can log in to anything. The mail credentials below
+are then optional and only needed while email reports are still arriving.
+
 CREDENTIALS ARE NEVER IN THIS REPO AND NEVER IN A CHAT.
 Make a Gmail App Password (Google Account -> Security -> 2-Step Verification
 -> App passwords; the account needs 2FA on first). Then, in a terminal:
@@ -149,10 +160,79 @@ def body_of(msg):
         return ""
 
 
+def fetch_sheet(url):
+    """Every run code in a Google Sheet published to the web as CSV.
+
+    The form path needs no credential at all: the Sheet the form fills is
+    published read-only (File -> Share -> Publish to web -> CSV), and this just
+    downloads it. Nothing on this machine can log in to anything, which is a
+    strictly better position than holding a full-mailbox app password.
+    """
+    import urllib.request
+    with urllib.request.urlopen(url, timeout=60) as r:
+        return codes_in(r.read().decode("utf-8", "replace"))
+
+
+def save_codes(codes, seen, source):
+    """Write each unseen code to OUT, keyed by its own hash so the same
+    report submitted twice — or found by both the sheet and the inbox —
+    lands once."""
+    import hashlib
+    written, new_ids = 0, []
+    for code in codes:
+        key = "code:" + hashlib.sha256(code.encode()).hexdigest()[:16]
+        if key in seen:
+            continue
+        seen.add(key)  # the same code twice in one batch must land once
+        stamp = datetime.now(timezone.utc)
+        path = OUT / f"{stamp:%Y-%m-%d-%H%M%S}-{key[5:11]}.pa1"
+        path.write_text(code + "\n")
+        print(f"  saved {path.relative_to(REPO)}  ({len(code)} chars, via {source})")
+        new_ids.append(key)
+        written += 1
+    return written, new_ids
+
+
 def main():
-    user, password = load_credentials()
     seen = load_seen()
     OUT.mkdir(parents=True, exist_ok=True)
+
+    # The form's Sheet, if one is configured. Checked first and independently
+    # of mail, so a missing app password never blocks the credential-free path.
+    sheet = os.environ.get("PORTS_AHOY_SHEET_CSV")
+    if not sheet and ENV_FILE.exists():
+        for line in ENV_FILE.read_text().splitlines():
+            if line.strip().startswith("PORTS_AHOY_SHEET_CSV="):
+                sheet = line.split("=", 1)[1].strip()
+    if sheet:
+        try:
+            codes = fetch_sheet(sheet)
+        except Exception as e:  # noqa: BLE001 — a dead URL must not block mail
+            print(f"  sheet fetch failed: {e}", file=sys.stderr)
+            codes = []
+        else:
+            print(f"{len(codes)} report(s) in the sheet.")
+            w, ids = save_codes(codes, seen, "sheet")
+            remember(ids)
+            if w:
+                _decode_new()
+
+    # Mail is only attempted when a password is actually configured. A file
+    # holding just the sheet URL is a complete, credential-free setup.
+    has_mail = bool(os.environ.get("PORTS_AHOY_APP_PASSWORD"))
+    if not has_mail and ENV_FILE.exists():
+        has_mail = any(
+            line.strip().startswith("PORTS_AHOY_APP_PASSWORD=")
+            and line.split("=", 1)[1].strip()
+            for line in ENV_FILE.read_text().splitlines()
+        )
+    if not has_mail:
+        if not sheet:
+            sys.exit("Nothing configured: set PORTS_AHOY_SHEET_CSV and/or the "
+                     "mail credentials (see the top of this file).")
+        return
+
+    user, password = load_credentials()
 
     try:
         conn = imaplib.IMAP4_SSL(IMAP_HOST)
@@ -215,13 +295,22 @@ def main():
         return
 
     print(f"\n{written} new report(s). Decoding:\n")
+    _decode_new()
+
+
+def _decode_new():
     for path in sorted(OUT.glob("*.pa1")):
         txt = path.with_suffix(".txt")
         if txt.exists():
             continue
+        import shutil
+        dart = shutil.which("dart") or str(Path.home() / "flutter/bin/dart")
+        if not Path(dart).exists():
+            print(f"  {path.name}: saved, but no `dart` on PATH to decode it "
+                  f"(looked for {dart})", file=sys.stderr)
+            return
         result = subprocess.run(
-            [str(Path.home() / "flutter/bin/dart"), "run",
-             "tool/decode_run_report.dart", str(path)],
+            [dart, "run", "tool/decode_run_report.dart", str(path)],
             cwd=REPO, capture_output=True, text=True,
         )
         if result.returncode != 0:
