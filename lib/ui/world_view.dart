@@ -523,6 +523,7 @@ class _ScenePainter extends CustomPainter {
     _paintTerrainMesh(canvas);
     _buildScatter();
     _buildBuildings();
+    _buildPeople();
     _buildDropHint();
 
     // Painter's algorithm: far polygons first.
@@ -722,6 +723,120 @@ class _ScenePainter extends CustomPainter {
     }
   }
 
+
+  /// The smooth ground height at any world point, bilinearly sampled from the
+  /// same vertex heightfield the terrain mesh uses — so a figure stands ON the
+  /// ground the player sees, not on the old flat per-tile height.
+  double _groundAt(double x, double z, int tick) {
+    final fc = x / kTile + Terrain.size / 2;
+    final fr = z / kTile + Terrain.size / 2;
+    final c = fc.floor().clamp(0, Terrain.size);
+    final r = fr.floor().clamp(0, Terrain.size);
+    final tx = (fc - c).clamp(0.0, 1.0);
+    final tz = (fr - r).clamp(0.0, 1.0);
+    final c1 = (c + 1).clamp(0, Terrain.size);
+    final r1 = (r + 1).clamp(0, Terrain.size);
+    final h00 = _vertexHeight(c, r, tick);
+    final h10 = _vertexHeight(c1, r, tick);
+    final h01 = _vertexHeight(c, r1, tick);
+    final h11 = _vertexHeight(c1, r1, tick);
+    return (h00 * (1 - tx) + h10 * tx) * (1 - tz) +
+        (h01 * (1 - tx) + h11 * tx) * tz;
+  }
+
+  /// A person: the whole point of stage 2, and driven by the sim, not sprinkled
+  /// on for mood. The number of figures at a shed is the number of hands the
+  /// player has actually posted there; idle hands stand idle near the houses.
+  /// So the crowd is a reading of the labour allocation, the same state the run
+  /// reports and the shed dimming already surface — made walkable.
+  ///
+  /// A figure is four small boxes (legs, torso, head), lit like everything
+  /// else, with a gentle walk bob. Kept deliberately cheap: there can be fifty
+  /// of them and the scene rebuilds every frame.
+  void _person(double x, double z, int tick, int seed, Color coat,
+      {bool walking = true}) {
+    final phase = seed * 1.7;
+    final bob = walking ? (math.sin(tick * 0.5 + phase).abs() * 0.03) : 0.0;
+    final y = _groundAt(x, z, tick) + bob;
+    const skin = Color(0xFFC9A17A);
+    final legs = Color.lerp(coat, Colors.black, 0.35)!;
+    // Legs: two little posts, swinging opposite ways when walking.
+    final swing = walking ? math.sin(tick * 0.5 + phase) * 0.02 : 0.0;
+    _box(Vector3(x - 0.045, y, z - 0.02 + swing),
+        Vector3(x - 0.005, y + 0.09, z + 0.02 + swing), legs);
+    _box(Vector3(x + 0.005, y, z - 0.02 - swing),
+        Vector3(x + 0.045, y + 0.09, z + 0.02 - swing), legs);
+    // Torso and head.
+    _box(Vector3(x - 0.05, y + 0.08, z - 0.035),
+        Vector3(x + 0.05, y + 0.2, z + 0.035), coat);
+    _box(Vector3(x - 0.035, y + 0.2, z - 0.03),
+        Vector3(x + 0.035, y + 0.27, z + 0.03), skin);
+  }
+
+  static const List<Color> _coats = [
+    Color(0xFF8C5A3C), Color(0xFF5A6E8C), Color(0xFF6E7A55),
+    Color(0xFF8C7A4A), Color(0xFF7A5568), Color(0xFF556E68),
+  ];
+
+  /// Everyone in the port, placed from the sim.
+  ///
+  /// Workers pace a short beat beside the shed they are posted to; idle hands
+  /// stroll between the houses. Positions are a function of the tick and a
+  /// per-person phase, so a paused port stands still and nobody teleports
+  /// between frames.
+  void _buildPeople() {
+    final s = state;
+    final tick = s.tick;
+
+    final homes = <Vector3>[];
+    for (final b in s.buildings) {
+      if (b.isPlaced && b.defId == 'house') {
+        final f = b.def.footprint;
+        homes.add(tileCorner(b.col + f / 2, b.row + f / 2, 0));
+      }
+    }
+
+    var drawn = 0;
+    const cap = 60; // bound the per-frame cost
+
+    // Workers, at their posts.
+    for (var bi = 0; bi < s.buildings.length && drawn < cap; bi++) {
+      final b = s.buildings[bi];
+      if (!b.isPlaced || b.workers <= 0) continue;
+      final f = b.def.footprint;
+      final centre = tileCorner(b.col + f / 2, b.row + f / 2, 0);
+      for (var w = 0; w < b.workers && drawn < cap; w++) {
+        final seed = bi * 31 + w * 7;
+        // A short beat back and forth just outside the shed, each hand on its
+        // own line and its own phase.
+        final ang = (seed % 8) / 8 * math.pi * 2;
+        final reach = f / 2 + 0.35;
+        // Pace in and out along the line from the shed centre: a short beat
+        // that reads as working, not teleporting.
+        final t = math.sin(tick * 0.06 + seed) * 0.5 + 0.5;
+        final d = reach + (t - 0.5) * 0.3;
+        _person(centre.x + math.cos(ang) * d, centre.z + math.sin(ang) * d,
+            tick, seed, _coats[seed % _coats.length]);
+        drawn++;
+      }
+    }
+
+    // Idle hands, milling near the houses. Each keeps to a loose patch around
+    // its own home with its own offset and two different wander frequencies —
+    // not a shared circle, which read as a fairground ring when several hands
+    // orbited one house at the same radius.
+    final idle = s.idleWorkers.clamp(0, cap - drawn);
+    for (var i = 0; i < idle; i++) {
+      final seed = 500 + i * 13;
+      final home = homes.isEmpty ? Vector3.zero() : homes[i % homes.length];
+      final ox = (_hash(seed, 1) - 0.5) * 1.4;
+      final oz = (_hash(seed, 2) - 0.5) * 1.4;
+      final wx = math.sin(tick * 0.05 + seed) * 0.18;
+      final wz = math.cos(tick * 0.037 + seed * 1.3) * 0.18;
+      _person(home.x + ox + wx, home.z + oz + wz, tick, seed,
+          _coats[seed % _coats.length]);
+    }
+  }
 
   void _buildTrees(int col, int row, double y) {
     final v = _hash(col * 17 + row * 91, 3);
