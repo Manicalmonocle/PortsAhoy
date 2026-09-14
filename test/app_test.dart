@@ -826,12 +826,33 @@ void _privacyTests() {
               'ReportEndpoint.inbox that decides that');
     });
 
-    test('it admits that email reveals the sender', () {
-      // The transport attaches an address by construction. A policy that
-      // claimed otherwise would be the comfortable lie this project exists
-      // not to tell.
-      expect(ReportEndpoint.revealsSender, isTrue);
-      expect(policy.toLowerCase(), contains('email address'));
+    test('it describes the identity the shipped transport actually reveals',
+        () {
+      // A policy that claims less privacy than the transport gives is
+      // needlessly alarming; one that claims more is the comfortable lie this
+      // project exists not to tell. So the claim follows the code.
+      if (ReportEndpoint.revealsSender) {
+        expect(policy.toLowerCase(), contains('email address'),
+            reason: 'a transport that attaches the sender must say so');
+      } else {
+        expect(policy, contains('no name or address attached'),
+            reason: 'an anonymous transport must be described as one');
+        expect(policy, contains('does not collect your email address'));
+      }
+    });
+
+    test('it names the transport that is actually shipped', () {
+      switch (ReportEndpoint.destination) {
+        case ReportDestination.googleForm:
+          expect(policy, contains('Google Form'));
+          expect(policy, contains('press Submit'));
+        case ReportDestination.email:
+          expect(policy, contains('your own mail app'));
+        case ReportDestination.githubIssue:
+          expect(policy, contains('GitHub'));
+        case ReportDestination.none:
+          break;
+      }
     });
 
     test('the app still declares no internet permission', () {

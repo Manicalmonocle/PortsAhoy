@@ -90,7 +90,7 @@ cd ~/ports_ahoy
 export PATH=$HOME/flutter/bin:$PATH
 
 flutter analyze                     # clean
-flutter test                        # 355 tests
+flutter test                        # 373 tests
 dart run tool/balance_probe.dart    # 8-seed headless pacing check
 dart run tool/balance_probe.dart --dark              # ...playing the dark trade
 dart run tool/balance_probe.dart --charters=poor_soil  # ...under a hardship
@@ -629,7 +629,7 @@ dart run tool/decode_run_report.dart reports.csv   # or a bare code, or stdin
 **Choosing a destination** — one constant, `ReportEndpoint.destination` in
 `lib/report_endpoint.dart`:
 
-| | Email *(current)* | Google Form | GitHub issue |
+| | Email | Google Form *(current)* | GitHub issue |
 | --- | --- | --- | --- |
 | tester needs an account | no | no | **yes** — a sign-in wall |
 | identity attached | their email address | none | their username, publicly |
@@ -654,8 +654,10 @@ from a mail client's URL limit.
 
 The form is the best of the three and the only one with no failure mode: it is
 anonymous, needs no mail client, and its budget is wide enough to keep a
-300-day run at every-other-day. Worth the five minutes before handing builds to
-friends and family.
+300-day run at every-other-day. It is what ships now. Responses land in the
+Sheet linked to the form; publish that Sheet to the web as CSV and give the URL
+to `tool/fetch_reports.py` as `PORTS_AHOY_SHEET_CSV`, and collection needs no
+credential on the machine at all.
 
 Neither setting is a secret. A form id appears in every prefilled link the form
 hands out, and the repo is already public. **No token is compiled into the

@@ -49,7 +49,7 @@ class ReportEndpoint {
   ///
   /// Leave as [ReportDestination.none] and the Send button stays hidden; the
   /// Copy button behaves exactly as it does today. Nothing is half-shipped.
-  static const ReportDestination destination = ReportDestination.email;
+  static const ReportDestination destination = ReportDestination.googleForm;
 
   // ── Google Form ────────────────────────────────────────────────────────
   //
@@ -64,8 +64,16 @@ class ReportEndpoint {
   // Workspace account (an @stevesilver.com one, say) turn OFF the default
   // "restrict to users in your organisation". Verify by opening the prefilled
   // link signed-out, in a private window, on a phone.
-  static const String formId = '';
-  static const String entryId = '';
+  //
+  // Both verified against the live form before being written here: a
+  // 1,744-character run code prefilled through entry.526833518 arrives bound
+  // to the field with its head and tail intact, and the page loads signed-out
+  // with HTTP 200 and no login wall. The other id on the page, 475743068, is
+  // the question id and only ever appears in URL echoes — prefilling through
+  // it binds nothing.
+  static const String formId =
+      '1FAIpQLSftXnyrO3tl7pHDN8fae78Zm5Znx0jd61fF98yiN-LASzi1DQ';
+  static const String entryId = '526833518';
 
   // ── GitHub issue ───────────────────────────────────────────────────────
   static const String repo = 'Manicalmonocle/PortsAhoy';
