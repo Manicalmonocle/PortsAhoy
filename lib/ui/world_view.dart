@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:vector_math/vector_math_64.dart' show Matrix4, Vector3, Vector4;
@@ -517,7 +518,10 @@ class _ScenePainter extends CustomPainter {
     _queue.clear();
 
     _paintSky(canvas, size);
-    _buildTerrain();
+    // The ground is a single smooth mesh, drawn straight to the canvas before
+    // the depth-sorted props that stand on it.
+    _paintTerrainMesh(canvas);
+    _buildScatter();
     _buildBuildings();
     _buildDropHint();
 
@@ -590,80 +594,134 @@ class _ScenePainter extends CustomPainter {
 
   // ---- Terrain ----------------------------------------------------------
 
-  void _buildTerrain() {
+  /// A gentle sum-of-sines swell at a world position, so the whole sea moves
+  /// as one surface instead of a grid of flat diamonds.
+  double _waveY(double x, double z, int tick) {
+    final t = tick * 0.18;
+    return math.sin(x * 0.9 + t) * 0.045 +
+        math.sin(z * 0.7 - t * 0.8) * 0.045 +
+        math.sin((x + z) * 0.5 + t * 1.3) * 0.03;
+  }
+
+  /// The base colour of a single tile, before blending. Kept narrow-range so
+  /// neighbours are close; the smoothing happens by averaging across the four
+  /// tiles that meet at a vertex, not by per-tile randomness.
+  Color _tileColour(Tile t, int col, int row) {
+    final n = math.sin(col * 0.55 + row * 0.3) * 0.5 +
+        math.sin(col * 0.2 - row * 0.65) * 0.5;
+    final k = (n * 0.5 + 0.5).clamp(0.0, 1.0);
+    return switch (t) {
+      Tile.water =>
+        Color.lerp(const Color(0xFF175066), const Color(0xFF236F8A), k)!,
+      Tile.sand => Color.lerp(const Color(0xFFCDB183), const Color(0xFFE0C79C), k)!,
+      Tile.rock => Color.lerp(const Color(0xFF767A6D), const Color(0xFF8B907E), k)!,
+      _ => Color.lerp(const Color(0xFF578F3E), const Color(0xFF669A4C), k)!,
+    };
+  }
+
+  /// The height at a grid VERTEX: the average of the four tiles meeting there.
+  /// This is what rounds the coastline — a vertex where grass meets water sits
+  /// halfway, so the beach slopes down into the sea instead of dropping off a
+  /// cliff. Water gets its swell added on top.
+  double _vertexHeight(int vc, int vr, int tick) {
+    var sum = 0.0, wave = 0.0, waterN = 0;
+    for (final d in const [[-1, -1], [0, -1], [-1, 0], [0, 0]]) {
+      final tile = Terrain.at(vc + d[0], vr + d[1]);
+      sum += heightOf(tile);
+      if (tile == Tile.water) waterN++;
+    }
+    final y = sum / 4;
+    if (waterN > 0) {
+      final wp = tileCorner(vc, vr, 0);
+      // Ripple only where there is actually water, easing out toward the shore.
+      wave = _waveY(wp.x, wp.z, tick) * (waterN / 4);
+    }
+    return y + wave;
+  }
+
+  /// The blended colour at a grid vertex: the average of the four tiles meeting
+  /// there. This is what dissolves the checkerboard and the hard sand/grass
+  /// line into a smooth transition.
+  Color _vertexColour(int vc, int vr) {
+    var r = 0.0, g = 0.0, b = 0.0;
+    for (final d in const [[-1, -1], [0, -1], [-1, 0], [0, 0]]) {
+      final tile = Terrain.at(vc + d[0], vr + d[1]);
+      final c = _tileColour(tile, vc + d[0], vr + d[1]);
+      r += c.r;
+      g += c.g;
+      b += c.b;
+    }
+    return Color.from(alpha: 1, red: r / 4, green: g / 4, blue: b / 4);
+  }
+
+  /// The island and sea as one smooth Gouraud-shaded mesh.
+  ///
+  /// WHY THIS IS NOT IN THE FACE QUEUE. Every other polygon is a flat colour,
+  /// drawn as a filled path and depth-sorted by hand. The terrain used to be
+  /// too — one flat diamond per tile — which is exactly what read as blocky:
+  /// hard seams between tiles, a stair-stepped coast, a checkerboard of greens.
+  /// Blending needs per-vertex colour interpolated ACROSS each triangle, which
+  /// a filled path cannot do; `drawVertices` interpolates in hardware. So the
+  /// ground is drawn first as one mesh, and the props (buildings, trees) sort
+  /// among themselves on top of it — safe because the island is nearly flat,
+  /// so terrain never occludes a prop standing on it.
+  void _paintTerrainMesh(Canvas canvas) {
+    final tick = state.tick;
+    const n = Terrain.size;
+
+    // Per-vertex world height, screen position and lit colour.
+    final h = List.generate(n + 1, (vc) =>
+        List.generate(n + 1, (vr) => _vertexHeight(vc, vr, tick)));
+
+    final screen = List.generate(n + 1, (vc) => List<Offset?>.filled(n + 1, null));
+    final colour = List.generate(n + 1, (vc) => List<Color>.filled(n + 1, const Color(0xFF000000)));
+    for (var vc = 0; vc <= n; vc++) {
+      for (var vr = 0; vr <= n; vr++) {
+        final p = _p.project(tileCorner(vc, vr, h[vc][vr]));
+        screen[vc][vr] = p.visible ? p.screen : null;
+        // Normal from the height gradient, for smooth (per-vertex) lighting.
+        final hx = h[(vc + 1).clamp(0, n)][vr] - h[(vc - 1).clamp(0, n)][vr];
+        final hz = h[vc][(vr + 1).clamp(0, n)] - h[vc][(vr - 1).clamp(0, n)];
+        final normal = Vector3(-hx, 2 * kTile, -hz)..normalize();
+        colour[vc][vr] = _lit(_vertexColour(vc, vr), normal);
+      }
+    }
+
+    final positions = <Offset>[];
+    final colors = <Color>[];
+    void tri(int ac, int ar, int bc, int br, int cc, int cr) {
+      final pa = screen[ac][ar], pb = screen[bc][br], pc = screen[cc][cr];
+      if (pa == null || pb == null || pc == null) return;
+      positions..add(pa)..add(pb)..add(pc);
+      colors..add(colour[ac][ar])..add(colour[bc][br])..add(colour[cc][cr]);
+    }
+
+    for (var vc = 0; vc < n; vc++) {
+      for (var vr = 0; vr < n; vr++) {
+        tri(vc, vr, vc + 1, vr, vc + 1, vr + 1);
+        tri(vc, vr, vc + 1, vr + 1, vc, vr + 1);
+      }
+    }
+
+    if (positions.isEmpty) return;
+    final verts = ui.Vertices(ui.VertexMode.triangles, positions, colors: colors);
+    // modulate against white so the vertex colours show through unchanged.
+    canvas.drawVertices(verts, BlendMode.modulate,
+        Paint()..color = const Color(0xFFFFFFFF));
+  }
+
+  /// Trees, rocks and other ground scatter, still flat-shaded in the queue.
+  void _buildScatter() {
     for (var col = 0; col < Terrain.size; col++) {
       for (var row = 0; row < Terrain.size; row++) {
         final t = Terrain.at(col, row);
-        final y = heightOf(t);
-        final v = _hash(col * 71 + row * 13);
-
-        Color top;
-        switch (t) {
-          case Tile.water:
-            final k =
-                math.sin((col + row) * 0.7 + state.tick * 0.06) * 0.5 + 0.5;
-            top = Color.lerp(
-                const Color(0xFF1C5670), const Color(0xFF2B7B93), k)!;
-          case Tile.sand:
-            top = Color.lerp(
-                const Color(0xFFCDB183), const Color(0xFFE0C79C), v)!;
-          case Tile.rock:
-            top = Color.lerp(
-                const Color(0xFF767A6D), const Color(0xFF8B907E), v)!;
-          case Tile.grass:
-          case Tile.trees:
-            top = Color.lerp(
-                const Color(0xFF52883F), const Color(0xFF6BA357), v)!;
-        }
-
-        final a = tileCorner(col, row, y);
-        final b = tileCorner(col + 1, row, y);
-        final c = tileCorner(col + 1, row + 1, y);
-        final d = tileCorner(col, row + 1, y);
-        _quad(a, b, c, d, _lit(top, Vector3(0, 1, 0)), cull: false);
-
-        // Skirts wherever this tile stands above its neighbour: the cliff
-        // faces that make the island look like a solid object.
-        _skirt(col, row, y, 1, 0, top);
-        _skirt(col, row, y, -1, 0, top);
-        _skirt(col, row, y, 0, 1, top);
-        _skirt(col, row, y, 0, -1, top);
-
+        final y = _vertexHeight(col, row, 0) + 0.02;
         if (t == Tile.trees) _buildTrees(col, row, y);
         if (t == Tile.rock) _buildRock(col, row, y);
       }
     }
   }
 
-  void _skirt(int col, int row, double y, int dc, int dr, Color top) {
-    final ny = heightOf(Terrain.at(col + dc, row + dr));
-    if (ny >= y - 1e-6) return;
-
-    late Vector3 a, b;
-    late Vector3 normal;
-    if (dc == 1) {
-      a = tileCorner(col + 1, row, y);
-      b = tileCorner(col + 1, row + 1, y);
-      normal = Vector3(1, 0, 0);
-    } else if (dc == -1) {
-      a = tileCorner(col, row + 1, y);
-      b = tileCorner(col, row, y);
-      normal = Vector3(-1, 0, 0);
-    } else if (dr == 1) {
-      a = tileCorner(col + 1, row + 1, y);
-      b = tileCorner(col, row + 1, y);
-      normal = Vector3(0, 0, 1);
-    } else {
-      a = tileCorner(col, row, y);
-      b = tileCorner(col + 1, row, y);
-      normal = Vector3(0, 0, -1);
-    }
-
-    final a2 = Vector3(a.x, ny, a.z);
-    final b2 = Vector3(b.x, ny, b.z);
-    final earth = Color.lerp(top, const Color(0xFF6A5236), 0.55)!;
-    _quad(a, b, b2, a2, _lit(earth, normal), cull: false);
-  }
 
   void _buildTrees(int col, int row, double y) {
     final v = _hash(col * 17 + row * 91, 3);
