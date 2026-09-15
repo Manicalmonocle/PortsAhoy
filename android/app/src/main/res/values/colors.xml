@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- AppTheme.deep from lib/ui/theme.dart. The launch window used to be
+         plain white (and ?android:colorBackground on v21+), which meant the
+         app flashed white before painting a very dark UI. -->
+    <color name="splash_background">#FF0E1A22</color>
+</resources>

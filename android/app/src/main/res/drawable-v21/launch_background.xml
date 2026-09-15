@@ -1,12 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Modify this file to customize your launch splash screen -->
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
-    <item android:drawable="?android:colorBackground" />
+    <!-- The window behind the engine while it starts. Matches the game's own
+         background so launching does not flash a colour the game never uses.
 
-    <!-- You can insert your own image assets here -->
-    <!-- <item>
-        <bitmap
-            android:gravity="center"
-            android:src="@mipmap/launch_image" />
-    </item> -->
+         When the ManicalGaming logo arrives it goes here, as a bitmap item
+         below — centred, and it wants to be a drawable of its own rather than
+         a scaled icon. -->
+    <item android:drawable="@color/splash_background" />
 </layer-list>

@@ -85203,7 +85203,7 @@ A.Dc.prototype={
 F(a){var s,r,q,p,o=null,n=this.c.b
 n===$&&A.a()
 s=n.y
-r=A.P("Ports Ahoy! 1.8.0+31 \xb7 "+s.a.length+" days, "+s.b.length+" milestones",o,o,B.c4,o)
+r=A.P("Ports Ahoy! 1.8.1+32 \xb7 "+s.a.length+" days, "+s.b.length+" milestones",o,o,B.c4,o)
 q=t.p
 p=A.b([A.aAS(B.Jz,B.a_s,new A.akP(s,n,a),A.mc(o,o,o,o,o,o,o,o,o,B.B,o,o,o,o,o,B.cj,o,o,o,B.bg))],q)
 if(A.aw0(B.dw,"526833518",u.z,"Manicalmonocle/PortsAhoy","portsahoy@gmail.com"))p.push(A.aAS(B.Jt,B.a_l,new A.akQ(a,s,n),A.mc(o,o,o,o,o,o,o,o,o,B.B,o,o,o,o,o,B.cj,o,o,o,B.bg)))
@@ -85214,7 +85214,7 @@ var $async$$0=A.U(function(a,b){if(a===1)return A.Q(b,r)
 for(;;)switch(s){case 0:o=p.a
 n=p.b
 s=3
-return A.V(A.x6(new A.o0(o.XW(B.b.aT(n.ax.gqr(),", "),n.ax.giq(),"1.8.0+31",n.x))),$async$$0)
+return A.V(A.x6(new A.o0(o.XW(B.b.aT(n.ax.gqr(),", "),n.ax.giq(),"1.8.1+32",n.x))),$async$$0)
 case 3:n=p.c
 if(n.e==null){s=1
 break}n.ap(t.Pu).f.BB(A.aBQ(null,null,null,B.bT,null,B.a7,null,A.P("Run report copied \u2014 "+o.a.length+" days. Paste it wherever it is useful.",null,null,B.d_,null),null,B.kl,null,null,null,null,null,null,null,null,null,null))
@@ -85222,7 +85222,7 @@ case 1:return A.R(q,r)}})
 return A.S($async$$0,r)},
 $S:33}
 A.akQ.prototype={
-$0(){var s,r,q,p,o,n,m,l="1.8.0+31",k=this.b,j=this.c,i=j.w,h=j.ax.giq(),g=j.ax.gqr()
+$0(){var s,r,q,p,o,n,m,l="1.8.1+32",k=this.b,j=this.c,i=j.w,h=j.ax.giq(),g=j.ax.gqr()
 g=A.b(g.slice(0),A.N(g))
 s=j.x
 r=B.c.R(9000*j.ax.gqy())
