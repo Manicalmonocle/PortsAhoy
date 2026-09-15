@@ -56,6 +56,34 @@ leaves the quay when you send a consignment, weather you can see arriving. The
 world went from flat shapes to a populated port recently; this is the
 remainder of that work, and it is polish rather than mechanics.
 
+**A happiness system.** The port has people in it and they have no opinion. A
+happiness reading would give the town a voice — responding to whether they are
+fed well or merely fed, housed or crowded, worked in a port that runs sweetly or
+one that lurches from crisis to crisis, and whether you are in the dark trade at
+all. It should have teeth: unhappy hands work worse, newcomers stop arriving,
+and a port run badly enough starts losing the people it has. Growth you can lose
+is the pressure the honest route is currently missing — nothing on that side
+pushes back once the chains are running.
+
+The one rule it must hold to is the fourth row of the table in
+[README.md](README.md): **no relief for sale.** Pressure is the point; a
+*purchase* that makes the pressure go away is the pattern. Notoriety already
+sets the shape, and sets it well: there is no bribe and no passive decay, but
+there *is* a way down — honest commerce launders, and a clean inspection pays
+back four points. The meter comes down through play. Happiness should answer the
+same way: to feeding people properly, housing them, paying them, keeping the
+port steady. Never to a payment, and never to simply waiting it out.
+
+**Pets.** A dog on the quay, a cat asleep on the warehouse steps, animals that
+wander the port the way the hands now do. Mostly charm, and a small step now
+that the world draws walking figures and is about to grow livestock — the
+husbandry work above does most of the groundwork.
+
+They are **earned, never sold.** Cosmetics for sale are on the list at the
+bottom of this file, and a pet is exactly the sort of harmless-looking thing a
+store gets introduced through. A small, permanent lift to happiness would be a
+fine reward for earning one.
+
 **Play Store release.** The build side is done — signed AAB, privacy policy,
 version stamping. What is left is paperwork and people: the $25 registration,
 identity verification, store listing assets, the Data Safety declaration, the
