@@ -77,10 +77,31 @@ port steady. Never to a payment, and never to simply waiting it out.
 **Pets, with trade-offs.** *Comes after animals and husbandry* — two of the five
 below touch livestock, which does not exist yet.
 
-A ship arrives, rarely, with animals aboard, and you may buy **one — once per
-run.** Not one at a time: one. The moment a second is possible the game stops
-being about which animal suits this run and starts being about collecting the
-set, and a set to complete is the same pull as a rare drop to chase.
+**A mid-game beat, around day 40-50.** A ship puts in with animals aboard and
+you choose one, and that is the only pet the run will ever offer. The timing is
+what makes it worth building: a won run lands near day 93-100, so this is the
+midpoint, and it is the stretch where the game currently goes quiet. The last
+timed unlock in the whole tree is the distillery on day 25
+([progression.dart:102](lib/sim/progression.dart#L102)); everything after that
+is condition-gated and mostly resolves early. From roughly day 30 to the
+lighthouse, a competent port is executing a plan it already has, with nothing
+new ever revealed. That is the grind, and it is a real gap rather than a
+feeling.
+
+Scheduling the offer also removes the rarity problem instead of managing it.
+Three separate knobs, and **only the first gets any randomness**:
+
+- **When** — jittered inside the window, so it still arrives as a surprise.
+- **Whether** — never random. Every run gets the offer, exactly once.
+- **Which** — never random. You pick from the five; you do not roll for one.
+
+That is what keeps it clear of the slot machine. There is no rare drop to chase,
+no reroll to farm, and no run that quietly never gets its pet because the dice
+went the wrong way.
+
+**One per run, and no second chance.** Not one at a time: one. The moment a
+second is possible the game stops being about which animal suits this run and
+starts being about collecting the set.
 
 Every pet lifts happiness; each then raises one shed's yield and lowers another,
 so the single pick is a read on the run you are having.
@@ -109,17 +130,20 @@ the pick has to come from which chains your run actually leans on. That
 invariant is worth asserting in a test, because it is the thing that would
 quietly rot if a sixth animal were added carelessly.
 
-Two more things to get right:
+Two notes on building it:
 
-- **The rarity must not become a gacha.** Rolling for *which* animal turns the
-  set into something to reroll for. Split the two: let the **encounter** be rare
-  and the **species be your pick**. The surprise survives, the chase never
-  starts. With one pet per run this matters more, not less — a rare roll you
-  only get one of is exactly the shape worth avoiding, so the offer should be
-  uncommon enough to feel like an event but reliable enough that a run nearly
-  always gets to make the choice once.
-- **Both halves visible before you pay.** A cost you find out about afterwards
-  is a trap, not a trade-off.
+- **This is not an `EventDef`, and should not be forced into one.** The event
+  system draws one weighted event per day with a repeat guard, and every event
+  in the catalogue is something that happens *to* you. A guaranteed once-per-run
+  beat that stops and asks you to choose is neither. It needs a scheduled hook
+  and a choice screen, and pretending otherwise would mean bolting a
+  once-per-run flag and a dialogue onto a weather system.
+- **The effects already have a vocabulary.** `EventDef.yieldScale` and
+  `throughput` are per-building multipliers, which is exactly the shape a pet's
+  two halves need. Reuse those rather than inventing a parallel one.
+
+And **both halves visible before you pay** — a cost you find out about
+afterwards is a trap, not a trade-off.
 
 Bought with coin, like anything else. Cosmetics for sale are on the list at the
 bottom of this file, and a pet is exactly the sort of harmless-looking thing a
