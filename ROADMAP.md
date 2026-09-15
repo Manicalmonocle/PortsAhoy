@@ -37,12 +37,20 @@ blew out to 351 days against a baseline maximum of 133. The median improved
 clearly, so the route ships, but a result that bad on one seed is not noise and
 has not been explained.
 
-**Close the bot's income gap.** `tool/calibrate.dart` puts the balance bot
-28.5% off a real player's curve, and nearly all of what remains is coin — it
-still earns far less than a person does. Officer hiring cannot be turned on in
-the bot until that closes, because wages are permanent and its economy cannot
-carry them. Until then, every number the probe reports is measured against a
-player who earns too little.
+**Make the probe get hungry.** The bot is never short of food — zero days
+blocked on it across eight seeds, carrying twenty days in store where a real
+run sat on the two-day gate for its final third. That makes it blind to the
+whole point of the livestock chain, which supplies food: measured as it stands,
+animals would report as pure cost. This is the prerequisite for the next
+feature, not a tidy-up.
+
+*Largely resolved:* the bot's pacing gap was a housing bug, not an income
+problem. Houses arrived only at fixed slots in the build order, so the port grew
+into its cap and waited — seventeen days a run with every roof taken. Building
+one the moment the town is short took the median from **96 days to 82**, within
+two of the player it is calibrated against. The same measurement settled officer
+hiring: it is still worse (90 against 82), but because wages crowd out houses
+rather than because the bot is poor.
 
 ---
 

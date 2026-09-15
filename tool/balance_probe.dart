@@ -217,7 +217,8 @@ const int maxDays = 400;
 /// Outcome of one full playthrough.
 class Run {
   Run(this.seed, this.winDay, this.peakCoin, this.endPopulation,
-      this.endBuildings, this.shortfall, this.hazards, this.boons);
+      this.endBuildings, this.shortfall, this.hazards, this.boons,
+      this.minFoodDays, this.blockedFood, this.blockedRoof, this.blockedPay);
   final int seed;
 
   /// Day the lighthouse was lit, or -1 if the run never got there.
@@ -234,6 +235,25 @@ class Run {
   /// How much weather the run actually saw.
   final int hazards;
   final int boons;
+
+  /// What was actually stopping the town from growing, counted in days.
+  ///
+  /// WHY THIS IS HERE. A played run (`human-2026-09-15-honest-80d.pa1`) spent
+  /// its last twenty days sitting on the food gate — 1.7 to 2.8 days in store
+  /// against a threshold of 2.0 — while the probe on the same settings carries
+  /// twenty days of food and never approaches it. The bot is not playing the
+  /// same game at the point where livestock is supposed to help.
+  ///
+  /// That matters because the livestock chain eats grain to produce food. Ask
+  /// a port with twenty days' buffer to feed a herd and you have measured the
+  /// cost of the feature with none of its benefit, and the probe would report
+  /// that animals are a straight loss. Knowing which constraint actually binds
+  /// is the difference between measuring the mechanic and measuring the policy
+  /// — which is the mistake this file has already made twice.
+  final double minFoodDays;
+  final int blockedFood;
+  final int blockedRoof;
+  final int blockedPay;
 
   bool get won => winDay > 0;
 }
@@ -335,6 +355,19 @@ void _summarise(List<Run> runs) {
   print('weather   hazards median ${hz[hz.length ~/ 2]} (min ${hz.first} max ${hz.last})'
       '  ·  boons median ${bn[bn.length ~/ 2]}');
 
+  // What the town was actually short of, and how often. Read this before
+  // believing any measurement of a feature that claims to relieve one of them.
+  final lowFood = runs.map((r) => r.minFoodDays).toList()..sort();
+  final bFood = runs.map((r) => r.blockedFood).toList()..sort();
+  final bRoof = runs.map((r) => r.blockedRoof).toList()..sort();
+  final bPay = runs.map((r) => r.blockedPay).toList()..sort();
+  print('food      lowest median ${lowFood[lowFood.length ~/ 2].toStringAsFixed(1)}d'
+      '  (min ${lowFood.first.toStringAsFixed(1)}d)'
+      '  ·  gate is ${Balance.growthFoodDays.toStringAsFixed(0)}d');
+  print('growth    blocked days — median: roofs ${bRoof[bRoof.length ~/ 2]}'
+      ' · payroll ${bPay[bPay.length ~/ 2]}'
+      ' · food ${bFood[bFood.length ~/ 2]}');
+
   for (final r in runs.where((r) => !r.won)) {
     final missing = r.shortfall.entries
         .map((e) => '${e.key} short by ${e.value.round()}')
@@ -352,6 +385,10 @@ Run _play(int seed, {bool verbose = false}) {
   var lighthouseDay = -1;
   var hazards = 0;
   var boons = 0;
+  var minFoodDays = double.infinity;
+  var blockedFood = 0;
+  var blockedRoof = 0;
+  var blockedPay = 0;
   final seenEvents = <ActiveEvent>{};
 
   if (verbose) print('--- seed $seed (detailed) ---');
@@ -382,6 +419,20 @@ Run _play(int seed, {bool verbose = false}) {
     _reassign(g);
 
     if (g.coin > peakCoin) peakCoin = g.coin;
+
+    // Sampled once a day, to match how a run report records itself — so the
+    // bot's numbers can be laid against a player's without rescaling.
+    final fd = g.foodDays;
+    if (fd.isFinite && fd < minFoodDays) minFoodDays = fd;
+    // Counted in the same order growthBlocker reports them, so the totals
+    // agree with what the player would have been told on screen.
+    if (g.population >= g.housingCapacity) {
+      blockedRoof++;
+    } else if (g.coin < g.dailyWageBill + g.retinueWageBill) {
+      blockedPay++;
+    } else if (fd < Balance.growthFoodDays) {
+      blockedFood++;
+    }
 
     if (lighthouseDay < 0 && g.canBuildLighthouse) {
       lighthouseDay = day;
@@ -414,7 +465,9 @@ Run _play(int seed, {bool verbose = false}) {
   }
 
   return Run(seed, lighthouseDay, peakCoin, g.population, g.buildings.length,
-      lighthouseDay > 0 ? const {} : _shortfallOf(g), hazards, boons);
+      lighthouseDay > 0 ? const {} : _shortfallOf(g), hazards, boons,
+      minFoodDays.isFinite ? minFoodDays : 0, blockedFood, blockedRoof,
+      blockedPay);
 }
 
 void _report(GameState g, int day, int buildIndex) {
@@ -605,6 +658,28 @@ int _tryBuild(GameState g, int index) {
   // with 33 sheds standing. Stopping means stopping.
 
   if (inEndgame(g)) return index;
+
+  // A roof the moment the town is short of one.
+  //
+  // Houses used to arrive only at their fixed slots in the order below, so the
+  // port grew into its cap and then simply stopped — a median of seventeen days
+  // per run with every roof taken, waiting for an unrelated shed to be afforded
+  // first. A player does not do this: the reference run put up two houses on
+  // day 27 and two more on day 52, reacting to the shortage rather than to a
+  // list.
+  //
+  // This is also the reason the bot never feels hungry. Capped population eats
+  // less than it produces, so food piles up — twenty days of it — and the food
+  // gate that bound a real run for its last third never binds here at all. A
+  // probe that is never short of food cannot measure anything that supplies
+  // food, which is precisely what the livestock chain is meant to do.
+  if (g.population >= g.housingCapacity) {
+    final house = defById('house');
+    if (g.isUnlocked(house.id) &&
+        g.coin - house.coinCost >= g.dailyWageBill * 3) {
+      g.build(house);
+    }
+  }
 
   final order = kDark ? darkBuildOrder : buildOrder;
   while (index < order.length) {

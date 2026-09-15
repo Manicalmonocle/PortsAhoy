@@ -388,8 +388,9 @@ of a probe run** before believing a single number it prints.
 Set now, so the result cannot be argued into looking good later.
 
 1. **Eight seeds minimum**, honest baseline, median days reported.
-2. **Median must not regress** against the current honest baseline of 96 days.
-   Neutral is a pass; faster is a win.
+2. **Median must not regress** against the honest baseline of **82 days**.
+   Neutral is a pass; faster is a win. *(Was 96. The probe was leaving fourteen
+   days on the floor through a housing bug — see below.)*
 3. **Measure the bill rewrite separately from the chain.** They are two changes
    and they move the median in opposite directions — the animals add sheds and
    hands, while planks and tools coming down gives time back. Shipped together
@@ -475,6 +476,47 @@ three, and its population still climbed 29 to 37 — so growth was throttled
 rather than stopped, which is exactly why it would never show up as a complaint.
 **Food is not a solved problem in this game. It is the quiet ceiling on the back
 half of a run.**
+
+### The probe cannot currently feel any of this, which had to be fixed first
+
+Running the probe against the same settings the 80-day run was played on, and
+counting what was actually stopping the town from growing:
+
+```
+                       roofs   payroll   food
+before                    17         7      0
+after the housing fix      6         8      0
+```
+
+**Food blocks the bot on zero days, in both cases.** It carried twenty days of
+food at day 50 and day 75 where the player had two. Measuring a food-producing
+chain on a port that has never been hungry would report the grain bill, the
+worker cost and none of the benefit — the Grange mistake, a third time.
+
+Fixing the first column was worth doing on its own. Houses only arrived at fixed
+slots in a thirty-item build order, so the port grew into its cap and stopped,
+a median of seventeen days per run with every roof taken. A player reacts
+instead: the reference run put up two houses on day 27 and two on day 52.
+Building one the moment the town is short took the **median from 96 days to 82**
+and brought the bot within two days of the human it is calibrated against.
+
+It also settled the hiring question, which had been parked on the theory that
+the bot was too poor to carry wages. It is not poverty:
+
+```
+without --hire   median 82   roofs blocked  6
+with    --hire   median 90   roofs blocked 18
+```
+
+Wages crowd out houses, and houses are worth more days than officers are. The
+retinue is priced against a port that needs roofs more than it needs rank.
+
+**But food still does not bind, so the core problem stands.** The bot is now
+closer — its lowest food dipped to 2.0 days on one seed, exactly the gate —
+without ever being held there. Before livestock can be measured honestly, the
+probe needs a policy that pushes population hard enough to be hungry, the way a
+real run is. Until that exists, **any livestock number the probe prints is
+measuring cost without benefit.**
 
 ### Which means the feed bill above is measured against the wrong denominator
 
