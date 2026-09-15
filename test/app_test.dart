@@ -915,4 +915,38 @@ void _lighthouseCardTests() {
 
     await closeGame(tester);
   });
+
+  testWidgets('the build card says what a grange actually does',
+      (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final c = GameController(seedOverride: 20260815);
+    await c.load();
+    c.setSpeed(0);
+    addTearDown(c.dispose);
+
+    // The grange makes nothing, so `isProducer` is false and the per-worker
+    // rate line every other card carries never rendered — leaving the one
+    // building whose worth is hardest to guess as the only one in the tab with
+    // no number on it. Reported from a played +32 run: "not 100% sure what
+    // grange does. it isn't very clear."
+    c.state.unlocked.add('grange');
+
+    tester.view.physicalSize = const Size(420, 2600);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(PortsAhoyApp(controller: c));
+    await tester.pump();
+    await openPanel(tester, 'Build');
+    await tester.pumpAndSettle();
+
+    final pct = (Balance.grangeMaxYield * 100).round();
+    expect(find.textContaining('+$pct%'), findsWidgets,
+        reason: 'the card must state the bonus it is actually worth');
+    expect(find.textContaining('${Balance.grangeRipenDays.round()} days'),
+        findsWidgets,
+        reason: 'a bonus that takes five weeks to arrive has to say so, or the '
+            'player cannot tell it from one that does nothing');
+
+    await closeGame(tester);
+  });
 }

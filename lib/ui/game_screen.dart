@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../game_controller.dart';
+import '../sim/game_state.dart';
 import '../sim/resources.dart';
 import 'build_tab.dart';
 import 'charter_panel.dart';
@@ -965,13 +966,21 @@ class _BuildingBubble extends StatelessWidget {
                   final s = controller.state;
                   final pct = (s.grangeMaturity * 100).round();
                   final gain = ((s.grangeYieldBonus - 1) * 100).round();
+                  // The ceiling and the wait, not just where it stands. "+4%
+                  // to every shed so far" gives a player no way to judge
+                  // whether staying the course is worth it — the number that
+                  // decides that is the one it is climbing towards.
+                  final cap = (Balance.grangeMaxYield * 100).round();
+                  final left =
+                      ((1 - s.grangeMaturity) * Balance.grangeRipenDays).ceil();
                   return Text(
                     b.workers == 0
                         ? 'Idle — the fields do not come on while nobody works '
                             'them. $pct% grown, +$gain% to every shed.'
                         : pct >= 100
                             ? 'Fully grown. +$gain% to every shed.'
-                            : '$pct% grown — +$gain% to every shed so far.',
+                            : '$pct% grown — +$gain% to every shed now, '
+                                'rising to +$cap% in about $left days.',
                     style: TextStyle(
                         fontSize: 11,
                         height: 1.35,

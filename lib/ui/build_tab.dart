@@ -448,6 +448,23 @@ class _BuildOption extends StatelessWidget {
                           fontSize: 10,
                           color: Palette.fog.withValues(alpha: 0.65)),
                     ),
+                  // The grange makes nothing, so `isProducer` is false and the
+                  // rate line above never ran — leaving the one building whose
+                  // worth is hardest to guess as the only card in the tab with
+                  // no number on it at all. Reported as "not sure what grange
+                  // does. it isn't very clear", which is the same fault the
+                  // lighthouse card had: the game knew, and did not say.
+                  //
+                  // Read off Balance rather than written out, so it cannot
+                  // drift from what the sim actually does.
+                  if (def.id == 'grange')
+                    Text(
+                      'Lifts every shed by '
+                      '+${(Balance.grangeMaxYield * 100).round()}% once grown '
+                      '— about ${Balance.grangeRipenDays.round()} days of work',
+                      style: const TextStyle(
+                          fontSize: 10, color: Palette.moss, height: 1.3),
+                    ),
                 ],
               ),
             ),
