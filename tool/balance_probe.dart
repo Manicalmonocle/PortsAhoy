@@ -218,7 +218,8 @@ const int maxDays = 400;
 class Run {
   Run(this.seed, this.winDay, this.peakCoin, this.endPopulation,
       this.endBuildings, this.shortfall, this.hazards, this.boons,
-      this.minFoodDays, this.blockedFood, this.blockedRoof, this.blockedPay);
+      this.minFoodDays, this.blockedFood, this.blockedRoof, this.blockedPay,
+      this.starvedDays, this.daysLived);
   final int seed;
 
   /// Day the lighthouse was lit, or -1 if the run never got there.
@@ -254,6 +255,16 @@ class Run {
   final int blockedFood;
   final int blockedRoof;
   final int blockedPay;
+
+  /// Days on which at least one staffed shed was short of input.
+  ///
+  /// A direct proxy for the pressure a player feels as "being low on supplies".
+  /// Days-to-win cannot see it: a port can be flooded with goods and finish at
+  /// exactly the same speed, having stopped being a game about scarcity
+  /// somewhere around the middle. Reported from a played run — "my warehouse is
+  /// filling quick and there's no pressure of being low on supplies".
+  final int starvedDays;
+  final int daysLived;
 
   bool get won => winDay > 0;
 }
@@ -368,6 +379,17 @@ void _summarise(List<Run> runs) {
       ' · payroll ${bPay[bPay.length ~/ 2]}'
       ' · food ${bFood[bFood.length ~/ 2]}');
 
+  // Scarcity, as a share of the run. This is the number that answers "does it
+  // still feel like a game about supply", which win-day cannot.
+  final scarcity = runs
+      .map((r) => r.daysLived == 0 ? 0.0 : r.starvedDays / r.daysLived)
+      .toList()
+    ..sort();
+  print('scarcity  days with a shed short of input: median '
+      '${(scarcity[scarcity.length ~/ 2] * 100).round()}% of the run'
+      '  (min ${(scarcity.first * 100).round()}%'
+      '  max ${(scarcity.last * 100).round()}%)');
+
   for (final r in runs.where((r) => !r.won)) {
     final missing = r.shortfall.entries
         .map((e) => '${e.key} short by ${e.value.round()}')
@@ -389,6 +411,8 @@ Run _play(int seed, {bool verbose = false}) {
   var blockedFood = 0;
   var blockedRoof = 0;
   var blockedPay = 0;
+  var starvedDays = 0;
+  var daysLived = 0;
   final seenEvents = <ActiveEvent>{};
 
   if (verbose) print('--- seed $seed (detailed) ---');
@@ -422,6 +446,14 @@ Run _play(int seed, {bool verbose = false}) {
 
     // Sampled once a day, to match how a run report records itself — so the
     // bot's numbers can be laid against a player's without rescaling.
+    daysLived++;
+    // 0.95 is the threshold the shed card itself uses to say "starved", so
+    // this counts exactly what the player would have been shown.
+    if (g.buildings.any((b) =>
+        b.workers > 0 && b.def.inputs.isNotEmpty && b.lastEfficiency < 0.95)) {
+      starvedDays++;
+    }
+
     final fd = g.foodDays;
     if (fd.isFinite && fd < minFoodDays) minFoodDays = fd;
     // Counted in the same order growthBlocker reports them, so the totals
@@ -467,7 +499,7 @@ Run _play(int seed, {bool verbose = false}) {
   return Run(seed, lighthouseDay, peakCoin, g.population, g.buildings.length,
       lighthouseDay > 0 ? const {} : _shortfallOf(g), hazards, boons,
       minFoodDays.isFinite ? minFoodDays : 0, blockedFood, blockedRoof,
-      blockedPay);
+      blockedPay, starvedDays, daysLived);
 }
 
 void _report(GameState g, int day, int buildIndex) {

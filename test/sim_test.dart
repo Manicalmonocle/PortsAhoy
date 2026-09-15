@@ -780,9 +780,15 @@ void _grangeTests() {
       with_.grangeMaturity = 1.0;
       play(without, 8);
       play(with_, 8);
+      // Derived from the constant rather than written out, so retuning the
+      // grange cannot silently leave this asserting a number the game stopped
+      // believing. The 0.75 is slack: the granged port also spends two hands
+      // on the grange itself, so it cannot reach the full multiplier.
+      final floor = 1 + Balance.grangeMaxYield * 0.75;
       expect(with_.stock[Resource.timber],
-          greaterThan(without.stock[Resource.timber] * 1.25),
-          reason: 'a full grange is worth about a third more raw timber');
+          greaterThan(without.stock[Resource.timber] * floor),
+          reason: 'a full grange must be worth most of its advertised '
+              '+${(Balance.grangeMaxYield * 100).round()}% in raw timber');
     });
 
     // THE CORRECTION THAT MADE THIS ROUTE WORK. It lifted extractors only at

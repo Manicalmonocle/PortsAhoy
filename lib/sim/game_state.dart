@@ -148,8 +148,34 @@ class Balance {
   /// Days of being worked before a grange reaches its full worth.
   static const double grangeRipenDays = 35;
 
-  /// What a fully grown grange adds to every extractor's yield.
-  static const double grangeMaxYield = 0.35;
+  /// What a fully grown grange adds to every shed's yield.
+  ///
+  /// WHY 0.20 AND NOT 0.35. Reported from a played run at 75% grown: "my
+  /// warehouse is filling quick and there's no pressure of being low on
+  /// supplies". The bonus was flattening the middle of the game.
+  ///
+  /// It compounds harder than the number suggests, because only outputs are
+  /// scaled and inputs are not — see [_produce]. An extractor makes 35% more
+  /// raw, and the workshop downstream turns the same raw into 35% more goods,
+  /// so a two-stage chain lands near 1.8x on the finished article while the
+  /// raws it eats never rise.
+  ///
+  /// Measured over 16 seeds, the cut is free:
+  ///
+  ///     0.35  median 84 days (max 103)   <- was
+  ///     0.20  median 84 days (max  99)   <- is
+  ///     0.15  median 87 days (max 118)
+  ///     0.00  median 92 days
+  ///
+  /// So the grange is worth about ten days, essentially all of it delivered by
+  /// 0.20; the back half bought no speed and only drowned the port. Below 0.20
+  /// it starts costing real days, which places the knee exactly here.
+  ///
+  /// Note the probe could not see the complaint itself — it sells everything
+  /// above its reserve every tick, so its warehouse never fills and its
+  /// scarcity reading sat at 29% of the run regardless. What it establishes is
+  /// that this change costs nothing, not that it fixes the feel.
+  static const double grangeMaxYield = 0.20;
 
   static const double prizeBaseSuccess = 0.30;
   static const double prizeSuccessPerCrew = 0.11;

@@ -83270,7 +83270,7 @@ k=m.w
 k.a9(0,new A.a3_(n,f,h))
 l.a9(0,new A.a30(n,h,g,o))
 if(n.a>0){k.a9(0,new A.a31(n,f,h))
-l.a9(0,new A.a32(n,f,o,h,g,1+0.35*f.fy))}o.f=n.a}},
+l.a9(0,new A.a32(n,f,o,h,g,1+0.2*f.fy))}o.f=n.a}},
 a5Z(){var s,r,q,p,o,n,m,l,k,j,i=this.at.d.f
 if(i<=0)return B.OL
 s=A.p(t.i6,t.S)
@@ -84545,7 +84545,7 @@ j=B.b.aT(j,"  \xb7  ")
 j=A.b([n,B.eu,m,B.iW,A.N(j,k,k,A.bb(k,k,r?B.B:B.E,k,k,k,k,k,k,k,k,11,k,k,B.bb,k,k,!0,k,k,k,k,k,k,k,k),k)],o)
 n=s.x
 if(n.gbq(n)||s.at||s.ax)j.push(A.N(B.c.N(s.gapp(),2)+"c per worker-hour",k,k,A.bb(k,k,B.u.b7(0.65),k,k,k,k,k,k,k,k,10,k,k,k,k,k,!0,k,k,k,k,k,k,k,k),k))
-if(s.a==="grange")j.push(A.N("Lifts every shed by +35% once grown \u2014 about 35 days of work",k,k,B.YE,k))
+if(s.a==="grange")j.push(A.N("Lifts every shed by +20% once grown \u2014 about 35 days of work",k,k,B.YE,k))
 j=A.bO(A.bv(j,B.z,B.l),1)
 s=r?new A.aiv(l):k
 return A.dL(new A.af(B.HS,A.aU(A.b([p,B.cD,j,B.aD,A.rO(B.a_M,s,A.rP(B.B,B.al,B.HM,k,k,k))],o),B.z,B.q,B.l,0),k),k,k)}}
@@ -85104,12 +85104,12 @@ $1(a){var s,r,q,p,o=null,n="% to every shed.",m=this.a.c.b
 m===$&&A.a()
 m=m.fy
 s=B.c.R(m*100)
-r=B.c.R((1+0.35*m-1)*100)
+r=B.c.R((1+0.2*m-1)*100)
 q=B.c.ij((1-m)*35)
 m=this.b.b===0
 if(m)p="Idle \u2014 the fields do not come on while nobody works them. "+s+"% grown, +"+r+n
 else{p=""+r
-p=s>=100?"Fully grown. +"+p+n:""+s+"% grown \u2014 +"+p+"% to every shed now, rising to +35% in about "+q+" days."}return A.N(p,o,o,A.bb(o,o,m?B.aq:B.I,o,o,o,o,o,o,o,o,11,o,o,o,o,1.35,!0,o,o,o,o,o,o,o,o),o)},
+p=s>=100?"Fully grown. +"+p+n:""+s+"% grown \u2014 +"+p+"% to every shed now, rising to +20% in about "+q+" days."}return A.N(p,o,o,A.bb(o,o,m?B.aq:B.I,o,o,o,o,o,o,o,o,11,o,o,o,o,1.35,!0,o,o,o,o,o,o,o,o),o)},
 $S:217}
 A.Jf.prototype={}
 A.atG.prototype={
@@ -85219,7 +85219,7 @@ A.Dc.prototype={
 F(a){var s,r,q,p,o=null,n=this.c.b
 n===$&&A.a()
 s=n.y
-r=A.N("Ports Ahoy! 1.8.3+34 \xb7 "+s.a.length+" days, "+s.b.length+" milestones",o,o,B.c4,o)
+r=A.N("Ports Ahoy! 1.9.0+35 \xb7 "+s.a.length+" days, "+s.b.length+" milestones",o,o,B.c4,o)
 q=t.p
 p=A.b([A.aAT(B.JA,B.a_w,new A.akQ(s,n,a),A.mc(o,o,o,o,o,o,o,o,o,B.B,o,o,o,o,o,B.cj,o,o,o,B.bh))],q)
 if(A.aw1(B.dw,"526833518",u.z,"Manicalmonocle/PortsAhoy","portsahoy@gmail.com"))p.push(A.aAT(B.Ju,B.a_p,new A.akR(a,s,n),A.mc(o,o,o,o,o,o,o,o,o,B.B,o,o,o,o,o,B.cj,o,o,o,B.bh)))
@@ -85230,7 +85230,7 @@ var $async$$0=A.U(function(a,b){if(a===1)return A.Q(b,r)
 for(;;)switch(s){case 0:o=p.a
 n=p.b
 s=3
-return A.V(A.x6(new A.o0(o.XW(B.b.aT(n.ax.gqr(),", "),n.ax.gir(),"1.8.3+34",n.x))),$async$$0)
+return A.V(A.x6(new A.o0(o.XW(B.b.aT(n.ax.gqr(),", "),n.ax.gir(),"1.9.0+35",n.x))),$async$$0)
 case 3:n=p.c
 if(n.e==null){s=1
 break}n.ap(t.Pu).f.BB(A.aBR(null,null,null,B.bT,null,B.a7,null,A.N("Run report copied \u2014 "+o.a.length+" days. Paste it wherever it is useful.",null,null,B.d_,null),null,B.kl,null,null,null,null,null,null,null,null,null,null))
@@ -85238,7 +85238,7 @@ case 1:return A.R(q,r)}})
 return A.S($async$$0,r)},
 $S:33}
 A.akR.prototype={
-$0(){var s,r,q,p,o,n,m,l="1.8.3+34",k=this.b,j=this.c,i=j.w,h=j.ax.gir(),g=j.ax.gqr()
+$0(){var s,r,q,p,o,n,m,l="1.9.0+35",k=this.b,j=this.c,i=j.w,h=j.ax.gir(),g=j.ax.gqr()
 g=A.b(g.slice(0),A.O(g))
 s=j.x
 r=B.c.R(9000*j.ax.gqy())
