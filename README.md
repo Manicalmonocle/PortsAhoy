@@ -19,6 +19,8 @@ mechanically and by test:
 | Gate content behind currency | The goal is a project you manufacture yourself |
 | Sell a skip on a voyage | Nothing shortens a crossing. A better captain speeds up **future** voyages, never one already at sea |
 
+**[What is coming next →](ROADMAP.md)**
+
 The governing rule, asserted by test: **nothing anywhere shortens a duration.**
 Voyages are the only thing in the game that takes time, and no coin, item,
 building or action touches one. A voyage is also never a gate — your own quay
@@ -90,7 +92,7 @@ cd ~/ports_ahoy
 export PATH=$HOME/flutter/bin:$PATH
 
 flutter analyze                     # clean
-flutter test                        # 373 tests
+flutter test                        # 383 tests
 dart run tool/balance_probe.dart    # 8-seed headless pacing check
 dart run tool/balance_probe.dart --dark              # ...playing the dark trade
 dart run tool/balance_probe.dart --charters=poor_soil  # ...under a hardship
@@ -167,6 +169,32 @@ Guardrails, all tested:
   the deck, so days 91–120 of every year are a stretch you can see coming thirty
   days out and stockpile against
 
+### Husbandry
+
+The **Grange** is the third route to the light, and the only one that converts
+*time* into goods. Trade converts labour and the dark trade converts risk, and
+both pay the moment you act. A grange pays nothing on the day you build it and
+grows to **+35% on every shed** over thirty-five days of being worked — a bet on
+the run being long, not an upgrade everyone takes. The clock only runs while it
+is staffed, so hands off it stop the growth, and a second grange adds nothing:
+the bet is made once.
+
+It unlocks behind a farm, costs two hands and 400 coin, and its fields visibly
+ripen from bare earth to deep green so the ramp is something you can watch
+rather than take on trust.
+
+**It was specified wrong, and the probe caught it.** It lifted extractors only
+at first, on the reasoning that a grange husbands the land and does not stand
+over a saw. Measured, that made it a trap: the workshops are worker-limited
+rather than input-starved, so the extra raws piled up untouched while the
+grange's two hands came straight off finished-good output. The median win went
+from 100 days to **112** — slower, while working exactly as designed. That is
+the same mistake the dark trade made in paying for contraband in raws, and the
+lesson is the same one: the lighthouse asks for planks, tools, rope and
+sailcloth, so a route that does not move those does not move anything. Lifting
+every shed instead gives 96 days on a plain run and 106 under *A Grander Light*,
+against 100 and 116.
+
 ### The dark trade
 
 Entirely opt-in. Build any of the four dark sheds and free traders start
@@ -240,8 +268,17 @@ Ten powder buys an escort and halves that risk; a privateer scare doubles it.
 
 Three hiring tracks, three tiers each, hired in order. **Captains** cut crossing
 time (−15/−28/−40%) and risk; **merchants** raise prices at home and abroad
-(up to +20% at the quay, +26% on voyages); **quartermasters** cart your yards in
-for you.
+(up to +20% at the quay, +26% on voyages); **privateer captains** lift the odds
+at the rail (+8/+15/+22%) and the booty a won boarding lands (×1.15/1.32/1.55),
+and are offered only once a Privateer Berth stands — an honest port never sees
+the card.
+
+**Carting is not hired.** It used to be a fourth officer, the quartermaster. A
+player pointed out that convenience should never compete for coin or a berth
+against the two hires that change how the economy works, which was right: the
+port now carts itself as it grows, at the quartermaster's exact old gates (5 / 9
+/ 13 producing sheds → every other evening / every evening / hourly). It costs
+nothing, and the berth it used to occupy became the privateer captain's.
 
 They cost coin to sign *and* a standing cost every day. That is the design: a
 one-off purchase is a coin dump, a payroll is a decision you have to keep
@@ -260,12 +297,12 @@ actually were — a small retainer plus a **commission** on what passes through
 their hands (3–8% for a captain, 3.5–11% for a merchant). The cost now scales
 with the benefit. A captain is the interesting case: commission is a *pure* cost
 to them, so a retained captain makes every crossing quicker and safer and pays
-*less* per voyage — the gain has to come from sailing more of them. The
-quartermaster stays on a flat wage, since carting earns nothing to take a cut of.
+*less* per voyage — the gain has to come from sailing more of them. The privateer
+captain takes no commission: prizes are not sales.
 
 **Officer berths.** A port supports one officer until 9 **staffed** sheds, two
 until 16, three after. The first hire is a choice between price, speed and having
-your yards carted — not the first item on a shopping list you will finish anyway.
+your boarders — not the first item on a shopping list you will finish anyway.
 Promoting someone you already retain never needs a new berth. In a probe run the
 second berth opened on day 50 and the third on day 88, against a win around 116.
 
@@ -278,8 +315,8 @@ port supports officers; a field of empty huts does not.
 does something with them, which includes the **Import Berth**. It has no
 `outputs` map (it spends coin by the hour and lands raws by another path), so an
 earlier check for outputs alone ignored a shed with three hands in it. It is
-absent from the *quartermaster's* count on purpose, though: imports land in the
-stores rather than a yard, so there is nothing there to cart.
+absent from the *carting* count on purpose, though: imports land in the stores
+rather than a yard, so there is nothing there to cart.
 
 **Seeing them work.** A consignment quote is itemised — cargo value, what the
 factor added, what they took back, the harbour charter, and what actually
@@ -679,6 +716,9 @@ their behalf.
   their absence produced two wrong readings.
 - Not on the Play Store. That needs twelve testers running a closed track for
   fourteen unbroken days; internal testing does not count toward it.
+
+What is intended next — animals and husbandry, the charter reweighting, the
+Play Store track — is in [ROADMAP.md](ROADMAP.md). It carries no dates.
 
 ### What used to be here, and is no longer true
 
