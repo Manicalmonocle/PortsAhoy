@@ -424,9 +424,11 @@ exactly as well as the grain it was baked from and the shed is pointless. The
 `nutrition` field above unlocks both features; neither works without it.
 
 **It is really a grain multiplier, and that is what makes it worth a worker.**
-Note that the growth gate is only `growthFoodDays = 2.0` — two days of buffer —
-so raw food abundance is rarely what is holding a port back, and "more food"
-alone would not justify the hands. What a bakery actually does is let the town
+
+An earlier draft of this line argued that food rarely binds, on the grounds that
+`growthFoodDays` is only 2.0 — two days of buffer. **A real run says otherwise,
+and the correction matters more than the original claim.** See *What a played
+run changed about this plan*, below. What a bakery actually does is let the town
 be fed on *less grain*, and the grain it frees is exactly what the herds eat.
 First pass: **2 grain → 1 bread at nutrition 3.0**, so a bakery turns two
 person-days of grain into three. Enough to matter, not enough to break the
@@ -445,6 +447,73 @@ that currently has nothing in it.
 And it gives the happiness system its clearest signal. That plan already turns
 on whether the town is *"fed well or merely fed"* — bread is what the
 distinction was waiting for.
+
+---
+
+## What a played run changed about this plan
+
+Build 1.6.1-29, no charters, difficulty 0, **won in 80 days** — a real player,
+not the probe. Reference run
+`human-2026-09-15-honest-80d.pa1`. Three things in it bear directly on
+everything above.
+
+### Food was at the growth gate for the last third of the run
+
+`foodDays` over the closing stretch:
+
+```
+day 60  2.8      day 66  1.7      day 72  2.2      day 78  2.5
+day 61  1.8      day 67  1.7      day 73  2.2      day 79  2.8
+day 62  2.4      day 68  2.3      day 74  2.1      day 80  2.8
+day 63  2.3      day 69  2.5      day 75  2.1
+day 64  2.2      day 70  2.4      day 76  2.0
+day 65  2.3      day 71  2.1      day 77  2.4
+```
+
+The gate is 2.0. This port sat on it for twenty days, dipping under on at least
+three, and its population still climbed 29 to 37 — so growth was throttled
+rather than stopped, which is exactly why it would never show up as a complaint.
+**Food is not a solved problem in this game. It is the quiet ceiling on the back
+half of a run.**
+
+### Which means the feed bill above is measured against the wrong denominator
+
+The 10 grain a day was sized against a farm's *output* — about 27 a day — and
+called "a third of a farm". But the number that matters is the **surplus**, and
+this run had essentially none: 37 people eating 37 food a day, stores flat at
+roughly two days' worth. Production and consumption were level.
+
+Against that, 10 grain a day of feed is not a third of a farm. It is **27% of
+the port's entire food economy, taken from a port with nothing spare.** Dropped
+into this run as it stands, the herds would not have competed with the town for
+grain; they would have stopped it growing.
+
+Three consequences:
+
+1. **The bakery is a prerequisite, not a follow-on.** It is what creates the
+   headroom the animals eat. Built the other way round, livestock arrives as a
+   famine.
+2. **Re-derive the feed rate against surplus**, not farm output, and measure it
+   on a port that is actually near the gate rather than early in a run when
+   food looks abundant.
+3. The livestock chain has to **return more food than it consumes, and early** —
+   the chicken coop's short ramp is doing more work than it first appeared.
+
+### The dark trade was available, and completely ignored
+
+The reachability fix landed on 2026-08-16, well before this build, so the
+distillery was available from day 25, the bonded cellar from day 22, and the
+powder mill and privateer berth from day 49. The player built **none of the
+four** and won comfortably.
+
+That is the cleanest evidence yet for the rework: the dark trade was not merely
+weak, it was not worth opening. It also means the changes since — spice, the
+privateer captain, the prize bonuses — remain **unmeasured in a real run**, and
+this report cannot speak to them, because it predates them.
+
+Also worth noting: **no quartermaster was ever hired**, on a build where one
+could be. The retinue went merchant, captain, captain, merchant. Retiring that
+track in favour of automatic carting matched what a player was already doing.
 
 ---
 
