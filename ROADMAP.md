@@ -74,44 +74,51 @@ back four points. The meter comes down through play. Happiness should answer the
 same way: to feeding people properly, housing them, paying them, keeping the
 port steady. Never to a payment, and never to simply waiting it out.
 
-**Pets, with trade-offs.** *Comes after animals and husbandry* — two of the four
-below have nothing to attach to until livestock exists.
+**Pets, with trade-offs.** *Comes after animals and husbandry* — three of the
+four below touch livestock, which does not exist yet.
 
 A ship arrives, rarely, with animals aboard, and you can buy one. Every pet
-lifts happiness; each then helps one part of the port and costs another, so it
-is a choice about the run you are having rather than an upgrade you take because
-it is there.
+lifts happiness; each then raises one shed's yield and lowers another, so taking
+one is a read on the run you are having rather than a free upgrade.
+
+**Yields only.** A pet changes what a shed produces and nothing else — never a
+price, never a voyage, never the odds on a boarding. That keeps them out of the
+two systems where a buff would be hardest to read and easiest to abuse, and it
+makes the rule simple enough to assert in a test.
 
 The fiction that holds it together: **the port's attention is finite.** Where
-the animal lives gets better, and somewhere else gets neglected.
+the animal lives, work goes better; somewhere else gets neglected.
 
-| | Helps | Costs | Why |
+| | Raises | Lowers | Why |
 | --- | --- | --- | --- |
-| **Dog** | Livestock yield | Ore | Works the grange; will not follow anyone down a shaft |
+| **Dog** | Livestock | Ore | Works the grange; will not follow anyone down a shaft |
+| **Cat** | Grain | Livestock | Keeps the rats out of the seed, and hunts the poultry too |
 | **Bird** | Ore | Grain | A caged bird reads the bad air; it also eats the seed |
-| **Cat** | Goods kept in store | Livestock yield | Kills the rats in the warehouse, and hunts the poultry too |
-| **Monkey** | Prize booty | Goods kept in store | Nimble on a boarded hull, and pilfers your own stores |
+| **Monkey** | Timber | Tools | Goes up the stands like rigging, and loses every small iron thing it finds |
 
-Dog and bird are direct opposites on ore; cat and monkey are direct opposites on
-stores. Every pet is somebody's problem, and the monkey gives the dark trade a
-reason to want one.
+The first three make a closed ring: the dog's livestock is undone by the cat,
+the cat's grain by the bird, the bird's ore by the dog. No two of them simply
+stack, which is the point — if pets can be held together at all, the
+combination has to be a decision. **Open question: whether you may keep more
+than one.** The ring is only interesting if you can, and only fair if the
+second one is expensive.
 
-Four things to get right:
+The monkey sits outside the ring on purpose, and it is the sharpest trade in
+the set: timber is everywhere early, and tools are the lighthouse bottleneck.
+
+Two more things to get right:
 
 - **The rarity must not become a gacha.** Rolling for *which* animal turns four
   species into a collection to reroll for, and a rare drop you can chase is the
   slot machine this game keeps refusing. The fix is to split the two: let the
   **encounter** be rare and the **species be your pick**. The surprise survives,
   the chase never starts.
-- **Both halves visible before you pay.** A cost you discover afterwards is a
-  trap, not a trade-off.
-- **Voyages stay untouchable.** A pet may follow the captain's rule — better
-  terms for voyages sent *from now on* — but nothing may move a hull already at
-  sea. That is asserted at
-  [trade_test.dart:184](test/trade_test.dart#L184).
-- **Earned or bought with coin, never sold for money.** Cosmetics for sale are
-  on the list at the bottom of this file, and a pet is exactly the sort of
-  harmless-looking thing a store gets introduced through.
+- **Both halves visible before you pay.** A cost you find out about afterwards
+  is a trap, not a trade-off.
+
+Bought with coin, like anything else. Cosmetics for sale are on the list at the
+bottom of this file, and a pet is exactly the sort of harmless-looking thing a
+store gets introduced through.
 
 **Play Store release.** The build side is done — signed AAB, privacy policy,
 version stamping. What is left is paperwork and people: the $25 registration,
