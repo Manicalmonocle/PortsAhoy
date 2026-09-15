@@ -96,6 +96,16 @@ class _TradePanelState extends State<TradePanel> {
           _RetinueCard(
               controller: controller, track: RetinueTrack.privateer),
 
+        // Carting used to be the quartermaster, and this is the shelf he stood
+        // on. Making it automatic removed the card that said the job existed,
+        // so the feature went silent — reported from a played run as seeing
+        // "no indication or anything about a quartermaster" on day 33, by
+        // which point the port is very likely carting itself already.
+        //
+        // A player looking for an officer here deserves to be told the work is
+        // being done and that there is nobody to buy.
+        _CartingNote(state: s),
+
         // ---- At sea -------------------------------------------------------
         if (s.voyages.isNotEmpty) ...[
           const _Label('At sea'),
@@ -319,6 +329,64 @@ class _TradePanelState extends State<TradePanel> {
 }
 
 /// One hiring track: who you have, what they do, and who is next.
+/// What the port carts for itself, and when that improves.
+///
+/// The thresholds are the old quartermaster's building gates (5, 9, 13), so
+/// this reads as the same progression it always was — only free.
+class _CartingNote extends StatelessWidget {
+  const _CartingNote({required this.state});
+
+  final GameState state;
+
+  @override
+  Widget build(BuildContext context) {
+    final sheds = state.producingSheds;
+    final (title, body) = switch (state.autoCollectMode) {
+      AutoCollect.none => (
+          'You cart the yards in yourself',
+          'At 5 producing sheds your hands start doing it for you. '
+              'You have $sheds.',
+        ),
+      AutoCollect.everyOtherDay => (
+          'Your hands cart every second evening',
+          'They also empty any yard that fills, so no shed stalls unwatched. '
+              'Every evening at 9 producing sheds — you have $sheds.',
+        ),
+      AutoCollect.daily => (
+          'Your hands cart every evening',
+          'They also empty any yard that fills. Every hour at 13 producing '
+              'sheds — you have $sheds.',
+        ),
+      AutoCollect.hourly => (
+          'Your hands cart every hour',
+          'Nothing in the port waits on you to tap it.',
+        ),
+    };
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 10, 20, 4),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('🛒  $title',
+              style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: Palette.moss)),
+          const SizedBox(height: 3),
+          Text(
+            '$body\n'
+            'Carting is convenience rather than strategy, so there is nobody '
+            'to hire for it — it comes on as the port grows.',
+            style: const TextStyle(
+                fontSize: 11, color: Palette.fog, height: 1.4),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _RetinueCard extends StatelessWidget {
   const _RetinueCard({required this.controller, required this.track});
 

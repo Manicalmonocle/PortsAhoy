@@ -1562,6 +1562,9 @@ class GameState {
   /// The carting the port does for itself, by its size — no longer a hire.
   AutoCollect get autoCollectMode => autoCollectFor(producingSheds);
 
+  /// The tier last announced, so an improvement is reported once. Runtime only.
+  AutoCollect? _seenAutoCollect;
+
   /// Let the quartermaster do the carting.
   ///
   /// Runs while you are away as well as while you are watching: its whole job
@@ -1569,6 +1572,36 @@ class GameState {
   /// exactly when that would happen.
   void _runAutoCollect({required bool dayTurned}) {
     final mode = autoCollectMode;
+
+    // Say so when the port starts carting for itself, or carts more often.
+    //
+    // This replaced a hire, and a hire announced itself by being bought. The
+    // silent version was reported as an absence — a player on day 33 looking
+    // for the quartermaster, at a port that was already carting itself every
+    // evening. A convenience nobody notices is one you did not receive.
+    //
+    // Deliberately not persisted: on a reload this starts null and the first
+    // evaluation only records, so reopening a save never re-announces.
+    if (_seenAutoCollect == null) {
+      _seenAutoCollect = mode;
+    } else if (mode.index > _seenAutoCollect!.index) {
+      _seenAutoCollect = mode;
+      log(
+        switch (mode) {
+          AutoCollect.everyOtherDay =>
+            'The port has grown enough that your hands cart the yards in '
+                'themselves, every second evening.',
+          AutoCollect.daily =>
+            'Your hands now cart every yard in each evening.',
+          AutoCollect.hourly =>
+            'Your hands now cart every yard in every hour. Nothing waits on '
+                'you.',
+          AutoCollect.none => '',
+        },
+        LogKind.good,
+      );
+    }
+
     if (mode == AutoCollect.none) return;
 
     // Whoever you have hired, a full yard gets emptied — no shed of yours

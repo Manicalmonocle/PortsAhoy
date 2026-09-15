@@ -7,10 +7,12 @@ import 'package:ports_ahoy/game_controller.dart';
 import 'package:ports_ahoy/report_endpoint.dart';
 import 'package:ports_ahoy/sim/profile.dart';
 import 'package:ports_ahoy/main.dart';
+import 'package:ports_ahoy/sim/buildings.dart';
 import 'package:ports_ahoy/sim/charters.dart';
 import 'package:ports_ahoy/sim/events.dart';
 import 'package:ports_ahoy/sim/game_state.dart';
 import 'package:ports_ahoy/sim/resources.dart';
+import 'package:ports_ahoy/sim/retinue.dart';
 import 'package:ports_ahoy/ui/theme.dart';
 import 'package:ports_ahoy/ui/world_view.dart';
 import 'package:ports_ahoy/version.dart';
@@ -946,6 +948,44 @@ void _lighthouseCardTests() {
         findsWidgets,
         reason: 'a bonus that takes five weeks to arrive has to say so, or the '
             'player cannot tell it from one that does nothing');
+
+    await closeGame(tester);
+  });
+
+  testWidgets('the port says what carting it is doing for itself',
+      (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final c = GameController(seedOverride: 20260815);
+    await c.load();
+    c.setSpeed(0);
+    addTearDown(c.dispose);
+
+    // Carting used to be the quartermaster, and losing the hire lost the only
+    // thing that said the job existed. Reported from a played run at eight
+    // producing sheds — already carting every second evening — as "no
+    // indication or anything about a quartermaster".
+    while (c.state.producingSheds < 5) {
+      c.state.coin = 5000;
+      c.state.unlocked.add('farm');
+      if (!c.state.build(defById('farm'))) break;
+    }
+    expect(c.state.autoCollectMode, isNot(AutoCollect.none),
+        reason: 'the port should be carting for itself by five sheds');
+
+    tester.view.physicalSize = const Size(420, 2600);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(PortsAhoyApp(controller: c));
+    await tester.pump();
+    await openPanel(tester, 'Trade');
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('cart'), findsWidgets,
+        reason: 'the panel where the quartermaster used to stand must say the '
+            'carting is being done');
+    expect(find.textContaining('nobody'), findsWidgets,
+        reason: 'and that there is no longer anyone to hire for it, or its '
+            'absence reads as a missing feature');
 
     await closeGame(tester);
   });
