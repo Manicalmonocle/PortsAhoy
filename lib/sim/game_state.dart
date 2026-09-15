@@ -143,7 +143,7 @@ class Balance {
   static const double prizeBaseSuccess = 0.30;
   static const double prizeSuccessPerCrew = 0.11;
   static const double prizeCoveredBonus = 0.06;
-  static const double prizeSuccessCap = 0.80;
+  static const double prizeSuccessCap = 0.92;
 
   /// Cargo above the storage cap is bought off you at half price rather than
   /// destroyed — a full shed should never make a won fight feel like a loss.
@@ -346,7 +346,7 @@ class GameState {
   /// Highest level hired on each track, 0 for nobody.
   int captainLevel = 0;
   int merchantLevel = 0;
-  int quartermasterLevel = 0;
+  int privateerLevel = 0;
 
   // ---- The dark trade, all derived so a save can never disagree ----------
 
@@ -1368,7 +1368,7 @@ class GameState {
   int levelOn(RetinueTrack t) => switch (t) {
         RetinueTrack.captain => captainLevel,
         RetinueTrack.merchant => merchantLevel,
-        RetinueTrack.quartermaster => quartermasterLevel,
+        RetinueTrack.privateer => privateerLevel,
       };
 
   Retainer? hiredOn(RetinueTrack t) => retainerAt(t, levelOn(t));
@@ -1414,6 +1414,10 @@ class GameState {
       r.level == levelOn(r.track) + 1 &&
       coin >= r.coinCost &&
       producingSheds >= r.requiresBuildings &&
+      // A track gated on a building (the privateer captain on a privateer
+      // berth) is not offered until that shed stands.
+      (r.requiresBuilding == null ||
+          buildings.any((b) => b.defId == r.requiresBuilding)) &&
       // Taking on a track you have nobody on needs a berth free.
       (levelOn(r.track) > 0 || hasFreeOfficerBerth);
 
@@ -1425,8 +1429,8 @@ class GameState {
         captainLevel = r.level;
       case RetinueTrack.merchant:
         merchantLevel = r.level;
-      case RetinueTrack.quartermaster:
-        quartermasterLevel = r.level;
+      case RetinueTrack.privateer:
+        privateerLevel = r.level;
     }
     log('${r.name}, ${r.title.toLowerCase()}, signed on at '
         '${r.dailyWage}c a day.', LogKind.good);
@@ -1450,13 +1454,19 @@ class GameState {
         captainLevel = 0;
       case RetinueTrack.merchant:
         merchantLevel = 0;
-      case RetinueTrack.quartermaster:
-        quartermasterLevel = 0;
+      case RetinueTrack.privateer:
+        privateerLevel = 0;
     }
     log('${who.name} was paid off and left the port.', LogKind.info);
   }
 
   double get voyageSpeedFactor => hiredOn(RetinueTrack.captain)?.voyageSpeed ?? 1.0;
+
+  /// A privateer captain's edge at the rail, if you retain one.
+  double get privateerPrizeBonus =>
+      hiredOn(RetinueTrack.privateer)?.prizeBonus ?? 0.0;
+  double get privateerBootyBonus =>
+      hiredOn(RetinueTrack.privateer)?.bootyBonus ?? 1.0;
   double get voyageRiskFactor => hiredOn(RetinueTrack.captain)?.voyageRisk ?? 1.0;
   double get sellBonus => hiredOn(RetinueTrack.merchant)?.sellBonus ?? 1.0;
   double get voyagePayBonus => hiredOn(RetinueTrack.merchant)?.voyagePay ?? 1.0;
@@ -1495,8 +1505,8 @@ class GameState {
   int get retinueWageBill => RetinueTrack.values
       .fold(0, (sum, t) => sum + (hiredOn(t)?.dailyWage ?? 0));
 
-  AutoCollect get autoCollectMode =>
-      hiredOn(RetinueTrack.quartermaster)?.autoCollect ?? AutoCollect.none;
+  /// The carting the port does for itself, by its size — no longer a hire.
+  AutoCollect get autoCollectMode => autoCollectFor(producingSheds);
 
   /// Let the quartermaster do the carting.
   ///
@@ -1696,7 +1706,8 @@ class GameState {
     final crew = berthCrew < 4 ? berthCrew : 4;
     return (Balance.prizeBaseSuccess +
             Balance.prizeSuccessPerCrew * crew * berthReadiness +
-            (covered ? Balance.prizeCoveredBonus : 0.0))
+            (covered ? Balance.prizeCoveredBonus : 0.0) +
+            privateerPrizeBonus)
         .clamp(0.0, Balance.prizeSuccessCap);
   }
 
@@ -1724,10 +1735,13 @@ class GameState {
     // Draw the hold from the weighted prize table.
     final entries = Balance.prizeTable.entries.toList();
     final total = entries.fold(0, (s, e) => s + e.value);
+    // A privateer captain lands a fuller hold — spice included, since it is
+    // drawn from the same table.
+    final tons = ship.prizeTons * privateerBootyBonus;
     var landed = 0.0;
     var sold = 0.0;
     for (final e in entries) {
-      final qty = ship.prizeTons * e.value / total;
+      final qty = tons * e.value / total;
       final room = (storageCapacity - stock[e.key]).clamp(0.0, double.infinity);
       final fits = qty < room ? qty : room;
       stock.add(e.key, fits);
@@ -1857,7 +1871,7 @@ class GameState {
         'charters': charters.ids,
         'captainLevel': captainLevel,
         'merchantLevel': merchantLevel,
-        'quartermasterLevel': quartermasterLevel,
+        'privateerLevel': privateerLevel,
         'tick': tick,
         'stock': stock.toJson(),
         'coin': coin,
@@ -1910,8 +1924,10 @@ class GameState {
         : saved.cast<String>());
     state.captainLevel = (j['captainLevel'] as num?)?.toInt() ?? 0;
     state.merchantLevel = (j['merchantLevel'] as num?)?.toInt() ?? 0;
-    state.quartermasterLevel =
-        (j['quartermasterLevel'] as num?)?.toInt() ?? 0;
+    // A save from before the change may carry a quartermasterLevel; it is
+    // discarded on purpose. Carting is now automatic and free, so nothing is
+    // lost — the officer's berth it used to occupy is simply freed.
+    state.privateerLevel = (j['privateerLevel'] as num?)?.toInt() ?? 0;
     state.voyages.addAll((j['voyages'] as List? ?? [])
         .map((v) => Voyage.fromJson(v as Map<String, dynamic>))
         .whereType<Voyage>());
@@ -1960,8 +1976,8 @@ class GameState {
           captainLevel = 0;
         case RetinueTrack.merchant:
           merchantLevel = 0;
-        case RetinueTrack.quartermaster:
-          quartermasterLevel = 0;
+        case RetinueTrack.privateer:
+          privateerLevel = 0;
       }
       if (who != null) {
         log('${who.name} was let go — the port keeps $officerCapacity '

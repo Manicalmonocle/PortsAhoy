@@ -90,8 +90,11 @@ class _TradePanelState extends State<TradePanel> {
         ),
         _RetinueCard(controller: controller, track: RetinueTrack.captain),
         _RetinueCard(controller: controller, track: RetinueTrack.merchant),
-        _RetinueCard(
-            controller: controller, track: RetinueTrack.quartermaster),
+        // The privateer captain is only shown once a privateer berth stands —
+        // an honest port never sees the card.
+        if (s.buildings.any((b) => b.defId == 'privateer_berth'))
+          _RetinueCard(
+              controller: controller, track: RetinueTrack.privateer),
 
         // ---- At sea -------------------------------------------------------
         if (s.voyages.isNotEmpty) ...[
@@ -331,7 +334,7 @@ class _RetinueCard extends StatelessWidget {
     final (icon, label) = switch (track) {
       RetinueTrack.captain => ('🧭', 'Captain'),
       RetinueTrack.merchant => ('⚖️', 'Merchant'),
-      RetinueTrack.quartermaster => ('📋', 'Quartermaster'),
+      RetinueTrack.privateer => ('🏴‍☠️', 'Privateer Captain'),
     };
 
     String effectOf(Retainer r) => switch (track) {
@@ -341,13 +344,9 @@ class _RetinueCard extends StatelessWidget {
           RetinueTrack.merchant =>
             'Quay prices +${((r.sellBonus - 1) * 100).round()}%, '
                 'voyages +${((r.voyagePay - 1) * 100).round()}%',
-          RetinueTrack.quartermaster => switch (r.autoCollect) {
-              AutoCollect.everyOtherDay =>
-                'Carts the port in every other evening',
-              AutoCollect.daily => 'Carts the port in every evening',
-              AutoCollect.hourly => 'Carts everything in, every hour',
-              AutoCollect.none => '',
-            },
+          RetinueTrack.privateer =>
+            'Boarding odds +${(r.prizeBonus * 100).round()}%, '
+                'booty +${((r.bootyBonus - 1) * 100).round()}%',
         };
 
     final idle = switch (track) {
@@ -355,8 +354,8 @@ class _RetinueCard extends StatelessWidget {
         'Nobody. Your voyages sail at whatever pace they manage.',
       RetinueTrack.merchant =>
         'Nobody. You take whatever price you are offered.',
-      RetinueTrack.quartermaster =>
-        'Nobody. Every yard is carted in by hand — yours.',
+      RetinueTrack.privateer =>
+        'Nobody. Boardings go at the odds your crew and berth can manage.',
     };
 
     return Card(

@@ -37,17 +37,20 @@
 /// have already committed to.
 library;
 
-enum RetinueTrack { captain, merchant, quartermaster }
+enum RetinueTrack { captain, merchant, privateer }
 
-/// How much of the carting a quartermaster takes off your hands.
+/// How much of the carting the harbour does for you, without being asked.
 ///
-/// This exists because a port of twenty-five sheds turns collecting from a
-/// satisfying beat into a chore. It is earned with coin and a standing wage —
-/// never sold — and it arrives late, once the tedium is real.
+/// This used to be a paid officer — the quartermaster — but a player was right
+/// that carting is convenience, not strategy: it should never compete for coin
+/// or an officer's berth against the captain and the merchant, who change how
+/// the economy works. So it is no longer hired. It escalates on its own as the
+/// port grows past the point where hand-collecting turns from a satisfying
+/// beat into a chore, which is exactly when the old quartermaster's building
+/// gates opened anyway ([autoCollectFor]).
+///
 /// Every tier below [none] also empties any yard that fills, so a shed can
-/// never stall unwatched. That guarantee is free at all levels — it was a
-/// mistake to sell it as the first tier, because a yard filling is rare once
-/// warehouses have widened them, so the hire appeared to do nothing at all.
+/// never stall unwatched.
 enum AutoCollect {
   /// Nobody. You cart every yard in yourself.
   none,
@@ -60,6 +63,18 @@ enum AutoCollect {
 
   /// Carts everything in, every hour.
   hourly,
+}
+
+/// The carting the port does for itself at a given size.
+///
+/// The thresholds are the quartermaster's old building gates (5, 9, 13), kept
+/// exactly so the pacing of when the tedium lifts is unchanged — only the
+/// price is gone.
+AutoCollect autoCollectFor(int producingSheds) {
+  if (producingSheds >= 13) return AutoCollect.hourly;
+  if (producingSheds >= 9) return AutoCollect.daily;
+  if (producingSheds >= 5) return AutoCollect.everyOtherDay;
+  return AutoCollect.none;
 }
 
 class Retainer {
@@ -78,6 +93,9 @@ class Retainer {
     this.autoCollect = AutoCollect.none,
     this.requiresBuildings = 0,
     this.commission = 0.0,
+    this.prizeBonus = 0.0,
+    this.bootyBonus = 1.0,
+    this.requiresBuilding,
   });
 
   final RetinueTrack track;
@@ -115,6 +133,19 @@ class Retainer {
   /// and on the factor's account abroad. Taken off the top, before the coin
   /// reaches you.
   final double commission;
+
+  /// Added to the chance a boarding succeeds. A privateer captain's whole
+  /// trade: better odds at the rail.
+  final double prizeBonus;
+
+  /// Multiplier on the tonnage a won prize lands — the booty. Above 1 means a
+  /// fuller hold, spice included.
+  final double bootyBonus;
+
+  /// A building that must already stand before this hire is offered at all.
+  /// Keeps the privateer captain off the books of a port that has never built
+  /// a privateer berth and has no use for them.
+  final String? requiresBuilding;
 }
 
 /// How many tracks you may have someone on at once.
@@ -208,42 +239,51 @@ const List<Retainer> kRetinue = [
     voyagePay: 1.26,
   ),
 
-  // ---- Quartermasters: the carting ---------------------------------------
+  // ---- Privateer captains: the odds and the booty ------------------------
+  //
+  // The dark trade's own officer, and only offered once a privateer berth
+  // stands ([requiresBuilding]). A captain sells honest speed and safety; a
+  // privateer captain sells a better chance at the rail and a fuller hold when
+  // the boarding goes your way. On a hard run, where spice is what carries you
+  // and the honest chains are throttled, this is the hire you take the third
+  // berth for — instead of the merchant, whose prices you have less to sell to.
   Retainer(
-    track: RetinueTrack.quartermaster,
+    track: RetinueTrack.privateer,
     level: 1,
-    name: 'Tam Fowler',
-    title: 'Yard Clerk',
-    blurb: 'Runs a cart round the port every other evening, and empties any '
-        'yard that fills in between.',
-    coinCost: 600,
-    dailyWage: 6,
-    autoCollect: AutoCollect.everyOtherDay,
-    requiresBuildings: 5,
+    name: 'Sable Quill',
+    title: 'Boarding Master',
+    blurb: 'Has taken more decks than she can rightly remember. Better odds '
+        'at the rail, and a fuller hold when it goes your way.',
+    coinCost: 500,
+    dailyWage: 3,
+    prizeBonus: 0.08,
+    bootyBonus: 1.15,
+    requiresBuilding: 'privateer_berth',
   ),
   Retainer(
-    track: RetinueTrack.quartermaster,
+    track: RetinueTrack.privateer,
     level: 2,
-    name: 'Ansel Rook',
-    title: 'Quartermaster',
-    blurb: 'A cart round the whole port every single evening. You need never '
-        'tap a shed again unless you want to.',
-    coinCost: 2800,
-    dailyWage: 15,
-    autoCollect: AutoCollect.daily,
-    requiresBuildings: 9,
+    name: 'Redd Coombe',
+    title: 'Sea Wolf',
+    blurb: 'The revenue know his sail on the horizon and put about for home.',
+    coinCost: 2400,
+    dailyWage: 6,
+    prizeBonus: 0.15,
+    bootyBonus: 1.32,
+    requiresBuilding: 'privateer_berth',
   ),
   Retainer(
-    track: RetinueTrack.quartermaster,
+    track: RetinueTrack.privateer,
     level: 3,
-    name: 'Mother Vell',
-    title: 'Harbour Steward',
-    blurb: 'Keeps carts moving hour by hour. Nothing sits in a yard longer '
-        'than it takes to make.',
-    coinCost: 6600,
-    dailyWage: 30,
-    autoCollect: AutoCollect.hourly,
-    requiresBuildings: 13,
+    name: 'Captain Mordaunt',
+    title: 'Pirate Captain',
+    blurb: 'Flies no flag but his own. What his boarders leave behind was not '
+        'worth the carrying.',
+    coinCost: 5600,
+    dailyWage: 10,
+    prizeBonus: 0.22,
+    bootyBonus: 1.55,
+    requiresBuilding: 'privateer_berth',
   ),
 ];
 

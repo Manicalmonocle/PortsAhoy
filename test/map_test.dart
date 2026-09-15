@@ -249,7 +249,7 @@ void main() {
       addTearDown(tester.view.reset);
 
       SharedPreferences.setMockInitialValues({});
-      final controller = GameController();
+      final controller = GameController(seedOverride: 20260815);
       await controller.load();
       controller.setSpeed(0);
       addTearDown(controller.dispose);

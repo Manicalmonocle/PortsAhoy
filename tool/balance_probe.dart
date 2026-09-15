@@ -562,11 +562,11 @@ void _buyWhatWeLack(GameState g) {
 /// Every crossing after that day was shorter, which compounds: a consignment
 /// policy and a captain are the same lever pulled twice.
 ///
-/// Captain before quartermaster because that is the order the player used and
-/// because shorter crossings pay back immediately, where reduced waste pays
-/// back in proportion to a throughput the port does not have yet. The merchant
-/// is deliberately last: that same player skipped it entirely across a whole
-/// run, so buying it eagerly here would model nobody.
+/// Captain first because shorter crossings pay back immediately. The merchant
+/// is deliberately last: the modelled player skipped it entirely across a
+/// whole run, so buying it eagerly here would model nobody. The privateer
+/// captain is not in this list — the honest bot never boards a hull, so it has
+/// nothing for one to do; the dark probe (`--dark`) is where that would belong.
 /// The highest rank the policy will buy.
 ///
 /// Third-rank officers cost 5,200 and 6,600 coin — together more than the
@@ -582,7 +582,6 @@ const int topRank = 2;
 void _hireRetinue(GameState g) {
   const order = [
     RetinueTrack.captain,
-    RetinueTrack.quartermaster,
     RetinueTrack.merchant,
   ];
   for (final track in order) {

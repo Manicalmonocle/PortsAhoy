@@ -122,10 +122,10 @@ final List<HintDef> kHints = [
   HintDef(
     id: 'hire',
     title: 'You can put people on the payroll',
-    body: 'Under Trade there are captains, merchants and quartermasters for '
-        'hire. A merchant raises every price you are paid; a captain makes '
-        'voyages faster and safer; a quartermaster carts your yards in for '
-        'you. They cost coin to sign and a wage every day.',
+    body: 'Under Trade there are captains and merchants for hire. A merchant '
+        'raises every price you are paid; a captain makes voyages faster and '
+        'safer. They cost coin to sign and a wage every day. (Your yards are '
+        'carted in for you automatically as the port grows — no hire needed.)',
     when: (s) => s.coin >= 1600 && s.captainLevel == 0 && s.merchantLevel == 0,
   ),
   HintDef(

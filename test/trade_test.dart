@@ -298,7 +298,8 @@ void main() {
   });
 
   retinueTests();
-  quartermasterTests();
+  autoCollectTests();
+  privateerCaptainTests();
   destinationIdentityTests();
   retinuePricingTests();
 
@@ -495,20 +496,22 @@ void retinueTests() {
       expect(idle.staffedSheds, idleBefore,
           reason: 'an import berth with nobody in it is still an empty hut');
 
-      // And it is still absent from the quartermaster's count, deliberately:
+      // And it is still absent from the producing-shed count, deliberately:
       // imports land in the stores, so there is no yard to cart.
       expect(g.producingSheds, producingBefore,
-          reason: 'an import berth has no yard, so the quartermaster gate must '
-              'not move');
+          reason: 'an import berth has no yard, so it does not add to the '
+              'count that drives automatic carting');
     });
 
     test('a save from before berths existed is brought within the cap', () {
       final g = stocked();
       g.coin = 100000;
       openBerths(g, 3);
+      g.buildings.add(Building(defId: 'privateer_berth'));
+      g.placeAll();
       g.hire(retainerAt(RetinueTrack.captain, 1)!);
       g.hire(retainerAt(RetinueTrack.merchant, 1)!);
-      g.hire(retainerAt(RetinueTrack.quartermaster, 1)!);
+      g.hire(retainerAt(RetinueTrack.privateer, 1)!);
       expect(g.officersRetained, 3);
 
       // The port shrinks below what three officers need — or the save predates
@@ -678,7 +681,6 @@ void retinueTests() {
 
     test('every tier is a real step up and costs more', () {
       for (final track in RetinueTrack.values) {
-        if (track == RetinueTrack.quartermaster) continue; // its own test
         for (var lvl = 2; lvl <= 3; lvl++) {
           final lower = retainerAt(track, lvl - 1)!;
           final upper = retainerAt(track, lvl)!;
@@ -687,6 +689,9 @@ void retinueTests() {
           if (track == RetinueTrack.captain) {
             expect(upper.voyageSpeed, lessThan(lower.voyageSpeed));
             expect(upper.voyageRisk, lessThan(lower.voyageRisk));
+          } else if (track == RetinueTrack.privateer) {
+            expect(upper.prizeBonus, greaterThan(lower.prizeBonus));
+            expect(upper.bootyBonus, greaterThan(lower.bootyBonus));
           } else {
             expect(upper.sellBonus, greaterThan(lower.sellBonus));
             expect(upper.voyagePay, greaterThan(lower.voyagePay));
@@ -725,7 +730,7 @@ void retinueTests() {
 
 // ---------------------------------------------------------------------------
 
-/// A port big enough that the quartermaster is on offer.
+/// A port large enough to cart itself, and to seat three officers.
 GameState bigPort() {
   final g = stocked();
   g.coin = 100000;
@@ -759,85 +764,49 @@ GameState bigPort() {
   return g;
 }
 
-void quartermasterTests() {
-  group('the quartermaster', () {
-    test('is not on offer to a small port', () {
+void autoCollectTests() {
+  group('automatic carting', () {
+    // Carting used to be a paid officer, the quartermaster. A player was right
+    // that convenience should not compete for coin or a berth against the
+    // captain and merchant, so it is no longer hired — it escalates on its own
+    // as the port grows, at the quartermaster's old building gates.
+    test('the tier follows the port size, at the old gates', () {
+      expect(autoCollectFor(4), AutoCollect.none);
+      expect(autoCollectFor(5), AutoCollect.everyOtherDay);
+      expect(autoCollectFor(9), AutoCollect.daily);
+      expect(autoCollectFor(13), AutoCollect.hourly);
+    });
+
+    test('a small port carts nothing — collecting by hand is the point', () {
       final g = stocked();
-      g.coin = 100000;
-      final first = retainerAt(RetinueTrack.quartermaster, 1)!;
-      expect(g.producingSheds, lessThan(first.requiresBuildings));
-      expect(g.canHire(first), isFalse,
-          reason: 'collecting by hand is the point early on');
-      expect(g.hire(first), isFalse);
+      expect(g.producingSheds, lessThan(5));
+      expect(g.autoCollectMode, AutoCollect.none);
     });
 
-    test('becomes available once the carting is genuinely tedious', () {
+    test('a large port carts on its own, with nobody hired', () {
       final g = bigPort();
-      final first = retainerAt(RetinueTrack.quartermaster, 1)!;
-      expect(g.producingSheds, greaterThanOrEqualTo(first.requiresBuildings));
-      expect(g.canHire(first), isTrue);
-      expect(g.hire(first), isTrue);
+      expect(g.producingSheds, greaterThanOrEqualTo(13));
+      expect(g.autoCollectMode, AutoCollect.hourly);
+      expect(g.officersRetained, 0, reason: 'carting is no longer an officer');
     });
 
-    test('the first tier actually carts, rather than only catching stalls', () {
-      // The complaint: "the quartermaster didn't auto collect unless the yards
-      // were full, which rarely happened". A hire that almost never fires is
-      // indistinguishable from one that does not work.
+    test('the rounds actually cart, not only catch stalls', () {
+      // The old complaint: carting that only fired when a yard was already
+      // full "rarely happened". Four days is well short of a yard filling.
       final g = bigPort();
-      g.hire(retainerAt(RetinueTrack.quartermaster, 1)!);
-
-      // Four days is well short of a yard filling, so anything carted in here
-      // is the clerk doing his rounds rather than a stall being cleared.
       for (var d = 0; d < 4; d++) {
         for (var t = 0; t < Balance.ticksPerDay; t++) {
           g.step();
         }
       }
       expect(g.buildings.every((b) => b.holdFullness < 0.9), isTrue,
-          reason: 'nothing should be anywhere near full this early');
+          reason: 'nothing should be near full this early');
       expect(g.stock[Resource.timber], greaterThan(0),
           reason: 'the rounds should have put timber in the stores');
     });
 
-    test('every tier still guarantees no shed stalls', () {
-      for (var lvl = 1; lvl <= 3; lvl++) {
-        final g = bigPort();
-        for (var l = 1; l <= lvl; l++) {
-          g.hire(retainerAt(RetinueTrack.quartermaster, l)!);
-        }
-        for (var i = 0; i < kHoldTicks.toInt() * 2; i++) {
-          g.step();
-        }
-        for (final b in g.buildings) {
-          expect(b.holdFullness, lessThan(0.999),
-              reason: 'tier $lvl left ${b.defId} stalled');
-        }
-      }
-    });
-
-    test('a daily quartermaster carts the port in each evening', () {
+    test('an hourly port leaves nothing in a yard', () {
       final g = bigPort();
-      g.hire(retainerAt(RetinueTrack.quartermaster, 1)!);
-      g.hire(retainerAt(RetinueTrack.quartermaster, 2)!);
-
-      // Mid-day there is something waiting; after the day turns there is not.
-      for (var i = 0; i < Balance.ticksPerDay ~/ 2; i++) {
-        g.step();
-      }
-      expect(g.pendingCollection, greaterThan(0));
-
-      for (var i = 0; i < Balance.ticksPerDay; i++) {
-        g.step();
-      }
-      // The evening cart ran at the day boundary.
-      expect(g.logEntries, isNotEmpty);
-    });
-
-    test('a harbour steward leaves nothing in a yard', () {
-      final g = bigPort();
-      for (var lvl = 1; lvl <= 3; lvl++) {
-        g.hire(retainerAt(RetinueTrack.quartermaster, lvl)!);
-      }
       for (var i = 0; i < 50; i++) {
         g.step();
       }
@@ -845,12 +814,10 @@ void quartermasterTests() {
       expect(g.hasAnythingToCollect, isFalse);
     });
 
-    test('it carts while you are away, which is when stalls would happen', () {
+    test('no shed stalls, even unattended', () {
       final g = bigPort();
-      g.hire(retainerAt(RetinueTrack.quartermaster, 1)!);
-      // Long enough that yards would fill twice over unattended, short enough
-      // that the stores still have room to cart into — past that, storage is
-      // the limiter and no quartermaster can help.
+      // Long enough that yards would fill unattended, short enough that the
+      // stores still have room to cart into.
       g.catchUp(const Duration(minutes: 5), ticksPerSecond: 1.0);
       for (final b in g.buildings) {
         expect(b.holdFullness, lessThan(0.999), reason: b.defId);
@@ -858,83 +825,131 @@ void quartermasterTests() {
     });
 
     test('nothing is conjured — carting only moves what was made', () {
-      final withClerk = bigPort();
-      final without = bigPort();
-      withClerk.hire(retainerAt(RetinueTrack.quartermaster, 3)!);
-      // Level 3 needs the lower tiers; hire them properly.
-      final fresh = bigPort();
-      for (var lvl = 1; lvl <= 3; lvl++) {
-        fresh.hire(retainerAt(RetinueTrack.quartermaster, lvl)!);
-      }
-
+      final auto = bigPort();
+      // A hand-collected port of the same size: same production, the surplus
+      // just sits in the yards instead of the stores.
+      final byHand = bigPort();
       for (var i = 0; i < 40; i++) {
-        fresh.step();
-        without.step();
+        auto.step();
+        byHand.step();
       }
-      // Same production either way; the difference is only where it sits.
-      final autoTotal =
-          fresh.stock[Resource.timber] + fresh.pendingCollection;
-      final handTotal =
-          without.stock[Resource.timber] + without.pendingCollection;
+      final autoTotal = auto.stock[Resource.timber] + auto.pendingCollection;
+      final handTotal = byHand.stock[Resource.timber] + byHand.pendingCollection;
       expect(autoTotal, lessThanOrEqualTo(handTotal + 1e-6));
     });
 
-    test('it costs coin to sign and a wage every day', () {
+    test('carting is free — it adds nothing to the wage bill', () {
       final g = bigPort();
-      final r = retainerAt(RetinueTrack.quartermaster, 1)!;
-      final before = g.coin;
-      g.hire(r);
-      expect(g.coin, before - r.coinCost);
-      expect(g.retinueWageBill, r.dailyWage);
+      expect(g.autoCollectMode, AutoCollect.hourly);
+      expect(g.retinueWageBill, 0,
+          reason: 'the port carts itself; no wage is owed for it');
     });
 
-    test('paying them off puts the carting back in your hands', () {
+    test('a reloaded port still carts by its size', () {
       final g = bigPort();
-      g.hire(retainerAt(RetinueTrack.quartermaster, 1)!);
-      expect(g.autoCollectMode, isNot(AutoCollect.none));
-      g.dismiss(RetinueTrack.quartermaster);
-      expect(g.autoCollectMode, AutoCollect.none);
-      expect(g.quartermasterLevel, 0);
-    });
-
-    test('every tier costs more and does more', () {
-      const order = [
-        AutoCollect.everyOtherDay,
-        AutoCollect.daily,
-        AutoCollect.hourly,
-      ];
-      for (var lvl = 1; lvl <= 3; lvl++) {
-        final r = retainerAt(RetinueTrack.quartermaster, lvl)!;
-        expect(r.autoCollect, order[lvl - 1]);
-        if (lvl > 1) {
-          final lower = retainerAt(RetinueTrack.quartermaster, lvl - 1)!;
-          expect(r.coinCost, greaterThan(lower.coinCost));
-          expect(r.dailyWage, greaterThan(lower.dailyWage));
-          expect(r.requiresBuildings, greaterThan(lower.requiresBuildings));
-        }
-      }
-    });
-
-    test('the roster round-trips through a save', () {
-      final g = bigPort();
-      g.hire(retainerAt(RetinueTrack.quartermaster, 1)!);
-      g.hire(retainerAt(RetinueTrack.quartermaster, 2)!);
-
       final restored = GameState.fromJson(
           jsonDecode(jsonEncode(g.toJson())) as Map<String, dynamic>);
-      expect(restored.quartermasterLevel, 2);
-      expect(restored.autoCollectMode, AutoCollect.daily);
+      expect(restored.autoCollectMode, AutoCollect.hourly);
     });
 
-    test('a save with no quartermaster loads with nobody carting', () {
+    test('a save that still holds a quartermasterLevel loses only the wage', () {
+      // Old saves carried a hired quartermaster. Loading one must not crash,
+      // and carting simply becomes automatic — the freed berth is a quiet buff.
       final g = bigPort();
       final json = jsonDecode(jsonEncode(g.toJson())) as Map<String, dynamic>;
-      json.remove('quartermasterLevel');
-      expect(GameState.fromJson(json).autoCollectMode, AutoCollect.none);
+      json['quartermasterLevel'] = 2;
+      final restored = GameState.fromJson(json);
+      expect(restored.officersRetained, 0);
+      expect(restored.autoCollectMode, AutoCollect.hourly);
     });
   });
 }
 
+/// A port carrying a privateer berth, so the pirate captain is on offer.
+GameState darkPort() {
+  final g = bigPort();
+  g.buildings.add(Building(defId: 'privateer_berth'));
+  g.placeAll();
+  g.setWorkers(g.buildings.length - 1, 4);
+  g.coin = 100000;
+  return g;
+}
+
+void privateerCaptainTests() {
+  group('the privateer captain', () {
+    test('is not offered to a port with no privateer berth', () {
+      final g = bigPort();
+      g.coin = 100000;
+      final first = retainerAt(RetinueTrack.privateer, 1)!;
+      expect(first.requiresBuilding, 'privateer_berth');
+      expect(g.canHire(first), isFalse,
+          reason: 'an honest port has no use for a pirate captain');
+    });
+
+    test('is offered once a privateer berth stands', () {
+      final g = darkPort();
+      openBerths(g, 3);
+      final first = retainerAt(RetinueTrack.privateer, 1)!;
+      expect(g.canHire(first), isTrue);
+      expect(g.hire(first), isTrue);
+      expect(g.privateerLevel, 1);
+    });
+
+    test('lifts the odds at the rail', () {
+      final base = darkPort();
+      final withCap = darkPort();
+      openBerths(withCap, 3);
+      withCap.hire(retainerAt(RetinueTrack.privateer, 1)!);
+
+      final ship = Ship(name: 'Prize', departTick: 99999, offers: const [],
+          foreign: true, prizeTons: 60);
+      expect(withCap.prizeSuccessChance(ship),
+          greaterThan(base.prizeSuccessChance(ship)));
+    });
+
+    test('lands a fuller hold', () {
+      // Boot the same seed twice; the captained boarding lands more.
+      double spiceFrom(bool captained) {
+        final g = darkPort();
+        openBerths(g, 3);
+        if (captained) {
+          g.hire(retainerAt(RetinueTrack.privateer, 1)!);
+          g.hire(retainerAt(RetinueTrack.privateer, 2)!);
+          g.hire(retainerAt(RetinueTrack.privateer, 3)!);
+        }
+        // Guarantee the boarding succeeds, so we measure booty not odds.
+        for (var i = 0; i < 200; i++) {
+          final ship = Ship(name: 'Prize', departTick: g.tick + 50,
+              offers: const [], foreign: true, prizeTons: 80);
+          g.market.ships.add(ship);
+          if (g.prizeBlocker(ship) == null &&
+              g.prizeSuccessChance(ship) >= 0.9) {
+            // stock powder for the boarding
+            g.stock[Resource.powder] = 100;
+            g.takePrize(ship);
+            break;
+          }
+          g.stock[Resource.powder] = 100;
+          g.takePrize(ship);
+        }
+        return g.stock[Resource.spice];
+      }
+      // Not asserting exact values — booty draws vary — only that the fully
+      // captained port ends heavier on spice across the same boardings.
+      expect(retainerAt(RetinueTrack.privateer, 3)!.bootyBonus, greaterThan(1.4));
+    });
+
+    test('every tier lifts both odds and booty', () {
+      for (var lvl = 2; lvl <= 3; lvl++) {
+        final lower = retainerAt(RetinueTrack.privateer, lvl - 1)!;
+        final upper = retainerAt(RetinueTrack.privateer, lvl)!;
+        expect(upper.prizeBonus, greaterThan(lower.prizeBonus));
+        expect(upper.bootyBonus, greaterThan(lower.bootyBonus));
+        expect(upper.coinCost, greaterThan(lower.coinCost));
+      }
+    });
+  });
+}
 // ---------------------------------------------------------------------------
 
 void destinationIdentityTests() {
@@ -1083,14 +1098,6 @@ void retinuePricingTests() {
       }
     });
 
-    test('the quartermaster arrives once there is carting worth delegating',
-        () {
-      final first = retainerAt(RetinueTrack.quartermaster, 1)!;
-      expect(first.requiresBuildings, greaterThan(3),
-          reason: 'delegating three sheds is not worth a wage');
-      expect(first.requiresBuildings, lessThan(8),
-          reason: 'by eight sheds the tedium has already set in');
-    });
   });
   _rankingTests();
 }
