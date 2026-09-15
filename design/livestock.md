@@ -211,6 +211,34 @@ That is a better ending than another pile of planks.
 It also keeps both halves of the bakery idea intact: bread still feeds the town
 better than grain, and biscuit is what the lighthouse takes.
 
+#### Played evidence says this bill moves the wrong two numbers
+
+Reported directly: **"flax and tools have been the bottlenecks on previous
+runs."** The 78-day run bears it out — it finished holding **2 tools against a
+requirement of 80**, and **160 sailcloth against a requirement of 90.** Tools
+came down to the wire; sailcloth overshot by three quarters.
+
+Against that, two lines of the table above are pointed the wrong way:
+
+- **Tools 80 → 55 softens the one requirement that reliably bites.** If tools
+  are what a run is actually racing, cutting them by a third removes the
+  tension rather than making room for the new goods. The offset for tallow,
+  cheese and biscuit should come from somewhere slack — planks and coin, both
+  abundant late — and tools should probably stay at 80.
+- **Wool → sailcloth adds supply to the item already overshooting.** A second
+  path into a good a player finishes with 70 spare of is a path into a
+  warehouse. If wool is to feed the weaver at all, it should **displace** part
+  of the flax route rather than add to it, so total sailcloth does not rise —
+  which also protects flax's scarcity, the other reported bottleneck.
+
+Flax is a special case worth stating plainly, because it was only briefly not a
+bottleneck. The flax field's own blurb promises *"You will not have enough"*,
+and that was true until a grange at +35% raised extraction while leaving
+workshop consumption untouched. The same run reported **drowning in flax**,
+filling a level-three warehouse faster than it could sell. The grange retune
+(ceiling 0.35 → 0.20) is expected to restore that scarcity; **confirm it has
+before designing anything that assumes flax is tight.**
+
 #### The real risk is the line-item count, not the quantities
 
 The bill goes from four goods to seven. Every line item is a chain that must be
