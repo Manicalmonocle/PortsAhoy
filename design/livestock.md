@@ -75,6 +75,104 @@ Planks and coin are the two most abundant items late, so they are the right
 places to take it from. If median days still regresses, the tallow requirement
 is too big — cut it before cutting anything else.
 
+### The fuller version: rewrite the bill around the animals
+
+Rather than bolting one item on, the bill gets reworked so the new chain carries
+real weight and the old chains give ground. Proposed:
+
+| | Now | Proposed | Comes from |
+| --- | --- | --- | --- |
+| Coin | 9,000 | 8,000 | |
+| Planks | 160 | **110** | sawmill |
+| Tools | 80 | **55** | smithy |
+| Rope | 120 | 120 | ropewalk, **now fed by wool** |
+| Sailcloth | 90 | 90 | weaver, still flax |
+| **Tallow** | — | **50** | byre |
+| **Cheese** | — | **40** | milk |
+| **Biscuit** | — | **60** | grain + eggs |
+
+This is a bigger change than it looks, and it has two consequences worth
+deciding deliberately rather than discovering.
+
+#### Moving rope to wool costs the flax decision — and there is a way to keep it
+
+Right now flax feeds **both** finished goods, and the two sheds are written
+against each other on purpose:
+
+> **Ropewalk** — *"Wrings the most coin out of every stalk of flax — but ties up hands."*
+> **Weaver** — *"Pays far more per worker than the ropewalk — and eats twice the flax."*
+
+Ropewalk takes 0.25 flax per tick, the weaver 0.45. Splitting one flax field
+between them is a live allocation decision every run, and the lighthouse comment
+names it as the point:
+
+> Requiring rope *and* sailcloth also forces the flax decision to be answered
+> "both, eventually", which is the most interesting way to end the game.
+
+Move rope onto wool and that decision is gone. Flax feeds only the weaver, the
+two sheds no longer compete, and **both blurbs above become false** — they
+describe a trade-off that would no longer exist.
+
+**But the structure can be transplanted rather than lost.** The thing that made
+flax interesting was one scarce input feeding two things you both need. Grain
+becomes exactly that, and more so: the town, the herds and the bakery all draw
+on it. The flax split becomes the **grain split**.
+
+That only works if the feed rates genuinely bite. The ~10 grain a day in the
+table below — better than a third of a farm — stops being a flavour detail
+under this version of the bill and becomes the load-bearing tension of the
+endgame. If feed is cheap, this rewrite removes a decision and replaces it with
+nothing.
+
+Two smaller knock-ons: the ropewalk and weaver blurbs need rewriting, and
+dropping tools from 80 to 55 softens the turtle and monkey pets, which were
+built around tools being the bottleneck.
+
+#### The town will eat your lighthouse bread
+
+Cheese and bread are food, `_feedTown` draws food automatically, and the bill
+wants them stockpiled. A port would watch its lighthouse provisions get eaten
+by the people building it, with nothing on screen explaining why the pile keeps
+shrinking.
+
+**Fix — and it improves the fiction rather than compromising it.** Split each
+into a perishable form and a keeping form:
+
+| Perishable — food, the town eats it | Keeping store — a *good*, on the bill |
+| --- | --- |
+| Milk | **Cheese** |
+| Bread | **Biscuit** (grain + eggs) |
+| Meat, fish, eggs, grain | **Tallow** |
+
+Milk spoils and cheese keeps; daily bread is eaten and ship's biscuit lasts
+years. Both were real preservation steps done in the same dairy and the same
+bakehouse, so one shed produces both.
+
+This also answers *why food belongs on a lighthouse bill at all*: *these are the
+keeper's stores.* A lighthouse is manned and isolated, and you do not finish one
+by building the tower — you finish it by victualling it so somebody can live out
+there through a winter. Tallow for the lamp, cheese and biscuit for the keeper.
+That is a better ending than another pile of planks.
+
+It also keeps both halves of the bakery idea intact: bread still feeds the town
+better than grain, and biscuit is what the lighthouse takes.
+
+#### The real risk is the line-item count, not the quantities
+
+The bill goes from four goods to seven. Every line item is a chain that must be
+**built and staffed at the finish**, and workers are the binding constraint in
+this game — that is the lesson at the top of this file. Smaller quantities do
+not help with that: a shed has to be running at all to produce anything.
+
+Under the proposed bill the endgame needs the sawmill, smithy, ropewalk, weaver,
+pasture, byre, coop, bakery, dairy and farm all staffed at once. That is a
+plausible way to make runs *longer* even though four of the five original
+numbers went down.
+
+**If the median regresses, cut in this order:** tallow first (it was the
+suggestion in this document, while cheese and biscuit were asked for), then
+lower rope, then drop the dairy by folding cheese in with the byre.
+
 ---
 
 ## The animals
@@ -254,15 +352,21 @@ Set now, so the result cannot be argued into looking good later.
 
 1. **Eight seeds minimum**, honest baseline, median days reported.
 2. **Median must not regress** against the current honest baseline of 96 days.
-   Livestock adds a bill item, so neutral is a pass; faster is a win.
-3. **At least one hard charter must improve.** A chain that only helps on easy
+   Neutral is a pass; faster is a win.
+3. **Measure the bill rewrite separately from the chain.** They are two changes
+   and they move the median in opposite directions — the animals add sheds and
+   hands, while planks and tools coming down gives time back. Shipped together
+   and measured together, a wash would look like success and neither half could
+   be tuned. Three runs: chain only, bill only, both.
+4. **At least one hard charter must improve.** A chain that only helps on easy
    runs is not pulling its weight — this is the shape spice was given, and it
    is the right one.
-4. **Verify the sheds were staffed and ripened**, per above.
-5. **Run it with the chain disabled as a control.** The Grange's regression was
+5. **Verify the sheds were staffed and ripened**, per above.
+6. **Run it with the chain disabled as a control.** The Grange's regression was
    only visible against a baseline measured the same week.
 
-If 2 fails, the tallow requirement comes down before anything else is touched.
+If 2 fails, cut in the order given under the bill rewrite: tallow, then rope,
+then the dairy.
 
 ---
 
