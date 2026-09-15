@@ -221,6 +221,47 @@ If 2 fails, the tallow requirement comes down before anything else is touched.
 
 ---
 
+## Later: a bakery
+
+Proposed as a follow-on rather than part of the first build, and it fits this
+plan closely enough to record here.
+
+A bakery takes **grain and turns it into bread**, which feeds a person further
+than the grain it came from. It unlocks late and it costs a shed, a worker and
+a steady grain draw.
+
+Three reasons it belongs with livestock rather than on its own:
+
+**It shares the same prerequisite.** Bread is only meaningful once food is
+weighted — with `foodStock` summing one unit per person-day, a loaf feeds
+exactly as well as the grain it was baked from and the shed is pointless. The
+`nutrition` field above unlocks both features; neither works without it.
+
+**It is really a grain multiplier, and that is what makes it worth a worker.**
+Note that the growth gate is only `growthFoodDays = 2.0` — two days of buffer —
+so raw food abundance is rarely what is holding a port back, and "more food"
+alone would not justify the hands. What a bakery actually does is let the town
+be fed on *less grain*, and the grain it frees is exactly what the herds eat.
+First pass: **2 grain → 1 bread at nutrition 3.0**, so a bakery turns two
+person-days of grain into three. Enough to matter, not enough to break the
+farm.
+
+**It sharpens the grain decision instead of softening it.** Livestock already
+makes grain contested — feed the town or feed the herd. The bakery does not
+resolve that tension, it raises the stakes on it, because now there are three
+claims on every sack. That is the most interesting version.
+
+It also lands in the right place on the clock. With the last timed unlock
+sitting at day 25 and nothing revealed after it, a bakery arriving around day
+35 alongside the livestock sheds starts repopulating the stretch of the game
+that currently has nothing in it.
+
+And it gives the happiness system its clearest signal. That plan already turns
+on whether the town is *"fed well or merely fed"* — bread is what the
+distinction was waiting for.
+
+---
+
 ## Open questions
 
 - Wool-to-sailcloth ratio against the flax chain — needs both paths costed
@@ -233,3 +274,8 @@ If 2 fails, the tallow requirement comes down before anything else is touched.
 - Whether tallow needs a rendering step (a chandlery) or comes straight off the
   animal. A rendering shed is more faithful and costs another worker, which the
   labour budget above can probably not afford.
+- What the bakery unlocks behind. A day gate fills the empty stretch most
+  reliably; hanging it off the warehouse ties it to the chain it belongs to.
+- Whether the bakery's worker is affordable at all, given the labour budget.
+  It may only pay for itself once livestock is competing for the same grain,
+  which is an argument for building it second rather than first.
