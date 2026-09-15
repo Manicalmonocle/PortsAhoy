@@ -64,20 +64,68 @@ well under it.
 
 | | Value | Reasoning |
 | --- | --- | --- |
-| Buff | **+25%** | Felt on its axis over the ~35 days of run remaining, without rivalling the Grange |
-| Debuff | **−20%** | Enough that a careless pick genuinely costs something |
+| Buff | **+10%** | A nudge, not a lever — see below |
+| Debuff | **−7%** | Enough that a careless pick costs something |
 | Happiness | small, permanent | The constant sweetener, so any well-matched pet beats no pet |
-| Meat eaten | **~0.5/day** | A nuisance, not a second herd — see below |
+| Meat eaten | **~0.5/day** | A nuisance, not a second herd |
 
 **Buff slightly exceeding debuff is deliberate.** A well-matched pet should
 clearly pay; the skill is in the matching, not in overcoming a tax. A mismatched
-pet still hurts, because −20% of something you depend on outweighs +25% of
+pet still hurts, because −7% of something you depend on outweighs +10% of
 something you do not.
+
+**Why small.** A pet is a scheduled gift rather than something earned through
+play — it arrives on a timer whatever you did. Big numbers on a free arrival
+mean a run's outcome is substantially set by one choice at day 45, which is not
+what this feature is for. The Grange, at +35% to *every* shed and a 35-day ramp
+you paid 400 coin and two workers for, is what a real lever looks like here. A
+pet should read as an accent next to it.
+
+### The risk at this size is that nobody feels it, and there is precedent
+
+This project has had **five separate "feels like nothing" reports, and every one
+was a visibility problem rather than a weak mechanic.** One of them was the
+merchant — `sellBonus: 1.06`, `voyagePay: 1.08`
+([retinue.dart:213](../lib/sim/retinue.dart#L213)). A player bought it, saw
+nothing, and said so. The fix was surfacing the number, not raising it.
+
+**+10% is that same territory.** So at this magnitude, visibility is not polish,
+it is the feature working at all:
+
+- The pet's two effects stated plainly wherever the pet is, in numbers, always —
+  not only at the moment of choosing.
+- The affected product showing its modified rate, so the player can see milk
+  running faster and ore running slower rather than taking it on faith.
+
+A pet is easier to surface than the merchant was, in fairness: its effect lands
+on one named product rather than diffusely across every price, so there is
+somewhere obvious to print it.
+
+### What to expect from the measurement
+
+Written down first, so the result can disagree with it.
+
+A pet arrives around day 45 of an ~82-day run, so roughly **37 days of effect**.
+If the affected product is what the finish is actually waiting on, +10% saves
+about a tenth of the time that product still needs — on ~25 days of accumulation
+that is **2 to 3 days**. A mismatched pick should cost **1 to 2**. So the swing
+between best and worst pick is around **4 days on an 82-day baseline**, or 5%.
+
+That is small enough to be within the seed spread, which matters: the sweep
+needs enough seeds to separate a 4-day effect from noise, and the current spread
+is 24 days across 8 seeds. **Sixteen seeds minimum for this one**, and measure
+the best and worst pick against the same seeds rather than against the baseline.
+
+**Sweep both magnitudes.** Run +10/−7 and +25/−20 side by side. If the small
+version cannot be distinguished from no pet at all, that is the answer to this
+question, arrived at with a number instead of a feeling — and the choice is then
+between raising it and accepting that pets are charm with a whisper of effect,
+which is a legitimate thing for them to be.
 
 ### Why this lands where it does in the run
 
-Consider the dog: **+25% milk** feeds cheese, which is on the lighthouse bill;
-**−20% ore** slows tools, which are also on the bill. So the dog trades
+Consider the dog: **+10% milk** feeds cheese, which is on the lighthouse bill;
+**−7% ore** slows tools, which are also on the bill. So the dog trades
 tools-speed for cheese-speed.
 
 That makes the pet choice **a read on which bill item you are behind on** — and
@@ -133,11 +181,14 @@ sink and a reason to keep a surplus.
 
 ## The bar
 
-1. **Eight seeds**, honest baseline, median days. Current baseline **82**.
-2. **A well-matched pet should be worth something measurable** — if +25% on one
-   product for the back half of a run does not move the median at all, the
-   numbers are too small to bother with.
-3. **A mismatched pet should cost.** Measure the worst pick as well as the best;
-   if both are neutral, the trade-off is decorative.
-4. **Check the invariant by test**, not by eye: every product raised exactly
+1. **Honest baseline, median days.** Current baseline **82**.
+2. **Sixteen seeds, not eight.** The predicted effect is about 4 days between
+   the best and worst pick, against a seed spread of 24 days. Eight seeds cannot
+   see that.
+3. **Measure best pick and worst pick on the same seeds**, not against the
+   baseline — the difference between them is the trade-off, and it is the only
+   number here that is not swamped by seed variance.
+4. **Sweep +10/−7 against +25/−20.** If the small version is indistinguishable
+   from no pet, that is the answer to the magnitude question.
+5. **Check the invariant by test**, not by eye: every product raised exactly
    once and lowered exactly once, and no pet touching meat.
