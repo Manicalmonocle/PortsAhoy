@@ -24,6 +24,14 @@ the existing weaver and a hide or dairy good giving the farm chain somewhere to
 go. The point is to give the honest side depth without adding another thing to
 click every few minutes.
 
+**[The full plan is written up in design/livestock.md](design/livestock.md)** —
+cows, sheep and chickens; meat, milk, wool and eggs; tallow added to the
+lighthouse bill so the chain is load-bearing rather than optional. It also
+records the two things that have to be fixed *before* any of it is built (food
+is counted one unit per person-day, so meat would be strictly worse than fish;
+and the balance probe never staffs a shed with no immediate output, which has
+already wrecked two measurements), and the pass/fail bar agreed in advance.
+
 **Diagnose the Grange outlier.** Under *A Grander Light*, one seed of eight
 blew out to 351 days against a baseline maximum of 133. The median improved
 clearly, so the route ships, but a result that bad on one seed is not noise and
