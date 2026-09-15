@@ -94,9 +94,54 @@ week you buy it, worth a great deal by harvest.*
 Cheap and quick at the chicken end, slow and expensive at the cattle end, so
 the choice of which to build is a read on how long the run has left to run.
 
-**All three eat grain.** That is the tension that keeps them honest — the farm
+### Grain is the input, and it has to bite
+
+**All three eat grain, every day, whether or not you are getting anything out
+of them yet.** This is the single mechanic that keeps the chain honest: the farm
 stops being a straight line to food and becomes a decision about what the grain
 is *for*.
+
+The rate has to be large enough to be felt. A fully-crewed farm produces
+`0.28 × 4 workers × 24 ticks ≈ 27 grain a day`, so a feed bill of two or three
+grain would vanish into the noise and the herd would be free. First pass:
+
+| Shed | Grain per day | Share of one farm |
+| --- | --- | --- |
+| **Coop** | 1.5 | ~6% |
+| **Pasture** | 3.5 | ~13% |
+| **Byre** | 5.0 | ~19% |
+| **All three** | **10.0** | **~37%** |
+
+A port running the full set gives up better than a third of a farm to do it,
+which means a second farm, or a bakery, or less bread on the table. That is a
+real decision rather than a rounding error.
+
+**Feed should scale with maturity**, from roughly 40% at a freshly built shed
+to full at a grown herd. The cost then ramps alongside the benefit instead of
+landing hardest on the day you can least afford it — and it keeps faith with
+the Grange's bargain, where a new shed is *worth* little rather than *costing*
+much.
+
+**When the grain runs out, nothing dies.** Maturity stalls first; only a
+prolonged shortage should walk it back, and slowly. A herd that starves to death
+while you were busy is the punishment loop this game keeps refusing, and it
+would be worse here than most because the ramp means you would lose forty days
+of investment to one bad week.
+
+**The shortage must be visible, and named.** `_feedTown` draws grain
+automatically for the town, so a growing population can quietly eat the herd's
+feed out from under it. The port would stop maturing for a reason found nowhere
+on screen. The codebase already has the principle to follow, in `growthBlocker`:
+
+> If something is holding the town back, say which thing.
+
+The herd needs exactly that — *"the byre is short of grain"* — for the same
+reason. Note that this makes **three claims on every sack**: the town, the herd,
+and the bakery below.
+
+**People eat before animals.** That ordering is not really in question, but it
+is what creates the failure above, so it should be a deliberate choice recorded
+here rather than a side effect of whichever code runs first.
 
 ### The labour budget is the hard constraint
 
