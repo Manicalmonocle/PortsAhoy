@@ -6,6 +6,27 @@ already failed that way twice.
 
 ---
 
+## What the chain is for
+
+**Livestock is not a food chain.** Its momentum comes from the goods —
+wool into sailcloth, tallow for the lamp, cheese and biscuit on the bill. Those
+are what the hands are spent on and what the run is won with.
+
+The meat, milk and eggs exist for one purpose: **to cancel the grain the animals
+eat.** The herds should not be a second town competing with the first for the
+harvest. Feed them, get roughly the same food value back, and the grain question
+stays a question about *timing* rather than a fight the player has to win.
+
+That gives the chain a design target sharp enough to test:
+
+> **Net food ≈ 0.** Whatever the animals eat, they return in food value.
+> Everything the chain earns, it earns in wool and tallow.
+
+Read every number below against that. A livestock chain that *feeds* the port is
+off-spec in one direction; one that starves it is off-spec in the other.
+
+---
+
 ## The lesson that governs this
 
 The Grange shipped in a raws-only form and made the balance bot **slower** —
@@ -329,14 +350,21 @@ double get foodStock => Resource.values
     .fold(0.0, (s, r) => s + stock[r]);
 ```
 
-One meat would feed exactly as many people as one fish, while costing grain, a
-shed, a worker and forty days of ramp. Meat would be **strictly worse food than
-fish** — the chain would be dead on arrival.
+This is what makes the offset impossible to reach at believable quantities.
+Animals do not convert feed to food one for one — really they convert it at a
+heavy loss, which is why a herd is a store of value rather than a way to make
+calories. If a pasture eats 3.5 grain a day and has to hand back 3.5 units to
+break even, it is not a pasture, it is a very slow granary.
 
 **Fix:** give `Resource` a `nutrition` field defaulting to 1.0, weight
 `foodStock` by it, and have `_feedTown` draw weighted amounts. Meat around 3.0,
-milk and eggs around 1.5. Contained — two functions and one enum field — but it
-must land *before* livestock, not alongside it.
+milk and eggs around 1.5. Then 3.5 grain a day comes back as roughly 1.2 meat,
+which is a plausible yield *and* lands on the neutrality target. Contained — two
+functions and one enum field — but it must land *before* livestock, not
+alongside it.
+
+**Tune feed and food output as one pair, never separately.** They are a single
+number wearing two hats: the whole design intent is that they cancel.
 
 **Also decide the eating order.** `_feedTown` currently eats fish first on a
 stated rule — "fish spoils, grain keeps". Salt meat keeps best of all, so it
@@ -477,10 +505,31 @@ rather than stopped, which is exactly why it would never show up as a complaint.
 **Food is not a solved problem in this game. It is the quiet ceiling on the back
 half of a run.**
 
-### The probe cannot currently feel any of this, which had to be fixed first
+### The feed bill is smaller than it looks, because the food comes back
 
-Running the probe against the same settings the 80-day run was played on, and
-counting what was actually stopping the town from growing:
+An earlier draft of this section read the 10 grain a day against the played
+run's food economy — 37 people eating 37 a day with stores flat at two days'
+worth — and concluded the herds would take 27% of the port's food from a port
+with nothing spare, so the bakery had to come first or livestock would arrive as
+a famine.
+
+**That was reasoning about a food chain, and this is not one.** Under the
+neutrality target at the top of this file, the grain goes in and comes back as
+meat, milk and eggs of roughly the same food value. The port is not 27% poorer;
+it is about level, having converted some grain into wool and tallow along the
+way. The bakery is a good idea on its own merits and stays in the plan, but it
+is **not** a prerequisite, and livestock does not arrive as a famine.
+
+What survives from that analysis is narrower and still true: the run had no
+spare food, so **there is no slack to absorb a mistake here.** If the offset is
+even slightly off — feed too high, nutrition too low, a ramp that eats for
+thirty days before it returns anything — the shortfall lands on a port with
+nothing in reserve. Which is the argument for tuning feed and output as one
+pair, and for the chicken coop's short ramp leading the way in.
+
+### What the probe can and cannot measure
+
+Counting what was actually stopping the town from growing, over eight seeds:
 
 ```
                        roofs   payroll   food
@@ -488,58 +537,39 @@ before                    17         7      0
 after the housing fix      6         8      0
 ```
 
-**Food blocks the bot on zero days, in both cases.** It carried twenty days of
-food at day 50 and day 75 where the player had two. Measuring a food-producing
-chain on a port that has never been hungry would report the grain bill, the
-worker cost and none of the benefit — the Grange mistake, a third time.
+The bot is never food-blocked, carrying twenty days in store where the played
+run sat on the two-day gate for its final third.
 
-Fixing the first column was worth doing on its own. Houses only arrived at fixed
-slots in a thirty-item build order, so the port grew into its cap and stopped,
-a median of seventeen days per run with every roof taken. A player reacts
-instead: the reference run put up two houses on day 27 and two on day 52.
-Building one the moment the town is short took the **median from 96 days to 82**
-and brought the bot within two days of the human it is calibrated against.
+An earlier draft called that a blocker for measuring livestock. **It is not** —
+not for a chain that is food-neutral by design. There is no food benefit for the
+bot to be too comfortable to notice. What the probe has to weigh is whether wool
+and tallow pay for the sheds and hands they cost, and that lands squarely on
+days-to-lighthouse, which is the one thing the probe measures well.
 
-It also settled the hiring question, which had been parked on the theory that
-the bot was too poor to carry wages. It is not poverty:
+Two real consequences remain:
+
+- **Verify neutrality directly rather than inferring it.** Track the net food
+  delta the chain causes and assert it is near zero. Do not expect a
+  days-to-win number to reveal a food problem, because on this bot it cannot.
+- **The bot's twenty-day surplus is its own inefficiency**, worth fixing
+  eventually — hands on a fishing wharf that nobody needed are hands not making
+  planks. That is a probe policy issue, not a livestock one.
+
+The housing fix found along the way stands on its own: houses arrived only at
+fixed slots in a thirty-item build order, so the port grew into its cap and
+stopped — seventeen days a run with every roof taken. Reacting to the shortage
+instead took the **median from 96 days to 82**, within two days of the human the
+bot is calibrated against. It also settled the hiring question, parked on the
+theory the bot was too poor for wages:
 
 ```
 without --hire   median 82   roofs blocked  6
 with    --hire   median 90   roofs blocked 18
 ```
 
-Wages crowd out houses, and houses are worth more days than officers are. The
-retinue is priced against a port that needs roofs more than it needs rank.
-
-**But food still does not bind, so the core problem stands.** The bot is now
-closer — its lowest food dipped to 2.0 days on one seed, exactly the gate —
-without ever being held there. Before livestock can be measured honestly, the
-probe needs a policy that pushes population hard enough to be hungry, the way a
-real run is. Until that exists, **any livestock number the probe prints is
-measuring cost without benefit.**
-
-### Which means the feed bill above is measured against the wrong denominator
-
-The 10 grain a day was sized against a farm's *output* — about 27 a day — and
-called "a third of a farm". But the number that matters is the **surplus**, and
-this run had essentially none: 37 people eating 37 food a day, stores flat at
-roughly two days' worth. Production and consumption were level.
-
-Against that, 10 grain a day of feed is not a third of a farm. It is **27% of
-the port's entire food economy, taken from a port with nothing spare.** Dropped
-into this run as it stands, the herds would not have competed with the town for
-grain; they would have stopped it growing.
-
-Three consequences:
-
-1. **The bakery is a prerequisite, not a follow-on.** It is what creates the
-   headroom the animals eat. Built the other way round, livestock arrives as a
-   famine.
-2. **Re-derive the feed rate against surplus**, not farm output, and measure it
-   on a port that is actually near the gate rather than early in a run when
-   food looks abundant.
-3. The livestock chain has to **return more food than it consumes, and early** —
-   the chicken coop's short ramp is doing more work than it first appeared.
+Wages crowd out houses, and houses are worth more days than officers are —
+worth remembering when the pets and the new sheds are priced, since they compete
+for the same coin.
 
 ### The dark trade was available, and completely ignored
 

@@ -37,12 +37,12 @@ blew out to 351 days against a baseline maximum of 133. The median improved
 clearly, so the route ships, but a result that bad on one seed is not noise and
 has not been explained.
 
-**Make the probe get hungry.** The bot is never short of food — zero days
-blocked on it across eight seeds, carrying twenty days in store where a real
-run sat on the two-day gate for its final third. That makes it blind to the
-whole point of the livestock chain, which supplies food: measured as it stands,
-animals would report as pure cost. This is the prerequisite for the next
-feature, not a tidy-up.
+**Trim the probe's food surplus.** The bot carries twenty days of food where a
+real run sat on the two-day gate for its final third, which means hands on a
+fishing wharf nobody needed — hands not making planks. Worth fixing as an
+efficiency, though it no longer blocks the livestock work: that chain is
+designed to be food-neutral, so there is no food benefit for a comfortable bot
+to be blind to.
 
 *Largely resolved:* the bot's pacing gap was a housing bug, not an income
 problem. Houses arrived only at fixed slots in the build order, so the port grew
