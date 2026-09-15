@@ -85,8 +85,8 @@ real weight and the old chains give ground. Proposed:
 | Coin | 9,000 | 8,000 | |
 | Planks | 160 | **110** | sawmill |
 | Tools | 80 | **55** | smithy |
-| Rope | 120 | 120 | ropewalk, **now fed by wool** |
-| Sailcloth | 90 | 90 | weaver, still flax |
+| Rope | 120 | **100** | ropewalk, still flax |
+| Sailcloth | 90 | 90 | weaver, **now wool + rope** |
 | **Tallow** | — | **50** | byre |
 | **Cheese** | — | **40** | milk |
 | **Biscuit** | — | **60** | grain + eggs |
@@ -94,39 +94,72 @@ real weight and the old chains give ground. Proposed:
 This is a bigger change than it looks, and it has two consequences worth
 deciding deliberately rather than discovering.
 
-#### Moving rope to wool costs the flax decision — and there is a way to keep it
+#### Rope stays flax; sailcloth becomes wool **and** rope
 
-Right now flax feeds **both** finished goods, and the two sheds are written
-against each other on purpose:
+The first draft of this section moved rope onto wool, and noted that doing so
+would kill the flax decision. The better answer keeps rope on flax and makes
+**sailcloth an assembly of wool and rope**:
 
-> **Ropewalk** — *"Wrings the most coin out of every stalk of flax — but ties up hands."*
-> **Weaver** — *"Pays far more per worker than the ropewalk — and eats twice the flax."*
+```
+flax → ropewalk → rope ─┬─→ the lighthouse bill
+                        └─→ weaver ─→ sailcloth
+wool (pasture) ─────────────→ weaver ─┘
+```
 
-Ropewalk takes 0.25 flax per tick, the weaver 0.45. Splitting one flax field
-between them is a live allocation decision every run, and the lighthouse comment
-names it as the point:
+**It preserves the decision instead of destroying it, by moving it downstream.**
+What made flax interesting was one scarce thing feeding two things you both
+need. That is now **rope**: every coil either goes on the bill or goes into a
+sail, and you need both. The lighthouse comment's requirement — that the answer
+has to be "both, eventually" — survives intact, and arguably sharpens, because
+splitting a finished good is a more painful choice than splitting a raw.
 
-> Requiring rope *and* sailcloth also forces the flax decision to be answered
-> "both, eventually", which is the most interesting way to end the game.
+Flax also stays essential rather than becoming single-purpose, since it is still
+the only source of rope and rope now feeds two claims.
 
-Move rope onto wool and that decision is gone. Flax feeds only the weaver, the
-two sheds no longer compete, and **both blurbs above become false** — they
-describe a trade-off that would no longer exist.
+**And the fiction is better than either previous version.** Rope from wool was
+never right — rope wants long bast fibre, which is the entire reason flax and
+hemp were grown for it. But a **wool sail** is exactly right for this setting:
+Norse and North Atlantic vessels carried them for centuries, and in a cold
+archipelago it is the obvious cloth. Sails are also **bolt-roped** — rope sewn
+along every edge to carry the load, without which the canvas tears itself apart.
+So "sailcloth = wool cloth, roped at the edges" is not a concession to the
+mechanic; it is how a sail is actually made.
 
-**But the structure can be transplanted rather than lost.** The thing that made
-flax interesting was one scarce input feeding two things you both need. Grain
-becomes exactly that, and more so: the town, the herds and the bakery all draw
-on it. The flax split becomes the **grain split**.
+##### What it costs, worked through
 
-That only works if the feed rates genuinely bite. The ~10 grain a day in the
-table below — better than a third of a farm — stops being a flavour detail
-under this version of the bill and becomes the load-bearing tension of the
-endgame. If feed is cheap, this rewrite removes a decision and replaces it with
-nothing.
+Present conversions: rope is 0.25 flax → 0.20 rope (**1.25 flax per rope**);
+sailcloth is 0.45 flax → 0.18 sailcloth (**2.5 flax per sailcloth**). So today's
+bill of 120 rope and 90 sailcloth consumes **375 flax**.
 
-Two smaller knock-ons: the ropewalk and weaver blurbs need rewriting, and
-dropping tools from 80 to 55 softens the turtle and monkey pets, which were
-built around tools being the bottleneck.
+Proposed weaver recipe, as a starting point to measure:
+
+```
+inputs: {wool: 0.30, rope: 0.20} → outputs: {sailcloth: 0.18}
+```
+
+That is 1.67 wool and 1.11 rope per sailcloth, so 90 sailcloth wants
+**150 wool and 100 rope**. Setting the bill's rope at **100** puts the split at
+almost exactly half and half — 100 to the lighthouse, 100 into sails — which is
+the shape that makes the choice bite hardest.
+
+| | Now | Proposed |
+| --- | --- | --- |
+| Rope produced | 120 | **200** (100 bill + 100 weaver) |
+| Flax consumed | 375 | **250** |
+| Wool consumed | — | **150** |
+
+Flax demand falls by a third and wool takes up the difference, which is the
+correct direction: the new chain is carrying real weight rather than being
+decoration.
+
+**The load lands on the ropewalk, and that is the thing to watch.** It has to
+produce 200 rope instead of 120 — a 65% increase. Fully crewed it makes
+`0.20 × 3 × 24 = 14.4` a day, so that is about 14 days of uninterrupted full
+production rather than 8, and a port may well need a second one. Its blurb
+already warns that it "ties up hands"; under this bill it ties up considerably
+more, and the labour warning at the top of this file applies directly. If the
+median regresses, **the weaver's rope input is the first dial to turn**, before
+touching the bill.
 
 #### The town will eat your lighthouse bread
 
@@ -169,9 +202,13 @@ pasture, byre, coop, bakery, dairy and farm all staffed at once. That is a
 plausible way to make runs *longer* even though four of the five original
 numbers went down.
 
-**If the median regresses, cut in this order:** tallow first (it was the
-suggestion in this document, while cheese and biscuit were asked for), then
-lower rope, then drop the dairy by folding cheese in with the byre.
+One knock-on to remember: dropping tools from 80 to 55 softens the turtle and
+monkey pets, which were both built around tools being the bottleneck.
+
+**If the median regresses, cut in this order:** the weaver's rope input first
+(it is a dial, not a feature), then tallow (this document's suggestion, where
+cheese and biscuit were asked for), then fold cheese into the byre and drop the
+separate dairy.
 
 ---
 
