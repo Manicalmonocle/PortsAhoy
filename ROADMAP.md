@@ -93,80 +93,18 @@ back four points. The meter comes down through play. Happiness should answer the
 same way: to feeding people properly, housing them, paying them, keeping the
 port steady. Never to a payment, and never to simply waiting it out.
 
-**Pets, with trade-offs.** *Comes after animals and husbandry* — two of the five
-below touch livestock, which does not exist yet.
+**Pets, with trade-offs.** *After animals and husbandry, which supplies the
+meat.* A ship puts in around day 40-50 with animals aboard and you buy one —
+the only pet the run will ever offer. Each lifts happiness, raises one product
+and lowers another, and eats meat, so keeping one is an obligation as well as a
+gift. Dog, cat, bird, monkey and turtle, arranged so that every product one
+raises is another's cost: nothing is strictly best, and the pick is a read on
+which lighthouse item you are behind on — which day 40-50 is exactly when you
+first know.
 
-**A mid-game beat, around day 40-50.** A ship puts in with animals aboard and
-you choose one, and that is the only pet the run will ever offer. The timing is
-what makes it worth building: a won run lands near day 93-100, so this is the
-midpoint, and it is the stretch where the game currently goes quiet. The last
-timed unlock in the whole tree is the distillery on day 25
-([progression.dart:102](lib/sim/progression.dart#L102)); everything after that
-is condition-gated and mostly resolves early. From roughly day 30 to the
-lighthouse, a competent port is executing a plan it already has, with nothing
-new ever revealed. That is the grind, and it is a real gap rather than a
-feeling.
-
-Scheduling the offer also removes the rarity problem instead of managing it.
-Three separate knobs, and **only the first gets any randomness**:
-
-- **When** — jittered inside the window, so it still arrives as a surprise.
-- **Whether** — never random. Every run gets the offer, exactly once.
-- **Which** — never random. You pick from the five; you do not roll for one.
-
-That is what keeps it clear of the slot machine. There is no rare drop to chase,
-no reroll to farm, and no run that quietly never gets its pet because the dice
-went the wrong way.
-
-**One per run, and no second chance.** Not one at a time: one. The moment a
-second is possible the game stops being about which animal suits this run and
-starts being about collecting the set.
-
-Every pet lifts happiness; each then raises one shed's yield and lowers another,
-so the single pick is a read on the run you are having.
-
-**Yields only.** A pet changes what a shed produces and nothing else — never a
-price, never a voyage, never the odds on a boarding. That keeps them out of the
-two systems where a buff is hardest to read and easiest to abuse, and it makes
-the rule simple enough to assert in a test.
-
-The fiction that holds it together: **the port's attention is finite.** Where
-the animal lives, work goes better; somewhere else gets neglected.
-
-| | Raises | Lowers | Why |
-| --- | --- | --- | --- |
-| **Dog** | Livestock | Ore | Works the grange; will not follow anyone down a shaft |
-| **Cat** | Grain | Livestock | Keeps the rats out of the seed, and hunts the poultry too |
-| **Bird** | Ore | Grain | A caged bird reads the bad air; it also eats the seed |
-| **Monkey** | Timber | Tools | Goes up the stands like rigging, and loses every small iron thing it finds |
-| **Turtle** | Tools | Timber | The smith works to its pace and spoils fewer pieces; nothing about a turtle ever hurried a woodsman |
-
-The set balances by construction: **five yields, each raised by exactly one pet
-and lowered by exactly one.** Dog, cat and bird close a ring on livestock,
-grain and ore; monkey and turtle are a straight opposition on timber and tools.
-Nothing here is strictly best — every pet's gift is some other pet's cost — so
-the pick has to come from which chains your run actually leans on. That
-invariant is worth asserting in a test, because it is the thing that would
-quietly rot if a sixth animal were added carelessly.
-
-Two notes on building it:
-
-- **This is not an `EventDef`, and should not be forced into one.** The event
-  system draws one weighted event per day with a repeat guard, and every event
-  in the catalogue is something that happens *to* you. A guaranteed once-per-run
-  beat that stops and asks you to choose is neither. It needs a scheduled hook
-  and a choice screen, and pretending otherwise would mean bolting a
-  once-per-run flag and a dialogue onto a weather system.
-- **The effects already have a vocabulary.** `EventDef.yieldScale` and
-  `throughput` are per-building multipliers, which is exactly the shape a pet's
-  two halves need. Reuse those rather than inventing a parallel one.
-
-And **both halves visible before you pay** — a cost you find out about
-afterwards is a trap, not a trade-off.
-
-Bought with coin, like anything else. Cosmetics for sale are on the list at the
-bottom of this file, and a pet is exactly the sort of harmless-looking thing a
-store gets introduced through.
+**[The full plan is in design/pets.md](design/pets.md)**, including the numbers
+to start from, why no pet may touch meat, and how a meat-fed pet avoids gating
+one optional system behind another.
 
 **Play Store release.** The build side is done — signed AAB, privacy policy,
 version stamping. What is left is paperwork and people: the $25 registration,
