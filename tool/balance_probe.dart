@@ -25,9 +25,17 @@ import 'package:ports_ahoy/version.dart';
 /// What the policy builds, in order, whenever it can afford the next item.
 const List<String> buildOrder = [
   'forest_camp', 'sawmill', 'house', 'flax_field', 'ropewalk',
-  'warehouse', 'farm', 'flax_field', 'weaver', 'house',
+  // GRANGE EARLY, because that is when a person builds one. A played run put
+  // it up on day 16 as the sixth building; the bot had it sixteenth in this
+  // list and reached it near day 35. With a 24-day ramp to climb afterwards,
+  // that is the difference between running on a grown grange for half the run
+  // and barely reaching maturity before winning — so every grange number
+  // measured at the old position understated the mechanic. A ceiling sweep
+  // there found no difference at all between 0.20 and 0.35, where a player
+  // was reporting a large one.
+  'warehouse', 'farm', 'grange', 'flax_field', 'weaver', 'house',
   'mine', 'sawmill', 'smithy', 'warehouse', 'house',
-  'grange', 'import_berth', 'forest_camp', 'cooperage', 'mine', 'smithy',
+  'import_berth', 'forest_camp', 'cooperage', 'mine', 'smithy',
   'house', 'import_berth', 'flax_field', 'weaver', 'warehouse',
   'farm', 'house', 'import_berth', 'sawmill', 'house',
 ];
@@ -283,7 +291,13 @@ Map<String, double> _shortfallOf(GameState g) {
 
 /// Seeds are fixed rather than random so a tuning change can be compared
 /// against the previous run honestly, instead of against different weather.
-const List<int> seeds = [12345, 777, 20260815, 31415, 8675309, 4242, 99, 1618];
+/// SIXTEEN, NOT EIGHT. The grange sweep turned up a seed finishing on day 302
+/// where the median was 85 — a tail eight seeds missed entirely, and the tail
+/// is where the balance faults live.
+const List<int> seeds = [
+  12345, 777, 20260815, 31415, 8675309, 4242, 99, 1618,
+  2718, 1414, 5150, 60221, 8080, 1729, 6626, 3301,
+];
 
 /// The charters in force for this sweep, from `--charters=id1,id2`.
 ///

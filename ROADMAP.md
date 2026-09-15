@@ -35,10 +35,16 @@ is counted one unit per person-day, so meat would be strictly worse than fish;
 and the balance probe never staffs a shed with no immediate output, which has
 already wrecked two measurements), and the pass/fail bar agreed in advance.
 
-**Diagnose the Grange outlier.** Under *A Grander Light*, one seed of eight
-blew out to 351 days against a baseline maximum of 133. The median improved
-clearly, so the route ships, but a result that bad on one seed is not noise and
-has not been explained.
+**~~Diagnose the Grange outlier~~ — probably explained.** Under *A Grander
+Light*, one seed of eight blew out to 351 days against a baseline maximum of
+133, and it had never been accounted for. A grange ceiling sweep reproduced the
+same shape on ordinary seeds, and the tail scaled *inversely* with the bonus —
+worst case 94 days at a 0.35 ceiling, 216 at 0.28, 302 at 0.20. That is a
+payback failure, not variance: a grange is 400 coin and two hands committed
+before it returns anything, so when the payoff drops the investment strands on
+unlucky seeds. Shortening the ramp from 35 days to 24 took the worst case back
+to 101. Worth confirming directly against *A Grander Light* before this is
+called closed.
 
 **Trim the probe's food surplus.** The bot carries twenty days of food where a
 real run sat on the two-day gate for its final third, which means hands on a

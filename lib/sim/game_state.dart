@@ -146,7 +146,22 @@ class Balance {
   // it a bet on a long run rather than a free upgrade: it pays almost nothing
   // for the first fortnight and only comes good around the five-week mark.
   /// Days of being worked before a grange reaches its full worth.
-  static const double grangeRipenDays = 35;
+  ///
+  /// SHORTENED FROM 35 WHEN THE CEILING CAME DOWN, and the two changes belong
+  /// together. A grange is 400 coin and two hands committed up front, so the
+  /// ramp is the period it is pure cost. Cutting the payoff without cutting
+  /// the wait left seeds where the investment never recovered — measured over
+  /// 16 seeds with the grange built early, the tail scaled inversely with the
+  /// bonus, which is the signature of a payback failure rather than noise:
+  ///
+  ///     0.35 ceiling, 35-day ramp   median 77   worst  94
+  ///     0.28 ceiling, 35-day ramp   median 79   worst 216
+  ///     0.20 ceiling, 35-day ramp   median 85   worst 302
+  ///     0.20 ceiling, 24-day ramp   median 80   worst 101   <- here
+  ///
+  /// Paying back sooner recovers nearly all the speed and removes the
+  /// catastrophe, without putting back the flooding the ceiling cut was for.
+  static const double grangeRipenDays = 24;
 
   /// What a fully grown grange adds to every shed's yield.
   ///
