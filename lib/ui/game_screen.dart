@@ -956,6 +956,29 @@ class _BuildingBubble extends StatelessWidget {
                 const SizedBox(height: 8),
                 CargoSelector(controller: controller, index: index),
               ],
+              // A grange is a slow bet, so it has to show its progress. An
+              // invisible ramp is indistinguishable from a bonus that does
+              // nothing, which is the trap this game keeps falling into.
+              if (b.defId == 'grange') ...[
+                const SizedBox(height: 6),
+                Builder(builder: (_) {
+                  final s = controller.state;
+                  final pct = (s.grangeMaturity * 100).round();
+                  final gain = ((s.grangeYieldBonus - 1) * 100).round();
+                  return Text(
+                    b.workers == 0
+                        ? 'Idle — the fields do not come on while nobody works '
+                            'them. $pct% grown, +$gain% to every shed.'
+                        : pct >= 100
+                            ? 'Fully grown. +$gain% to every shed.'
+                            : '$pct% grown — +$gain% to every shed so far.',
+                    style: TextStyle(
+                        fontSize: 11,
+                        height: 1.35,
+                        color: b.workers == 0 ? Palette.lamp : Palette.moss),
+                  );
+                }),
+              ],
               if (b.workers > 0 && b.lastEfficiency < 0.95)
                 Padding(
                   padding: const EdgeInsets.only(top: 6),

@@ -695,4 +695,141 @@ void _spiceYieldTests() {
         reason: 'spice is ${(share * 100).toStringAsFixed(0)}% of a prize; '
             'at 6% five boardings yielded ~17 spice and zero days');
   });
+  _grangeTests();
+}
+
+void _grangeTests() {
+  GameState husbandryPort({bool grange = true, int warehouses = 8}) {
+    final g = GameState.newGame(seed: 9001);
+    g.population = 60;
+    g.coin = 200000;
+    g.unlocked.addAll(
+        ['forest_camp', 'flax_field', 'ropewalk', 'warehouse', 'grange', 'farm']);
+    void add(String id) {
+      for (final r in Resource.values) {
+        g.stock[r] = 600;
+      }
+      g.build(defById(id));
+    }
+    add('forest_camp');
+    add('flax_field');
+    add('ropewalk');
+    for (var i = 0; i < warehouses; i++) {
+      add('warehouse');
+    }
+    if (grange) add('grange');
+    for (var i = 0; i < g.buildings.length; i++) {
+      g.setWorkers(i, g.buildings[i].def.maxWorkers);
+    }
+    for (final r in Resource.values) {
+      g.stock[r] = 0;
+    }
+    g.stock[Resource.fish] = 3000;
+    g.stock[Resource.grain] = 3000;
+    return g;
+  }
+
+  void play(GameState g, int days) {
+    for (var d = 0; d < days; d++) {
+      for (var t = 0; t < Balance.ticksPerDay; t++) {
+        g.step();
+        g.collectAll(); // an attentive player empties the yards
+      }
+    }
+  }
+
+  group('the grange', () {
+    // The third route's identity: it converts TIME into goods. Trade converts
+    // labour and the dark trade converts risk, and both pay out the moment you
+    // act. If the grange ever pays on the day it is built it stops being a bet
+    // on a long run and becomes a free upgrade everybody takes.
+    test('is worth nothing the day it is built', () {
+      final g = husbandryPort();
+      expect(g.grangeMaturity, 0);
+      expect(g.grangeYieldBonus, 1.0);
+    });
+
+    test('ripens only while it is actually worked', () {
+      final worked = husbandryPort();
+      play(worked, 10);
+      expect(worked.grangeMaturity, greaterThan(0));
+
+      final idle = husbandryPort();
+      for (var i = 0; i < idle.buildings.length; i++) {
+        if (idle.buildings[i].defId == 'grange') idle.setWorkers(i, 0);
+      }
+      play(idle, 40);
+      expect(idle.grangeMaturity, 0,
+          reason: 'hands off the grange stop the clock');
+    });
+
+    test('reaches its full worth at the advertised ramp, and stops there', () {
+      final g = husbandryPort();
+      play(g, Balance.grangeRipenDays.round());
+      expect(g.grangeMaturity, closeTo(1.0, 0.02));
+      expect(g.grangeYieldBonus, closeTo(1 + Balance.grangeMaxYield, 0.01));
+
+      play(g, 20);
+      expect(g.grangeMaturity, 1.0, reason: 'it must not grow past its cap');
+      expect(g.grangeYieldBonus, closeTo(1 + Balance.grangeMaxYield, 0.001));
+    });
+
+    test('a grown grange lifts extraction by the advertised amount', () {
+      final without = husbandryPort(grange: false);
+      final with_ = husbandryPort();
+      with_.grangeMaturity = 1.0;
+      play(without, 8);
+      play(with_, 8);
+      expect(with_.stock[Resource.timber],
+          greaterThan(without.stock[Resource.timber] * 1.25),
+          reason: 'a full grange is worth about a third more raw timber');
+    });
+
+    // THE CORRECTION THAT MADE THIS ROUTE WORK. It lifted extractors only at
+    // first, which measured as a trap — the workshops are worker-limited, not
+    // input-starved, so the extra raws piled up while the grange's hands came
+    // off finished goods. Median win went 100 -> 112 days: slower, while
+    // working exactly as specified. If it is ever narrowed back to extractors,
+    // this is the test that says so.
+    test('it lifts the finished goods too, not just the raws', () {
+      final without = husbandryPort(grange: false);
+      final with_ = husbandryPort();
+      with_.grangeMaturity = 1.0;
+      play(without, 8);
+      play(with_, 8);
+      expect(with_.stock[Resource.rope],
+          greaterThan(without.stock[Resource.rope]),
+          reason: 'the lighthouse asks for rope, so the route must move rope');
+    });
+
+    test('maturity survives a save', () {
+      final g = husbandryPort();
+      play(g, 12);
+      final before = g.grangeMaturity;
+      expect(before, greaterThan(0));
+      final back = GameState.fromJson(g.toJson());
+      expect(back.grangeMaturity, closeTo(before, 1e-9));
+    });
+
+    test('a second grange adds nothing — the bet is made once', () {
+      final one = husbandryPort();
+      one.grangeMaturity = 1.0;
+      final two = husbandryPort();
+      two.unlocked.add('grange');
+      for (final r in Resource.values) {
+        two.stock[r] = 600;
+      }
+      two.build(defById('grange'));
+      two.grangeMaturity = 1.0;
+      expect(two.grangeYieldBonus, one.grangeYieldBonus);
+    });
+
+    test('it draws hands and produces nothing itself', () {
+      final def = defById('grange');
+      expect(def.outputs, isEmpty);
+      expect(def.maxWorkers, greaterThan(0));
+      expect(def.isProducer, isTrue,
+          reason: 'it takes a crew, so it is somewhere to put a hand');
+    });
+  });
 }

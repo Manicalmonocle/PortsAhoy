@@ -71,6 +71,12 @@ const List<UnlockRule> kUnlockRules = [
   // ---- Spending coin -----------------------------------------------------
   UnlockRule('import_berth', text: 'Hold 1,200 coin', minCoin: 1200),
 
+  // ---- Husbandry ---------------------------------------------------------
+  // Behind a farm, because a grange with nothing to husband is a shed full of
+  // idle hands. By the time you have one, the run is long enough for the ramp
+  // to be a real question rather than an obvious no.
+  UnlockRule('grange', text: 'Build a farm', requires: ['farm']),
+
   // ---- The dark trade, entirely optional ---------------------------------
   //
   // These used to be a chain: each dark shed unlocked only once you had BUILT

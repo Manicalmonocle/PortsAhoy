@@ -250,6 +250,31 @@ const List<BuildingDef> kBuildingDefs = [
     imports: true,
   ),
 
+  // ---- Husbandry ---------------------------------------------------------
+  //
+  // The third route, and the only one that converts TIME into goods. Trade
+  // converts labour and the dark trade converts risk; both pay out the moment
+  // you act. A grange pays nothing on the day you build it and grows into its
+  // worth over roughly five weeks of being worked, which is what makes it a
+  // bet on the run being long rather than a free upgrade everyone takes.
+  //
+  // It lifts EVERY shed. Built raws-only first, which measured as a trap: the
+  // workshops are worker-limited rather than input-starved, so extra raws piled
+  // up untouched while the grange's hands came off finished-good output, and
+  // the port got slower. The lighthouse asks for planks, tools, rope and
+  // sailcloth — a route that does not move those moves nothing.
+  BuildingDef(
+    id: 'grange',
+    name: 'Grange',
+    icon: '🌾',
+    blurb: 'Rotates the fields, beds the herds and keeps every shed in good '
+        'order. Worth little at first; worth a great deal by harvest.',
+    maxWorkers: 2,
+    coinCost: 400,
+    cost: {Resource.planks: 40, Resource.timber: 20},
+    workSite: true,
+  ),
+
   // ---- The dark trade ---------------------------------------------------
   // Building any one of these opens the free-trader market. A port that never
   // builds one never sees contraband, is never inspected, and can still win.

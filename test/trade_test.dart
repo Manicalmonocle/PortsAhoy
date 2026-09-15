@@ -908,35 +908,42 @@ void privateerCaptainTests() {
     });
 
     test('lands a fuller hold', () {
-      // Boot the same seed twice; the captained boarding lands more.
-      double spiceFrom(bool captained) {
-        final g = darkPort();
-        openBerths(g, 3);
-        if (captained) {
-          g.hire(retainerAt(RetinueTrack.privateer, 1)!);
-          g.hire(retainerAt(RetinueTrack.privateer, 2)!);
-          g.hire(retainerAt(RetinueTrack.privateer, 3)!);
+      // Measured, not asserted from the constant: a fully captained boarding
+      // lands meaningfully more spice than an uncaptained one. Storage
+      // headroom matters — the first attempt at this measured nothing because
+      // spice capped at the store limit and hid the difference entirely.
+      double spiceFromOnePrize(int level) {
+        final g = GameState.newGame(seed: 424242);
+        g.population = 60;
+        g.coin = 200000;
+        g.buildings.add(Building(defId: 'privateer_berth'));
+        for (var i = 0; i < 10; i++) {
+          g.buildings.add(Building(defId: 'warehouse')); // headroom
         }
-        // Guarantee the boarding succeeds, so we measure booty not odds.
-        for (var i = 0; i < 200; i++) {
-          final ship = Ship(name: 'Prize', departTick: g.tick + 50,
-              offers: const [], foreign: true, prizeTons: 80);
+        g.placeAll();
+        g.setWorkers(g.buildings.length - 11, 4);
+        g.privateerLevel = level;
+        for (var i = 0; i < 50; i++) {
+          final before = g.stock[Resource.spice];
+          final ship = Ship(
+              name: 'Prize',
+              departTick: g.tick + 50,
+              offers: const [],
+              foreign: true,
+              prizeTons: 70);
           g.market.ships.add(ship);
-          if (g.prizeBlocker(ship) == null &&
-              g.prizeSuccessChance(ship) >= 0.9) {
-            // stock powder for the boarding
-            g.stock[Resource.powder] = 100;
-            g.takePrize(ship);
-            break;
-          }
           g.stock[Resource.powder] = 100;
-          g.takePrize(ship);
+          if (g.takePrize(ship)) return g.stock[Resource.spice] - before;
+          g.market.ships.remove(ship);
         }
-        return g.stock[Resource.spice];
+        return 0;
       }
-      // Not asserting exact values — booty draws vary — only that the fully
-      // captained port ends heavier on spice across the same boardings.
-      expect(retainerAt(RetinueTrack.privateer, 3)!.bootyBonus, greaterThan(1.4));
+
+      final plain = spiceFromOnePrize(0);
+      final captained = spiceFromOnePrize(3);
+      expect(plain, greaterThan(0), reason: 'the control boarding must land');
+      expect(captained, greaterThan(plain * 1.4),
+          reason: 'a pirate captain must visibly fill the hold');
     });
 
     test('every tier lifts both odds and booty', () {

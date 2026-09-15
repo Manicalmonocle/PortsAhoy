@@ -1245,6 +1245,29 @@ class _ScenePainter extends CustomPainter {
           Vector3(cx + 0.12, y + 0.32, min.z - 0.001), Vector3(cx - 0.12, y + 0.32, min.z - 0.001)],
           dark, awayFrom: Vector3(cx, y, cz));
 
+      case 'grange':
+        // A barn and its fields, and the fields visibly ripen: bare earth on
+        // the day it is built, deep green once it has been worked its five
+        // weeks. A slow invisible bonus would feel like nothing — the whole
+        // point of this route is a bet you can watch come good.
+        final ripe = state.grangeMaturity.clamp(0.0, 1.0);
+        _gable(Vector3(min.x, y, min.z), Vector3(min.x + 0.7, y, min.z + 0.7),
+            0.5, 0.4, wall, roof);
+        for (var i = 0; i < 4; i++) {
+          final z0 = min.z + 0.06 + i * (d - 0.12) / 4;
+          final earth = sh(const Color(0xFF7C5A32));
+          final crop = Color.lerp(const Color(0xFF8A6A3E),
+              const Color(0xFF6FA83F), ripe)!;
+          _slab(min.x + 0.8, z0 + 0.03, max.x - 0.05,
+              z0 + (d - 0.12) / 4 - 0.06, y, 0.06 + ripe * 0.08, earth,
+              top: sh(crop));
+        }
+        // A hay rick that grows with the harvest.
+        if (ripe > 0.45) {
+          _cone(Vector3(min.x + 0.38, y, max.z - 0.3), 0.18 + ripe * 0.1,
+              0.3 + ripe * 0.3, sh(const Color(0xFFC9A961)));
+        }
+
       case 'farm':
         // A small farmhouse in one corner, and the rest of the plot in rows.
         _gable(Vector3(min.x, y, min.z), Vector3(min.x + 0.62, y, min.z + 0.62),

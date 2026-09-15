@@ -69,6 +69,8 @@ void main() {
         offers: const [], foreign: true));
     g.market.ships.add(Ship(name: 'Test Crown 2', departTick: 99999,
         offers: const [], foreign: false));
+    // Ripen the grange so its fields show green in the lineup.
+    g.grangeMaturity = 1.0;
     g.population = 80;
     g.tick = 240; // mid-morning, so anything tick-driven is mid-motion
 

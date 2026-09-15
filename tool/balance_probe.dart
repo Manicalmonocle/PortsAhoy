@@ -27,7 +27,7 @@ const List<String> buildOrder = [
   'forest_camp', 'sawmill', 'house', 'flax_field', 'ropewalk',
   'warehouse', 'farm', 'flax_field', 'weaver', 'house',
   'mine', 'sawmill', 'smithy', 'warehouse', 'house',
-  'import_berth', 'forest_camp', 'cooperage', 'mine', 'smithy',
+  'grange', 'import_berth', 'forest_camp', 'cooperage', 'mine', 'smithy',
   'house', 'import_berth', 'flax_field', 'weaver', 'warehouse',
   'farm', 'house', 'import_berth', 'sawmill', 'house',
 ];
@@ -667,6 +667,19 @@ void _reassign(GameState g) {
       while (g.buildings[i].workers < def.maxWorkers && g.idleWorkers > 0) {
         g.setWorkers(i, g.buildings[i].workers + 1);
       }
+    }
+  }
+
+  // 1a. Crew the grange. It has no outputs, so marginPerWorkerTick scores it
+  // zero and the allocation below would never give it a hand — the same
+  // omission that left the privateer berth uncrewed. A grange nobody works
+  // never ripens, so the port pays 400 coin for a shed that does nothing, and
+  // the measurement blames the mechanic instead of the policy.
+  for (var i = 0; i < g.buildings.length; i++) {
+    if (g.buildings[i].defId != 'grange') continue;
+    final def = g.buildings[i].def;
+    while (g.buildings[i].workers < def.maxWorkers && g.idleWorkers > 1) {
+      g.setWorkers(i, g.buildings[i].workers + 1);
     }
   }
 

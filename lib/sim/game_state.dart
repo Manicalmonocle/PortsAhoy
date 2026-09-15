@@ -140,6 +140,17 @@ class Balance {
   // no progress bar. There is therefore no wait that money could ever shorten.
 
   static const double prizePowderCost = 8.0;
+  // ---- Husbandry ---------------------------------------------------------
+  //
+  // The grange's whole design is in these two numbers. The ramp is what makes
+  // it a bet on a long run rather than a free upgrade: it pays almost nothing
+  // for the first fortnight and only comes good around the five-week mark.
+  /// Days of being worked before a grange reaches its full worth.
+  static const double grangeRipenDays = 35;
+
+  /// What a fully grown grange adds to every extractor's yield.
+  static const double grangeMaxYield = 0.35;
+
   static const double prizeBaseSuccess = 0.30;
   static const double prizeSuccessPerCrew = 0.11;
   static const double prizeCoveredBonus = 0.06;
@@ -348,6 +359,14 @@ class GameState {
   int merchantLevel = 0;
   int privateerLevel = 0;
 
+  /// How far the granges have come along, 0 to 1.
+  ///
+  /// One number for the whole port rather than one per building: a second
+  /// grange adds nothing, which is deliberate and is what "a single grange"
+  /// means. It advances only while a grange is actually staffed, so hands left
+  /// off it stop the clock — the investment is the hands as much as the coin.
+  double grangeMaturity = 0;
+
   // ---- The dark trade, all derived so a save can never disagree ----------
 
   /// Building any dark shed opens the free-trader market. A port with none of
@@ -541,6 +560,7 @@ class GameState {
     arrivalsThisTick = 0;
     _applyEventTransitions(events.advance(tick,
         pressure: _eventContext().pressure * charters.hazardSeverity));
+    _ripenGrange();
     _landImports();
     _produce();
     _crewBerths();
@@ -837,8 +857,25 @@ class GameState {
         // difference is what spoiled flax and a fouled saw blade actually are.
         def.inputs
             .forEach((r, pw) => stock.remove(r, pw * effWorkers * efficiency));
+        // EVERY shed, not just the extractors.
+        //
+        // It was built raws-only first, on the theory that a grange husbands
+        // the land and does not stand over a saw. Measured, that made it a
+        // trap: the bot's workshops are worker-limited, not input-starved, so
+        // the extra raws piled up untouched while the grange's two hands came
+        // straight off finished-good output. Median win went from 100 days to
+        // 112 — the grange made the port slower while working exactly as
+        // specified.
+        //
+        // It is the same mistake the dark trade made, which paid in raws that
+        // still needed the sheds and hands to refine. The lighthouse asks for
+        // planks, tools, rope and sailcloth; a route that does not move those
+        // does not move anything. Boosting the whole port instead: 96 days on
+        // a plain run and 106 under A Grander Light, against 100 and 116.
+        final husbandry = grangeYieldBonus;
         def.outputs.forEach((r, pw) => b.hold[r] = (b.hold[r] ?? 0) +
-            pw * effWorkers * efficiency * yieldMul * charters.production);
+            pw * effWorkers * efficiency * yieldMul * charters.production *
+                husbandry);
       }
       b.lastEfficiency = efficiency;
     }
@@ -1462,6 +1499,23 @@ class GameState {
 
   double get voyageSpeedFactor => hiredOn(RetinueTrack.captain)?.voyageSpeed ?? 1.0;
 
+  /// True while at least one grange has hands in it.
+  bool get grangeWorked =>
+      buildings.any((b) => b.defId == 'grange' && b.workers > 0);
+
+  /// What a grange currently adds to an extractor's yield, as a multiplier.
+  ///
+  /// 1.0 on the day it is built, rising to 1 + [Balance.grangeMaxYield] once
+  /// it has been worked for [Balance.grangeRipenDays].
+  double get grangeYieldBonus => 1.0 + Balance.grangeMaxYield * grangeMaturity;
+
+  /// Advance the ripening. Called once a tick while the port runs.
+  void _ripenGrange() {
+    if (!grangeWorked || grangeMaturity >= 1.0) return;
+    final perTick = 1.0 / (Balance.grangeRipenDays * Balance.ticksPerDay);
+    grangeMaturity = (grangeMaturity + perTick).clamp(0.0, 1.0);
+  }
+
   /// A privateer captain's edge at the rail, if you retain one.
   double get privateerPrizeBonus =>
       hiredOn(RetinueTrack.privateer)?.prizeBonus ?? 0.0;
@@ -1872,6 +1926,7 @@ class GameState {
         'captainLevel': captainLevel,
         'merchantLevel': merchantLevel,
         'privateerLevel': privateerLevel,
+        'grangeMaturity': grangeMaturity,
         'tick': tick,
         'stock': stock.toJson(),
         'coin': coin,
@@ -1928,6 +1983,8 @@ class GameState {
     // discarded on purpose. Carting is now automatic and free, so nothing is
     // lost — the officer's berth it used to occupy is simply freed.
     state.privateerLevel = (j['privateerLevel'] as num?)?.toInt() ?? 0;
+    state.grangeMaturity =
+        (j['grangeMaturity'] as num?)?.toDouble().clamp(0.0, 1.0) ?? 0;
     state.voyages.addAll((j['voyages'] as List? ?? [])
         .map((v) => Voyage.fromJson(v as Map<String, dynamic>))
         .whereType<Voyage>());
