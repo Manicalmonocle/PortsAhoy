@@ -111,16 +111,41 @@ about a tenth of the time that product still needs — on ~25 days of accumulati
 that is **2 to 3 days**. A mismatched pick should cost **1 to 2**. So the swing
 between best and worst pick is around **4 days on an 82-day baseline**, or 5%.
 
-That is small enough to be within the seed spread, which matters: the sweep
-needs enough seeds to separate a 4-day effect from noise, and the current spread
-is 24 days across 8 seeds. **Sixteen seeds minimum for this one**, and measure
-the best and worst pick against the same seeds rather than against the baseline.
+**That is the intended size, not a disappointing one.** Pets are charm with a
+minor effect; the goal is to be *felt*, not to be *decisive*. Which inverts what
+the measurement is for.
 
-**Sweep both magnitudes.** Run +10/−7 and +25/−20 side by side. If the small
-version cannot be distinguished from no pet at all, that is the answer to this
-question, arrived at with a number instead of a feeling — and the choice is then
-between raising it and accepting that pets are charm with a whisper of effect,
-which is a legitimate thing for them to be.
+### The measurement is a ceiling, not a floor
+
+The usual question — "is this big enough to matter?" — is the wrong one here.
+A pet that shifts the median by ten days would be a lever bolted onto a scheduled
+free gift, and a run would turn on one choice at day 45. So:
+
+- **Failing high is the real risk.** If the sweep shows +10/−7 moving the median
+  much past ~4 days, it is overtuned and comes down.
+- **A result inside the noise is acceptable**, so long as the UI delivers the
+  perception. It is not evidence the numbers should rise.
+- **+25/−20 is run as the reference for "too much"**, to confirm the shipped
+  value sits well below it — not as a candidate to be promoted to.
+
+### Perception comes from the UI and the world, not from the number
+
+This is the whole trick, and the merchant proves it: its +8% was made to feel
+real by *showing* it, and the number never changed. A charm feature has a second
+channel the merchant never had, and for pets it probably carries more weight
+than the arithmetic does:
+
+- **The animal is visibly in the port.** It wanders the quay with the hands, who
+  already walk around. A dog you can watch is doing more for perceptibility than
+  any percentage, and it costs the balance nothing.
+- **Both effects printed in numbers**, wherever the pet is, always — not only at
+  the moment of choosing.
+- **The affected product shows its modified rate**, so milk running faster and
+  ore running slower are things you can read rather than trust.
+
+Get those right and +10% is plenty. Get them wrong and no percentage would have
+saved it — which is what five separate "feels like nothing" reports have already
+demonstrated in this codebase.
 
 ### Why this lands where it does in the run
 
@@ -187,8 +212,12 @@ sink and a reason to keep a surplus.
    see that.
 3. **Measure best pick and worst pick on the same seeds**, not against the
    baseline — the difference between them is the trade-off, and it is the only
-   number here that is not swamped by seed variance.
-4. **Sweep +10/−7 against +25/−20.** If the small version is indistinguishable
-   from no pet, that is the answer to the magnitude question.
-5. **Check the invariant by test**, not by eye: every product raised exactly
+   number here not swamped by seed variance.
+4. **Pass is a ceiling.** The swing between best and worst should land near 4
+   days and **must not exceed about 8**. A pet that decides runs is overtuned,
+   whatever it does for engagement. A pet inside the noise passes, provided the
+   UI carries the perception.
+5. **Run +25/−20 as the "too much" reference**, to confirm the shipped value
+   sits well under it.
+6. **Check the invariant by test**, not by eye: every product raised exactly
    once and lowered exactly once, and no pet touching meat.
