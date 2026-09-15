@@ -74,17 +74,21 @@ back four points. The meter comes down through play. Happiness should answer the
 same way: to feeding people properly, housing them, paying them, keeping the
 port steady. Never to a payment, and never to simply waiting it out.
 
-**Pets, with trade-offs.** *Comes after animals and husbandry* — three of the
-four below touch livestock, which does not exist yet.
+**Pets, with trade-offs.** *Comes after animals and husbandry* — two of the five
+below touch livestock, which does not exist yet.
 
-A ship arrives, rarely, with animals aboard, and you can buy one. Every pet
-lifts happiness; each then raises one shed's yield and lowers another, so taking
-one is a read on the run you are having rather than a free upgrade.
+A ship arrives, rarely, with animals aboard, and you may buy **one — once per
+run.** Not one at a time: one. The moment a second is possible the game stops
+being about which animal suits this run and starts being about collecting the
+set, and a set to complete is the same pull as a rare drop to chase.
+
+Every pet lifts happiness; each then raises one shed's yield and lowers another,
+so the single pick is a read on the run you are having.
 
 **Yields only.** A pet changes what a shed produces and nothing else — never a
 price, never a voyage, never the odds on a boarding. That keeps them out of the
-two systems where a buff would be hardest to read and easiest to abuse, and it
-makes the rule simple enough to assert in a test.
+two systems where a buff is hardest to read and easiest to abuse, and it makes
+the rule simple enough to assert in a test.
 
 The fiction that holds it together: **the port's attention is finite.** Where
 the animal lives, work goes better; somewhere else gets neglected.
@@ -95,24 +99,25 @@ the animal lives, work goes better; somewhere else gets neglected.
 | **Cat** | Grain | Livestock | Keeps the rats out of the seed, and hunts the poultry too |
 | **Bird** | Ore | Grain | A caged bird reads the bad air; it also eats the seed |
 | **Monkey** | Timber | Tools | Goes up the stands like rigging, and loses every small iron thing it finds |
+| **Turtle** | Tools | Timber | The smith works to its pace and spoils fewer pieces; nothing about a turtle ever hurried a woodsman |
 
-The first three make a closed ring: the dog's livestock is undone by the cat,
-the cat's grain by the bird, the bird's ore by the dog. No two of them simply
-stack, which is the point — if pets can be held together at all, the
-combination has to be a decision. **Open question: whether you may keep more
-than one.** The ring is only interesting if you can, and only fair if the
-second one is expensive.
-
-The monkey sits outside the ring on purpose, and it is the sharpest trade in
-the set: timber is everywhere early, and tools are the lighthouse bottleneck.
+The set balances by construction: **five yields, each raised by exactly one pet
+and lowered by exactly one.** Dog, cat and bird close a ring on livestock,
+grain and ore; monkey and turtle are a straight opposition on timber and tools.
+Nothing here is strictly best — every pet's gift is some other pet's cost — so
+the pick has to come from which chains your run actually leans on. That
+invariant is worth asserting in a test, because it is the thing that would
+quietly rot if a sixth animal were added carelessly.
 
 Two more things to get right:
 
-- **The rarity must not become a gacha.** Rolling for *which* animal turns four
-  species into a collection to reroll for, and a rare drop you can chase is the
-  slot machine this game keeps refusing. The fix is to split the two: let the
-  **encounter** be rare and the **species be your pick**. The surprise survives,
-  the chase never starts.
+- **The rarity must not become a gacha.** Rolling for *which* animal turns the
+  set into something to reroll for. Split the two: let the **encounter** be rare
+  and the **species be your pick**. The surprise survives, the chase never
+  starts. With one pet per run this matters more, not less — a rare roll you
+  only get one of is exactly the shape worth avoiding, so the offer should be
+  uncommon enough to feel like an event but reliable enough that a run nearly
+  always gets to make the choice once.
 - **Both halves visible before you pay.** A cost you find out about afterwards
   is a trap, not a trade-off.
 
