@@ -25,8 +25,11 @@ go. The point is to give the honest side depth without adding another thing to
 click every few minutes.
 
 **[The full plan is written up in design/livestock.md](design/livestock.md)** —
-cows, sheep and chickens; meat, milk, wool and eggs; tallow added to the
-lighthouse bill so the chain is load-bearing rather than optional. It also
+cows, sheep and chickens, plus a bakery; wool into sailcloth and tallow, cheese
+and biscuit onto the lighthouse bill, so the chain is load-bearing rather than
+optional. The animals earn in goods, not food: meat, milk and eggs exist only to
+cancel the grain the herds eat, so they never become a second town competing for
+the harvest. It also
 records the two things that have to be fixed *before* any of it is built (food
 is counted one unit per person-day, so meat would be strictly worse than fish;
 and the balance probe never staffs a shed with no immediate output, which has

@@ -436,10 +436,12 @@ then the dairy.
 
 ---
 
-## Later: a bakery
+## The bakery
 
-Proposed as a follow-on rather than part of the first build, and it fits this
-plan closely enough to record here.
+Originally filed as a later follow-on. It has earned its way into the first
+build instead — not as a food feature, but because it is the margin for error
+on the neutrality target, and because it is what keeps grain from becoming a
+fight between the town and the herds.
 
 A bakery takes **grain and turns it into bread**, which feeds a person further
 than the grain it came from. It unlocks late and it costs a shed, a worker and
@@ -450,18 +452,55 @@ Three reasons it belongs with livestock rather than on its own:
 **It shares the same prerequisite.** Bread is only meaningful once food is
 weighted — with `foodStock` summing one unit per person-day, a loaf feeds
 exactly as well as the grain it was baked from and the shed is pointless. The
-`nutrition` field above unlocks both features; neither works without it.
+`nutrition` field above unlocks both features; neither works without it, and it
+is the same field that lets the herds hit their offset at believable yields.
 
-**It is really a grain multiplier, and that is what makes it worth a worker.**
+**It is really a grain multiplier, and that is the whole job.** One loaf is
+worth **2 to 3 grain** eaten raw, so the bakery does not make food — it makes
+the grain the port already has go further. First pass:
 
-An earlier draft of this line argued that food rarely binds, on the grounds that
-`growthFoodDays` is only 2.0 — two days of buffer. **A real run says otherwise,
-and the correction matters more than the original claim.** See *What a played
-run changed about this plan*, below. What a bakery actually does is let the town
-be fed on *less grain*, and the grain it frees is exactly what the herds eat.
-First pass: **2 grain → 1 bread at nutrition 3.0**, so a bakery turns two
-person-days of grain into three. Enough to matter, not enough to break the
-farm.
+```
+1 grain → 1 bread,  bread nutrition 3.0      (a 3x multiplier on what passes through)
+```
+
+**The bar it has to clear is a farm worker, and that bar is higher than it
+looks.** A farm hand produces `0.28 x 24 = 6.72` grain a day, which is 6.72
+person-days of food. A baker only beats that if the extra food-days they unlock
+exceed it. At `0.20` bread per tick with two workers the bakery turns 9.6 grain
+into 9.6 bread a day — 28.8 person-days where the raw grain was 9.6, a **gain of
+19.2 food-days across two hands, or 9.6 each.** That is about 1.4x a farm hand:
+clearly worth building, without being so far ahead that a port would staff
+bakeries and nothing else.
+
+Worth noting how sensitive that is. At nutrition **2.5** the same shed gains 7.2
+food-days per hand against the farm's 6.72 — a 7% edge, which is not worth a
+building, a worker and a grain supply chain. **The difference between a good
+feature and a pointless one here is half a point of nutrition**, so this is a
+number to measure rather than to feel out.
+
+**The throughput is the safety valve, not the ratio.** A 3x multiplier sounds
+alarming — it is not, because the bakery can only ever multiply the grain it can
+physically process. Capacity sets the ceiling on the whole effect, which makes
+it the right dial to turn if food gets too easy.
+
+**Bread and biscuit are not the same good, and only one is food.** Bread is
+eaten, at nutrition 3.0. **Biscuit** is the keeping store on the lighthouse bill
+— grain plus eggs, and *not* `ResourceCategory.food`, so `_feedTown` can never
+draw on it. That is what stops the town eating the keeper's provisions, and it
+is the reason the two exist separately rather than as one good with two uses.
+
+### The bakery is the slack in the neutrality target
+
+Livestock is meant to come out even on food, but "meant to" is doing real work
+in that sentence. The herds eat through a thirty to forty day ramp before
+returning much, the tuning will not be exact on the first pass, and the played
+run showed a port with **no spare food at all** to absorb a miss.
+
+The bakery is what makes a small miss survivable. It does not change the
+neutrality target — that still has to hold on its own — but it means being
+slightly wrong costs a slower month rather than a starved port. That is a better
+reason for it to exist than "more food", and it argues for building it
+**alongside** the first herd rather than after the chain is finished.
 
 **It sharpens the grain decision instead of softening it.** Livestock already
 makes grain contested — feed the town or feed the herd. The bakery does not
