@@ -70,11 +70,25 @@ charters actually cost. Measured: *Poor Soil* carries weight 1 and costs about
 46 days; *Bitter Seas* carries weight 2 and cost about −1. The weights were set
 by judgement and have never been re-derived from play.
 
-**Measure the dark trade end to end.** Spice and the privateer captain have each
-been measured on their own — spice at a quarter of a prize, the captain at
-+22% odds and +55% booty. Whether the whole route now pays across a full run,
-against the honest path, has not been measured once. That needs a played run
-with the powder mill, the berth, and boardings actually happening.
+**Measure the dark trade end to end.** First played attempt is in —
+`human-2026-09-16-dark-prize-88d.pa1`, build 1.9.1+36, no charters, won on day
+88 against 78 and 80 for the two honest runs on record. But it is not the
+measurement this item wants:
+
+- **One prize, in thirty-one days of owning a berth.** Built day 57, boarded
+  once on day 65 for 41 tons and 10 spice.
+- **No privateer captain was ever hired**, though the berth was up from day 57
+  and the retinue took a third captain on day 80 instead. So the +22% odds and
+  +55% booty never applied.
+- **No distillery and no bonded cellar**, so the contraband-production half of
+  the route was never built at all.
+- A five-day famine on days 73-77 cost five people and muddies the day count.
+
+So the honest reading is that a *bare* prize route, unaugmented, is not worth
+the hands — which is roughly what was already suspected. What remains unmeasured
+is whether the route pays **once it is actually equipped**. The next attempt
+needs the privateer captain hired and boardings happening repeatedly, and one
+boarding per month is itself worth understanding first.
 
 **More life in the world.** Smoke that drifts on the wind, a ship that visibly
 leaves the quay when you send a consignment, weather you can see arriving. The

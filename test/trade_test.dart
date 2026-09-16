@@ -181,6 +181,24 @@ void main() {
       expect(paid, isTrue);
     });
 
+    test('you may ship the food out from under your own town', () {
+      // DELIBERATE, and recorded here so it does not get "fixed" later. A
+      // played run loaded a consignment on day 73, went from 9.6 days of food
+      // to none overnight, and starved for five days losing five people. A
+      // warning was built and then cut on the call that trading away your own
+      // larder is the player's business: "if people trade too much that's on
+      // them". Nothing guards it, and nothing should.
+      final g = stocked();
+      g.stock.add(Resource.fish, 200);
+      expect(g.foodDays, greaterThan(4), reason: 'a fed town to start from');
+
+      final larder = g.stock[Resource.fish];
+      expect(g.sendVoyage(ostmark, {Resource.fish: larder}), isTrue,
+          reason: 'the sim must not refuse a cargo that empties the stores');
+      expect(g.foodDays, lessThan(4),
+          reason: 'and the town is left genuinely short, with no rescue');
+    });
+
     test('nothing anywhere shortens a crossing', () {
       final g = stocked();
       g.sendVoyage(ostmark, {Resource.rope: 50});
