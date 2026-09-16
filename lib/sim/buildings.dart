@@ -322,10 +322,17 @@ const List<BuildingDef> kBuildingDefs = [
     maxWorkers: 4,
     coinCost: 700,
     cost: {Resource.planks: 60, Resource.rope: 40, Resource.sailcloth: 30},
+    // Stores, meaning FOOD — which is what the blurb above says and what a
+    // standing crew actually eats. It used to draw rope and sailcloth, and at
+    // four hands that was 3.4 rope a day: a berth held for 31 days consumed
+    // about 104 rope on top of the 40 it cost to build, against a lighthouse
+    // that asks for 120. The centrepiece of the dark trade was funded out of
+    // the win condition's own materials, and a played run finished that same
+    // run with 6 rope to spare.
     upkeep: {
       Resource.barrels: 0.030,
-      Resource.rope: 0.035,
-      Resource.sailcloth: 0.025,
+      Resource.fish: 0.050,
+      Resource.grain: 0.030,
     },
   ),
 

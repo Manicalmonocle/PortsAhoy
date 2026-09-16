@@ -62,12 +62,19 @@ const List<String> darkBuildOrder = [
   // day 400, having never built a single dark shed. Every "the dark trade
   // loses 8 of 8" figure measured before this was a stalled honest port, not
   // the dark trade.
-  'import_berth', 'cooperage', 'distillery', 'mine', 'bonded_cellar',
+  // BERTH AND MILL BEFORE THE REST OF THE CHAIN. They sat at positions 22 and
+  // 23, against an expandUntil of 25 — so on many seeds the port stopped
+  // expanding before it ever built the thing the whole route is named after,
+  // and 8,165 of 11,250 blocked boardings were "no crew at the privateer
+  // berth" reported for a berth that did not exist. A played run had them up
+  // on days 57 and 60.
+  'import_berth', 'cooperage', 'privateer_berth', 'powder_mill',
+  'distillery', 'mine', 'bonded_cellar',
   // The berth is the whole point of the chain and was missing: without it the
   // port makes powder it can only sell, never boards a hull, and never sees a
   // grain of spice. A "dark" run that cannot take a prize was measuring the
   // contraband sheds alone, which is exactly the losing half.
-  'house', 'privateer_berth', 'powder_mill', 'import_berth', 'warehouse',
+  'house', 'import_berth', 'warehouse',
   'farm', 'house', 'import_berth', 'sawmill', 'house',
 ];
 
@@ -81,6 +88,11 @@ int kPrizesTaken = 0;
 int kPrizeBlocked = 0;
 int kSpiceDealsSeen = 0;
 int kSpiceDealsTaken = 0;
+
+/// Why a lawful prize went un-boarded, counted by reason. "Blocked" as a single
+/// total says the route does not work; this says which part of it does not.
+final Map<String, int> kPrizeBlockReasons = {};
+int kPrizeOddsTooLow = 0;
 
 /// True when `--hire` was passed: take on officers.
 ///
@@ -396,6 +408,12 @@ void main(List<String> args) {
   if (kDark) {
     print('prizes taken $kPrizesTaken · blocked $kPrizeBlocked · '
         'spice deals seen $kSpiceDealsSeen · taken $kSpiceDealsTaken');
+    print('passed on poor odds: $kPrizeOddsTooLow');
+    final reasons = kPrizeBlockReasons.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+    for (final e in reasons) {
+      print('  blocked — ${e.key}: ${e.value}');
+    }
   }
 }
 
@@ -626,11 +644,18 @@ void _workTheDarkTrade(GameState g) {
   // bought, so a hull at the quay is the only place it comes from — and the
   // powder spent is the cheapest thing the chain produces.
   for (final ship in List.of(g.market.ships)) {
-    if (g.prizeBlocker(ship) != null) {
-      if (ship.foreign && ship.prizeTons > 0) kPrizeBlocked++;
+    final why = g.prizeBlocker(ship);
+    if (why != null) {
+      if (ship.foreign && ship.prizeTons > 0) {
+        kPrizeBlocked++;
+        kPrizeBlockReasons[why] = (kPrizeBlockReasons[why] ?? 0) + 1;
+      }
       continue;
     }
-    if (g.prizeSuccessChance(ship) < 0.5) continue; // don't feed the sea
+    if (g.prizeSuccessChance(ship) < 0.5) {
+      kPrizeOddsTooLow++;
+      continue; // don't feed the sea
+    }
     if (g.takePrize(ship)) kPrizesTaken++;
   }
 

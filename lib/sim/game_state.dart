@@ -139,7 +139,27 @@ class Balance {
   // value improves as a function of elapsed ticks alone. No readyAt, no eta,
   // no progress bar. There is therefore no wait that money could ever shorten.
 
-  static const double prizePowderCost = 8.0;
+  /// Powder spent boarding a hull.
+  ///
+  /// WAS 8, AND IT WAS THE ENTIRE ROUTE'S BOTTLENECK. Measured over 16 dark
+  /// seeds with the berth actually standing: 12 prizes taken against **13,661
+  /// blocked boardings, every single one of them for want of powder** — no
+  /// other reason appeared at all. A played run held a berth for 31 days and
+  /// got one raid out of it, and reported the powder cost as a blocker.
+  ///
+  /// A mill at full crew makes 2.64 powder a day, so 8 was three days of the
+  /// whole chain's output per boarding, against hulls that stay at the quay
+  /// one to two days. The route could not fire often enough to be a route.
+  ///
+  ///     8   12 prizes   median 109
+  ///     5   21 prizes   median 105
+  ///     4   37 prizes   median 102   <- here
+  ///     3   47 prizes   median  99
+  ///
+  /// Four rather than three because the honest path wins on 80 and none of
+  /// these are close; the case for going further should be made on a
+  /// measurement that includes spice, which no probe run has yet managed.
+  static const double prizePowderCost = 4.0;
   // ---- Husbandry ---------------------------------------------------------
   //
   // The grange's whole design is in these two numbers. The ramp is what makes

@@ -84,11 +84,24 @@ measurement this item wants:
   the route was never built at all.
 - A five-day famine on days 73-77 cost five people and muddies the day count.
 
-So the honest reading is that a *bare* prize route, unaugmented, is not worth
-the hands — which is roughly what was already suspected. What remains unmeasured
-is whether the route pays **once it is actually equipped**. The next attempt
-needs the privateer captain hired and boardings happening repeatedly, and one
-boarding per month is itself worth understanding first.
+That one boarding per month turned out to be reproducible, and the cause is now
+known. With the berth actually standing, **13,661 blocked boardings were every
+one of them for want of powder** — no other reason appeared. Powder cost is down
+from 8 to 4, and the berth no longer eats rope and sailcloth, which it consumed
+faster than the lighthouse asks for.
+
+**But the route still loses: median 102 against 80 played honestly.** And the
+measurement still has a hole in it big enough to invalidate the verdict:
+
+> **The probe has never taken a spice deal.** 6,044 seen, 0 taken, across every
+> dark run ever measured.
+
+Spice exists because coin was never the constraint — it is the one thing that
+converts risk into *finished goods*, which is what the lighthouse actually
+wants. A dark run that never trades spice is measuring the chain with its payoff
+removed, which is the same class of error as the berth that never got built and
+the grange that never ripened. **Teaching the probe to trade spice is the next
+step, and no further dark-trade balance change should be made before it.**
 
 **More life in the world.** Smoke that drifts on the wind, a ship that visibly
 leaves the quay when you send a consignment, weather you can see arriving. The
