@@ -211,6 +211,40 @@ That is a better ending than another pile of planks.
 It also keeps both halves of the bakery idea intact: bread still feeds the town
 better than grain, and biscuit is what the lighthouse takes.
 
+#### Measured across every played run: rope is the bill
+
+`tool/survey_reports.dart` aggregates every report that has arrived. Over the
+runs carrying a lighthouse section, asking which requirement each win came
+closest to missing:
+
+```
+what actually gated the win
+  Rope       bound 3 of 4 runs  (75%)
+  Tools      bound 1 of 4 runs  (25%)
+
+typical surplus left after the bill was paid, as a share of the requirement
+  Planks     0.99x      <- finished with the whole bill over again
+  Rope       0.05x      <- came in on fumes
+  Sailcloth  0.99x      <- finished with the whole bill over again
+  Tools      0.36x
+```
+
+Small sample, and worth re-running as more reports arrive — but it is
+consistent, and it says something the individual runs did not. **Rope is the
+bill.** Planks and sailcloth are both finished with roughly a second full bill
+sitting in store, which means neither is asking anything of the player at the
+quantities set.
+
+That sharpens the corrections below into specific numbers:
+
+- **Rope must not come down.** The proposed 120 → 100 softens the one
+  requirement that gates three wins in four.
+- **Sailcloth can afford to rise, or to be left alone while wool feeds it.**
+  At 0.99x surplus there is enormous slack, which is where the tallow, cheese
+  and biscuit offset should come from — along with planks, at the same 0.99x.
+- **Tools sit in between** at 0.36x and one win in four. Not the reliable
+  bottleneck an earlier draft of this file called them, but not slack either.
+
 #### Played evidence says this bill moves the wrong two numbers
 
 Reported directly: **"flax and tools have been the bottlenecks on previous
