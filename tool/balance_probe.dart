@@ -103,6 +103,40 @@ int kSpiceDealsTaken = 0;
 /// something to write again from scratch:  --hire
 bool kHire = false;
 
+/// A deliberate disaster to inflict mid-run, from `--sabotage=name@day`.
+///
+/// WHY. The game is played adversarially as well as straight — bad decisions
+/// made on purpose, to find out whether a run survives them. That is a real
+/// question and it deserves more than one seed's answer: "did I recover" is
+/// exactly the sort of thing that is true on the seed you tried and false on
+/// the next four.
+///
+/// Each scenario is a single moment of ruin, applied at the given day, after
+/// which the ordinary policy carries on and tries to recover:
+///
+///   larder    every scrap of food overboard — the famine a played run caused
+///             by shipping its own stores out on day 73
+///   firesale  every finished good gone, the lighthouse bill back to zero
+///   squander  the treasury emptied
+///
+///   dart run tool/balance_probe.dart --sabotage=larder@40
+///
+/// MEASURED at day 40 over 16 seeds, against a clean baseline of median 80,
+/// worst 101. Every seed still won, under every disaster:
+///
+///     larder     16/16   median 88   worst 126
+///     firesale   16/16   median 83   worst 345
+///     squander   16/16   median 84   worst 110
+///
+/// So nothing here is a run-ender, which is the thing worth knowing. The
+/// larder costs the most typically — food is the slowest thing to rebuild,
+/// because the population that eats it falls while you do. But the fire sale
+/// is the one to watch: it barely moves the median and yet produced a 345-day
+/// seed, so losing your goods at the wrong moment is survivable on average and
+/// very nearly fatal in the tail.
+String? kSabotage;
+int kSabotageDay = 40;
+
 /// Where to write the first seed's run as a PA1 code, if `--journal=` is given.
 ///
 /// The bot plays a real GameState, so it has been keeping a journal all along
@@ -331,6 +365,20 @@ void main(List<String> args) {
   kDark = args.contains('--dark');
   if (kDark) print('Dark trade: building and working the contraband chain.');
 
+  final sabArg = args.firstWhere((a) => a.startsWith('--sabotage='),
+      orElse: () => '');
+  if (sabArg.isNotEmpty) {
+    final spec = sabArg.substring('--sabotage='.length).split('@');
+    kSabotage = spec.first;
+    if (spec.length > 1) kSabotageDay = int.tryParse(spec[1]) ?? kSabotageDay;
+    const known = ['larder', 'firesale', 'squander'];
+    if (!known.contains(kSabotage)) {
+      print('Unknown sabotage "$kSabotage". Known: ${known.join(', ')}');
+      return;
+    }
+    print('Sabotage: $kSabotage on day $kSabotageDay.');
+  }
+
   final journalArg = args.firstWhere((a) => a.startsWith('--journal='),
       orElse: () => '');
   if (journalArg.isNotEmpty) {
@@ -456,6 +504,8 @@ Run _play(int seed, {bool verbose = false}) {
     kBuildIndex = buildIndex;
     _reassign(g);
 
+    if (kSabotage != null && day == kSabotageDay) _sabotage(g);
+
     if (g.coin > peakCoin) peakCoin = g.coin;
 
     // Sampled once a day, to match how a run report records itself — so the
@@ -514,6 +564,26 @@ Run _play(int seed, {bool verbose = false}) {
       lighthouseDay > 0 ? const {} : _shortfallOf(g), hazards, boons,
       minFoodDays.isFinite ? minFoodDays : 0, blockedFood, blockedRoof,
       blockedPay, starvedDays, daysLived);
+}
+
+/// Inflict the chosen disaster. Nothing here is subtle — the point is to ruin
+/// the port in one stroke and find out whether the run comes back.
+void _sabotage(GameState g) {
+  switch (kSabotage) {
+    case 'larder':
+      for (final r in Resource.values.where((r) => r.isFood)) {
+        g.stock.remove(r, g.stock[r]);
+      }
+    case 'firesale':
+      for (final r in Resource.values.where((r) => !r.isFood)) {
+        g.stock.remove(r, g.stock[r]);
+      }
+      for (final b in g.buildings) {
+        b.hold.clear();
+      }
+    case 'squander':
+      g.coin = 0;
+  }
 }
 
 void _report(GameState g, int day, int buildIndex) {
