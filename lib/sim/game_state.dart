@@ -1855,7 +1855,7 @@ class GameState {
     final p = petByKind(kind);
     log('${p.name} came ashore and stayed.', LogKind.good);
     journal.mark(day, 'took on a ${p.name.toLowerCase()}',
-        code: 'p$day.${p.id}');
+        code: RunCode.petMark(day, p.id));
     return true;
   }
 

@@ -340,7 +340,8 @@ class Run {
       this.endBuildings, this.shortfall, this.hazards, this.boons,
       this.minFoodDays, this.blockedFood, this.blockedRoof, this.blockedPay,
       this.starvedDays, this.daysLived, this.lastPressureDay,
-      this.blockedMood, this.endHappiness);
+      this.blockedMood, this.endHappiness, this.popAtDay20, this.builtAtDay20,
+      this.firstSailDay);
   final int seed;
 
   /// Day the lighthouse was lit, or -1 if the run never got there.
@@ -404,6 +405,15 @@ class Run {
 
   /// Where the town's mood finished.
   final double endHappiness;
+
+  /// The opening, on its own. A played report on the livestock build sailed
+  /// first on day 18 against days 10-13 on the build before it, and stood at 8
+  /// people on day 10 where every earlier run stood at 10 — "early game is a
+  /// lot tougher... afraid it will turn people off". One run cannot tell that
+  /// from seed luck. These can.
+  final int popAtDay20;
+  final int builtAtDay20;
+  final int firstSailDay;
 
   bool get won => winDay > 0;
 }
@@ -561,6 +571,13 @@ void _summarise(List<Run> runs) {
       ' · mood ${bMood[bMood.length ~/ 2]}'
       ' · food ${bFood[bFood.length ~/ 2]}');
 
+  final p20 = runs.map((r) => r.popAtDay20).toList()..sort();
+  final b20 = runs.map((r) => r.builtAtDay20).toList()..sort();
+  final sail = runs.map((r) => r.firstSailDay).toList()..sort();
+  print('opening   day 20: pop ${p20[p20.length ~/ 2]}'
+      ' · built ${b20[b20.length ~/ 2]}'
+      '   ·   first consignment day ${sail[sail.length ~/ 2]}');
+
   // Where the town's mood actually sat. A meter nobody ever sees move is a
   // meter that is not doing anything.
   final mood = runs.map((r) => r.endHappiness).toList()..sort();
@@ -618,6 +635,9 @@ Run _play(int seed, {bool verbose = false}) {
   var blockedRoof = 0;
   var blockedPay = 0;
   var blockedMood = 0;
+  var popAtDay20 = 0;
+  var builtAtDay20 = 0;
+  var firstSailDay = -1;
   var starvedDays = 0;
   var daysLived = 0;
   var lastPressureDay = 0;
@@ -650,6 +670,13 @@ Run _play(int seed, {bool verbose = false}) {
     kBuildIndex = buildIndex;
     _reassign(g);
 
+    if (day == 20) {
+      popAtDay20 = g.population;
+      builtAtDay20 = g.buildings.length;
+    }
+    if (firstSailDay < 0 && g.journal.marks.any((m) => m.code?.startsWith('v') ?? false)) {
+      firstSailDay = day;
+    }
     if (kPet != null && g.petOfferOpen) g.takePet(kPet!);
     if (kSabotage != null && day == kSabotageDay) _sabotage(g);
 
@@ -718,7 +745,8 @@ Run _play(int seed, {bool verbose = false}) {
       lighthouseDay > 0 ? const {} : _shortfallOf(g), hazards, boons,
       minFoodDays.isFinite ? minFoodDays : 0, blockedFood, blockedRoof,
       blockedPay, starvedDays, daysLived, lastPressureDay, blockedMood,
-      g.happiness);
+      g.happiness, popAtDay20, builtAtDay20,
+      firstSailDay < 0 ? 999 : firstSailDay);
 }
 
 /// Inflict the chosen disaster. Nothing here is subtle — the point is to ruin

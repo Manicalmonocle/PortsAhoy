@@ -343,6 +343,8 @@ class RunCode {
           'tons': _dec(f[1]),
           'spiceHeld': f.length > 2 ? _dec(f[2]) : 0,
         });
+      case 'A':
+        return DecodedMark(_dec(f[0]), 'pet', {'animal': f[1]});
       case 'W':
         return DecodedMark(_dec(f[0]), 'win', {'population': _dec(f[1])});
       default:
@@ -365,6 +367,17 @@ class RunCode {
   /// A boarded hull: tonnage taken, and the spice held afterwards.
   static String prizeMark(int day, int tons, int spiceHeld) =>
       'p${_enc(day)}.${_enc(tons)}.${_enc(spiceHeld)}';
+
+  /// The animal a run took on.
+  ///
+  /// 'A', NOT 'p'. The first version of this wrote `p$day.$id`, which collided
+  /// with the prize prefix and wrote the day in decimal rather than base 36 —
+  /// so a played report came back reading "a prize of 537,529 tons on day 145"
+  /// out of a 78-day run. 537529 is "bird" read as base 36. A mark that
+  /// decodes as a different KIND of event is worse than one that fails to
+  /// decode, because nothing about it looks wrong.
+  static String petMark(int day, String petId) =>
+      'A${_enc(day)}.$petId';
 
   static String winMark(int day, int population) =>
       'W${_enc(day)}.${_enc(population)}';
