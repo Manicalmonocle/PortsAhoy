@@ -8,9 +8,9 @@ already failed that way twice.
 
 ## What the chain is for
 
-**Livestock is not a food chain.** Its momentum comes from the goods —
-wool into sailcloth, tallow for the lamp, cheese and biscuit on the bill. Those
-are what the hands are spent on and what the run is won with.
+**Livestock is not a food chain.** Its momentum comes from the goods — wool
+into sailcloth, and cheese and bread onto the lighthouse bill. Those are what
+the hands are spent on and what the run is won with.
 
 The meat, milk and eggs exist for one purpose: **to cancel the grain the animals
 eat.** The herds should not be a second town competing with the first for the
@@ -20,7 +20,7 @@ stays a question about *timing* rather than a fight the player has to win.
 That gives the chain a design target sharp enough to test:
 
 > **Net food ≈ 0.** Whatever the animals eat, they return in food value.
-> Everything the chain earns, it earns in wool and tallow.
+> Everything the chain earns, it earns in wool, cheese and bread.
 
 Read every number below against that. A livestock chain that *feeds* the port is
 off-spec in one direction; one that starves it is off-spec in the other.
@@ -67,34 +67,46 @@ So: **if livestock produces nothing the lighthouse wants, it will be correct to
 ignore it.** Putting one animal product on the bill is what converts the whole
 chain from a side activity into part of the game.
 
-### Tallow
+### Cheese and bread
 
-The proposed addition is **tallow**, rendered from cattle and sheep, and the
-fiction could not be better: a lighthouse needs something to *burn*. The last
-ingredient of the win condition being the fuel for the lamp itself is the
-ending this game should have.
+One animal per product, which is how it was asked for and how it reads:
 
-It also lands where the game is currently empty. The last timed unlock anywhere
-is the distillery on day 25; from roughly day 30 to a finish near day 93-100,
-nothing new is ever revealed. A bill item that only becomes reachable in the
-back half gives that stretch something to be *for*.
+| Animal | Shed | Signature product | Also |
+| --- | --- | --- | --- |
+| **Cows** | Byre | Milk | Meat |
+| **Chickens** | Hen House | Eggs | Meat |
+| **Sheep** | Pasture | Wool | Meat |
 
-**The balance risk is unavoidable and must be paid for:** adding a fifth
-requirement makes every run longer. The offset has to be explicit rather than
-hoped for. First pass to measure:
+Two of those reach the lighthouse by being made into something that keeps:
+
+- **Cheese**, from milk.
+- **Bread**, from eggs and grain, at the bakery.
+
+Both land where the game is currently empty. The last timed unlock anywhere is
+the distillery on day 25; from roughly day 30 to a finish near day 80-100,
+nothing new is ever revealed. Bill items only reachable in the back half give
+that stretch something to be *for*.
+
+**There is no tallow.** An earlier draft of this document invented one — a
+lighthouse needs something to burn, which made a lovely piece of fiction and
+was never asked for. It had quietly become load-bearing across the whole plan.
+If the bill ever wants a third new item, the lamp-fuel idea is a good one to
+come back to; it should not be smuggled in as though it were part of the brief.
+
+**The balance risk is unavoidable and must be paid for:** adding requirements
+makes every run longer. The offset has to be explicit rather than hoped for, and
+the survey says exactly where the slack is — planks and sailcloth both finish at
+around a full bill over again in store, while rope comes in at 0.05x.
 
 | | Now | Proposed |
 | --- | --- | --- |
 | Coin | 9,000 | 8,000 |
-| Planks | 160 | 130 |
+| Planks | 160 | **130** |
 | Tools | 80 | 80 |
-| Rope | 120 | 120 |
+| Rope | 120 | 120 — *never cut this; it is what gates wins* |
 | Sailcloth | 90 | 90 |
-| **Tallow** | — | **60** |
-
-Planks and coin are the two most abundant items late, so they are the right
-places to take it from. If median days still regresses, the tallow requirement
-is too big — cut it before cutting anything else.
+| **Cheese** | — | **40** |
+| **Bread** | — | **50** |
 
 ### The fuller version: rewrite the bill around the animals
 
@@ -106,11 +118,10 @@ real weight and the old chains give ground. Proposed:
 | Coin | 9,000 | 8,000 | |
 | Planks | 160 | **110** | sawmill |
 | Tools | 80 | **55** | smithy |
-| Rope | 120 | **100** | ropewalk, still flax |
+| Rope | 120 | **120** | ropewalk, still flax — see below |
 | Sailcloth | 90 | 90 | weaver, **now wool + rope** |
-| **Tallow** | — | **50** | byre |
-| **Cheese** | — | **40** | milk |
-| **Biscuit** | — | **60** | grain + eggs |
+| **Cheese** | — | **40** | milk, from the byre |
+| **Bread** | — | **50** | eggs and grain, at the bakery |
 
 This is a bigger change than it looks, and it has two consequences worth
 deciding deliberately rather than discovering.
@@ -192,86 +203,26 @@ shrinking.
 **Fix — and it improves the fiction rather than compromising it.** Split each
 into a perishable form and a keeping form:
 
-| Perishable — food, the town eats it | Keeping store — a *good*, on the bill |
+| Perishable — the town eats these first | Keeps — and is what the bill wants |
 | --- | --- |
-| Milk | **Cheese** |
-| Bread | **Biscuit** (grain + eggs) |
-| Meat, fish, eggs, grain | **Tallow** |
+| Fish, grain, meat, milk, eggs | **Cheese**, **Bread** |
 
-Milk spoils and cheese keeps; daily bread is eaten and ship's biscuit lasts
-years. Both were real preservation steps done in the same dairy and the same
-bakehouse, so one shed produces both.
+Milk spoils and cheese keeps, which is the whole reason cheese exists; bread
+keeps far better than the grain it was baked from. The eating order in
+`_feedTown` puts them **last**, after fish, grain and meat — so the town only
+reaches your lighthouse stores when it has genuinely run out of everything else.
 
-This also answers *why food belongs on a lighthouse bill at all*: *these are the
-keeper's stores.* A lighthouse is manned and isolated, and you do not finish one
-by building the tower — you finish it by victualling it so somebody can live out
-there through a winter. Tallow for the lamp, cheese and biscuit for the keeper.
-That is a better ending than another pile of planks.
+**Yes, the town can eat the bill.** An earlier draft invented a separate
+non-edible "biscuit" precisely so it could not. That was solving a problem the
+game is content to have: a port that lets its larder empty deserves to watch the
+cheese go, and it is avoidable by the ordinary means of keeping fish and grain
+in store. It is the same call as leaving a consignment free to ship away the
+food — *"if people trade too much that's on them."* One good, not two.
 
-It also keeps both halves of the bakery idea intact: bread still feeds the town
-better than grain, and biscuit is what the lighthouse takes.
-
-#### Measured across every played run: rope is the bill
-
-`tool/survey_reports.dart` aggregates every report that has arrived. Over the
-runs carrying a lighthouse section, asking which requirement each win came
-closest to missing:
-
-```
-what actually gated the win
-  Rope       bound 3 of 4 runs  (75%)
-  Tools      bound 1 of 4 runs  (25%)
-
-typical surplus left after the bill was paid, as a share of the requirement
-  Planks     0.99x      <- finished with the whole bill over again
-  Rope       0.05x      <- came in on fumes
-  Sailcloth  0.99x      <- finished with the whole bill over again
-  Tools      0.36x
-```
-
-Small sample, and worth re-running as more reports arrive — but it is
-consistent, and it says something the individual runs did not. **Rope is the
-bill.** Planks and sailcloth are both finished with roughly a second full bill
-sitting in store, which means neither is asking anything of the player at the
-quantities set.
-
-That sharpens the corrections below into specific numbers:
-
-- **Rope must not come down.** The proposed 120 → 100 softens the one
-  requirement that gates three wins in four.
-- **Sailcloth can afford to rise, or to be left alone while wool feeds it.**
-  At 0.99x surplus there is enormous slack, which is where the tallow, cheese
-  and biscuit offset should come from — along with planks, at the same 0.99x.
-- **Tools sit in between** at 0.36x and one win in four. Not the reliable
-  bottleneck an earlier draft of this file called them, but not slack either.
-
-#### Played evidence says this bill moves the wrong two numbers
-
-Reported directly: **"flax and tools have been the bottlenecks on previous
-runs."** The 78-day run bears it out — it finished holding **2 tools against a
-requirement of 80**, and **160 sailcloth against a requirement of 90.** Tools
-came down to the wire; sailcloth overshot by three quarters.
-
-Against that, two lines of the table above are pointed the wrong way:
-
-- **Tools 80 → 55 softens the one requirement that reliably bites.** If tools
-  are what a run is actually racing, cutting them by a third removes the
-  tension rather than making room for the new goods. The offset for tallow,
-  cheese and biscuit should come from somewhere slack — planks and coin, both
-  abundant late — and tools should probably stay at 80.
-- **Wool → sailcloth adds supply to the item already overshooting.** A second
-  path into a good a player finishes with 70 spare of is a path into a
-  warehouse. If wool is to feed the weaver at all, it should **displace** part
-  of the flax route rather than add to it, so total sailcloth does not rise —
-  which also protects flax's scarcity, the other reported bottleneck.
-
-Flax is a special case worth stating plainly, because it was only briefly not a
-bottleneck. The flax field's own blurb promises *"You will not have enough"*,
-and that was true until a grange at +35% raised extraction while leaving
-workshop consumption untouched. The same run reported **drowning in flax**,
-filling a level-three warehouse faster than it could sell. The grange retune
-(ceiling 0.35 → 0.20) is expected to restore that scarcity; **confirm it has
-before designing anything that assumes flax is tight.**
+This also answers *why food belongs on a lighthouse bill at all*: **these are
+the keeper's stores.** A lighthouse is manned and isolated, and you do not
+finish one by building the tower — you finish it by victualling it so somebody
+can live out there through a winter.
 
 #### The real risk is the line-item count, not the quantities
 
@@ -289,9 +240,8 @@ One knock-on to remember: dropping tools from 80 to 55 softens the turtle and
 monkey pets, which were both built around tools being the bottleneck.
 
 **If the median regresses, cut in this order:** the weaver's rope input first
-(it is a dial, not a feature), then tallow (this document's suggestion, where
-cheese and biscuit were asked for), then fold cheese into the byre and drop the
-separate dairy.
+(it is a dial, not a feature), then bread, then cheese. Rope is last to be
+touched and preferably never — it is what gates three wins in four.
 
 ---
 
@@ -306,8 +256,8 @@ week you buy it, worth a great deal by harvest.*
 | Shed | Animal | Produces | Workers | Ramp |
 | --- | --- | --- | --- | --- |
 | **Coop** | Chickens | Eggs, meat | 1 | ~15 days |
-| **Pasture** | Sheep | Wool, meat, tallow | 2 | ~30 days |
-| **Byre** | Cattle | Milk, tallow, meat | 2 | ~40 days |
+| **Pasture** | Sheep | Wool, meat | 2 | ~30 days |
+| **Byre** | Cows | Milk, meat | 2 | ~40 days |
 
 Cheap and quick at the chicken end, slow and expensive at the cattle end, so
 the choice of which to build is a read on how long the run has left to run.
@@ -376,7 +326,9 @@ tuning will rescue it.
 
 ## Where each product goes
 
-**Tallow → the lighthouse.** Covered above. The load-bearing one.
+**Milk → cheese → the lighthouse**, and **eggs + grain → bread → the
+lighthouse**. These are the load-bearing ones: they are what makes the chain
+part of the game rather than a side activity.
 
 **Wool → the weaver → sailcloth.** Sailcloth is already on the bill at 90 and
 currently comes only from flax. Wool gives it a second source, which is a real
@@ -501,8 +453,8 @@ Set now, so the result cannot be argued into looking good later.
 7. **Run it with the chain disabled as a control.** The Grange's regression was
    only visible against a baseline measured the same week.
 
-If 2 fails, cut in the order given under the bill rewrite: tallow, then rope,
-then the dairy.
+If 2 fails, cut in the order given under the bill rewrite: the weaver's rope
+input, then bread, then cheese. Never rope.
 
 ---
 
@@ -553,11 +505,11 @@ alarming — it is not, because the bakery can only ever multiply the grain it c
 physically process. Capacity sets the ceiling on the whole effect, which makes
 it the right dial to turn if food gets too easy.
 
-**Bread and biscuit are not the same good, and only one is food.** Bread is
-eaten, at nutrition 3.0. **Biscuit** is the keeping store on the lighthouse bill
-— grain plus eggs, and *not* `ResourceCategory.food`, so `_feedTown` can never
-draw on it. That is what stops the town eating the keeper's provisions, and it
-is the reason the two exist separately rather than as one good with two uses.
+**Bread is one good, and it is food.** It feeds the town at nutrition 3.0 and
+it is what the lighthouse wants, which means the town *can* eat the bill if you
+let the larder run dry — see the eating order above. An earlier draft split it
+into an edible bread and an inedible biscuit to prevent that; one good is
+simpler, and the failure is avoidable and the player's own.
 
 ### The bakery is the slack in the neutrality target
 
@@ -625,8 +577,8 @@ a famine.
 **That was reasoning about a food chain, and this is not one.** Under the
 neutrality target at the top of this file, the grain goes in and comes back as
 meat, milk and eggs of roughly the same food value. The port is not 27% poorer;
-it is about level, having converted some grain into wool and tallow along the
-way. The bakery is a good idea on its own merits and stays in the plan, but it
+it is about level, having converted some grain into wool, cheese and bread
+along the way. The bakery is a good idea on its own merits and stays in the plan, but it
 is **not** a prerequisite, and livestock does not arrive as a famine.
 
 What survives from that analysis is narrower and still true: the run had no
@@ -652,7 +604,7 @@ run sat on the two-day gate for its final third.
 An earlier draft called that a blocker for measuring livestock. **It is not** —
 not for a chain that is food-neutral by design. There is no food benefit for the
 bot to be too comfortable to notice. What the probe has to weigh is whether wool
-and tallow pay for the sheds and hands they cost, and that lands squarely on
+cheese and bread pay for the sheds and hands they cost, and that lands on
 days-to-lighthouse, which is the one thing the probe measures well.
 
 Two real consequences remain:
@@ -705,8 +657,8 @@ detailed, which makes it easy to mistake for progress; there is no code.
 
 It is also, as written, **the largest change the game has had.** For scale: the
 Grange was one building and two constants. This is up to eight new resources
-(meat, milk, eggs, wool, tallow, cheese, biscuit, bread), which would take the
-economy from 13 to 21 — every one of them needing a price, a category, market
+(meat, milk, eggs, wool, cheese, bread), which would take the economy from 13
+to 19 — every one of them needing a price, a category, market
 behaviour, a storage row, a UI line and a run-code short code — across the
 **13 files that touch `Resource.values`**. Plus four buildings, a rewrite of the
 weaver's recipe, and a rewrite of the lighthouse bill.
@@ -740,10 +692,10 @@ one building rather than four, no bill rewrite. It answers the only question
 that matters: *does a herd pay for the hands it costs?* If that fails, nothing
 downstream was worth building.
 
-**Slice two — the bill.** Tallow and the lighthouse rewrite, once slice one
+**Slice two — the bill.** Cheese and the lighthouse rewrite, once slice one
 holds. This is where the victory-lap measure earns its keep.
 
-**Slice three — the rest.** Byre, hen house, bakery, cheese and biscuit.
+**Slice three — the rest.** Hen house, bakery and bread.
 
 **Then pets**, which need the meat and the milk that slices one and three
 supply.
@@ -760,14 +712,15 @@ They want answering before code, not during it.
 
 - Wool-to-sailcloth ratio against the flax chain — needs both paths costed
   end to end before a number is picked.
-- Whether milk and eggs are distinct resources or one dairy good. Distinct is
-  what was asked for and reads better; one good is materially less surface area.
+- ~~Whether milk and eggs are one good or two.~~ **Settled: two.** Milk comes
+  from cows, eggs from chickens, wool from sheep — one signature product each,
+  with meat from all three.
 - Whether the sheds unlock off the farm (like the Grange) or off the Grange
   itself. Off the Grange makes a clean two-stage route; off the farm makes
   livestock reachable without committing to the Grange first.
-- Whether tallow needs a rendering step (a chandlery) or comes straight off the
-  animal. A rendering shed is more faithful and costs another worker, which the
-  labour budget above can probably not afford.
+- Whether cheese needs a dairy of its own or comes off the byre directly. A
+  separate shed is more faithful and costs another worker, which the labour
+  budget above can probably not afford.
 - What the bakery unlocks behind. A day gate fills the empty stretch most
   reliably; hanging it off the warehouse ties it to the chain it belongs to.
 - Whether the bakery's worker is affordable at all, given the labour budget.
