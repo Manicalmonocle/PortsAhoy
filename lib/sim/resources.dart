@@ -33,7 +33,11 @@ enum Resource {
   // one person-day a unit — see [nutrition]. Both are priced under what their
   // labour suggests on purpose: a herd that pays in coin is the mistake spice
   // made, and coin has never been this game's constraint.
-  wool('Wool', ResourceCategory.raw, 6.0, '🧶', 0.4),
+  // 3, under flax's 4. A fleece is bulk, not a scarce fibre, and the price
+  // has to sit against how much of it an animal gives: at 6 a pasture out-
+  // earned every extractor in the game and made itself the obvious shed to
+  // staff, which is not what a slow bet is supposed to feel like.
+  wool('Wool', ResourceCategory.raw, 3.0, '🧶', 0.4),
   meat('Meat', ResourceCategory.food, 9.0, '🥩', 0.5, nutrition: 3.0),
   planks('Planks', ResourceCategory.good, 7.0, '🪚', 0.6),
   rope('Rope', ResourceCategory.good, 12.0, '🪢', 0.8),

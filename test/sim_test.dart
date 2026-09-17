@@ -573,18 +573,29 @@ void main() {
       }
     });
 
-    test('ropewalk and weaver genuinely contend for flax', () {
-      final ropewalk = defById('ropewalk');
+    test('rope is contested between the lighthouse and the sails', () {
+      // THE PORT'S OLDEST DECISION, MOVED DOWNSTREAM. Flax used to feed both
+      // the ropewalk and the weaver, and splitting one field between them was
+      // the choice the lighthouse's own comment calls the most interesting way
+      // to end the game. The weaver now takes wool and rope instead, which does
+      // not delete that choice — it relocates it onto rope, and sharpens it,
+      // because spending a finished good hurts more than spending a raw.
       final weaver = defById('weaver');
+      final ropewalk = defById('ropewalk');
 
-      // Weaver wins per worker; ropewalk wins per unit of flax. Neither
-      // dominates, so the right shed depends on the current bottleneck.
+      expect(weaver.inputs.containsKey(Resource.rope), isTrue,
+          reason: 'a sail is bolt-roped, and that is what makes rope contested');
+      expect(Balance.lighthouseCost.containsKey(Resource.rope), isTrue,
+          reason: 'the contest only exists because the light wants rope too');
+      expect(weaver.inputs.containsKey(Resource.flax), isFalse,
+          reason: 'flax feeds the ropewalk alone now');
+      expect(ropewalk.inputs.containsKey(Resource.flax), isTrue);
+
+      // And the weaver still rewards scarce labour, which is what made it
+      // worth choosing over simply selling the rope.
       expect(weaver.marginPerWorkerTick,
           greaterThan(ropewalk.marginPerWorkerTick),
-          reason: 'weaver should reward scarce labour');
-      expect(ropewalk.outputValuePerUnitOf(Resource.flax),
-          greaterThan(weaver.outputValuePerUnitOf(Resource.flax)),
-          reason: 'ropewalk should reward scarce flax');
+          reason: 'weaving must beat selling the coil it consumes');
     });
 
     test('every buildable has a reachable cost and sane worker cap', () {

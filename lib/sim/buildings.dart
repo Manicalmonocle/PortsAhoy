@@ -175,7 +175,8 @@ const List<BuildingDef> kBuildingDefs = [
     id: 'flax_field',
     name: 'Flax Field',
     icon: '🌱',
-    blurb: 'Feeds both the ropewalk and the weaver. You will not have enough.',
+    blurb: 'The ropewalk eats every stalk, and everything needs rope. You '
+        'will not have enough.',
     maxWorkers: 4,
     coinCost: 90,
     cost: {},
@@ -230,11 +231,26 @@ const List<BuildingDef> kBuildingDefs = [
     id: 'weaver',
     name: 'Weaver',
     icon: '⛵',
-    blurb: 'Pays far more per worker than the ropewalk — and eats twice the flax.',
+    blurb: 'Wool into cloth, roped at the edges. Every coil you weave is one '
+        'the lighthouse does not get.',
     maxWorkers: 3,
     coinCost: 280,
     cost: {Resource.planks: 30},
-    inputs: {Resource.flax: 0.45},
+    // A SAIL IS WOOL CLOTH WITH ROPE SEWN ROUND IT, which is both how a sail is
+    // actually made — Norse and North Atlantic hulls carried wool sails for
+    // centuries, and every sail is bolt-roped along its edges or the cloth
+    // tears itself apart — and what keeps the port's oldest decision alive.
+    //
+    // Flax used to feed both this and the ropewalk, and splitting one field
+    // between them was the choice the lighthouse comment calls the most
+    // interesting way to end the game. Moving this shed off flax does not
+    // delete that choice, it moves it downstream: rope is now the contested
+    // good, and every coil either goes on the bill or into a sail.
+    // Rope is the EDGE of a sail, not the body of it — so the cloth is most
+    // of the recipe and the bolt-rope is trim. It still costs about two thirds
+    // of a ropewalk to run a weaver, which is the contest; taking a whole one
+    // would have made sailcloth and the lighthouse mutually exclusive.
+    inputs: {Resource.wool: 0.15, Resource.rope: 0.12},
     outputs: {Resource.sailcloth: 0.18},
   ),
   BuildingDef(
@@ -309,7 +325,12 @@ const List<BuildingDef> kBuildingDefs = [
     // Wool is the point. The meat is there to hand back the food value the
     // feed took out — see Resource.nutrition — so the flock comes out roughly
     // even on the supper table and earns its keep in the weaver instead.
-    outputs: {Resource.wool: 0.050, Resource.meat: 0.024},
+    // SIZED AGAINST THE WEAVER IT FEEDS, which the first pass was not: at
+    // 0.05 a pasture made 2.4 wool a day against a weaver able to eat 21.6, so
+    // the shed stood starved nine hours in ten and sailcloth took 62 days
+    // instead of 7. Measured, that alone took the median from 81 days to 205.
+    // One pasture now roughly keeps one weaver in cloth.
+    outputs: {Resource.wool: 0.230, Resource.meat: 0.024},
     ripenDays: 30,
   ),
 

@@ -61,7 +61,10 @@ const List<UnlockRule> kUnlockRules = [
 
   // ---- The flax question -------------------------------------------------
   UnlockRule('ropewalk', text: 'Build a flax field', requires: ['flax_field']),
-  UnlockRule('weaver', text: 'Build a ropewalk', requires: ['ropewalk']),
+  // Behind the pasture now, not the ropewalk: a weaver with no wool is a shed
+  // full of idle hands, and sailcloth cannot arrive before the flock that
+  // supplies it.
+  UnlockRule('weaver', text: 'Build a pasture', requires: ['pasture']),
   UnlockRule('cooperage', text: 'Build a warehouse', requires: ['warehouse']),
 
   // ---- Metal -------------------------------------------------------------
