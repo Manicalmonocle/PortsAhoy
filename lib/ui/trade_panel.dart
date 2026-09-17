@@ -5,6 +5,7 @@ import '../sim/game_state.dart';
 import '../sim/resources.dart';
 import '../sim/retinue.dart';
 import '../sim/trade.dart';
+import 'pet_panel.dart';
 import 'theme.dart';
 
 /// Trade you start.
@@ -105,6 +106,10 @@ class _TradePanelState extends State<TradePanel> {
         // A player looking for an officer here deserves to be told the work is
         // being done and that there is nobody to buy.
         _CartingNote(state: s),
+
+        // The animal the port keeps, under "your people" because that is what
+        // it is. Renders nothing until there is one.
+        PetCard(controller: controller),
 
         // ---- At sea -------------------------------------------------------
         if (s.voyages.isNotEmpty) ...[

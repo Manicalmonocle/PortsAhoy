@@ -11,6 +11,7 @@ import 'package:ports_ahoy/sim/buildings.dart';
 import 'package:ports_ahoy/sim/charters.dart';
 import 'package:ports_ahoy/sim/events.dart';
 import 'package:ports_ahoy/sim/game_state.dart';
+import 'package:ports_ahoy/sim/pets.dart';
 import 'package:ports_ahoy/sim/resources.dart';
 import 'package:ports_ahoy/sim/retinue.dart';
 import 'package:ports_ahoy/ui/theme.dart';
@@ -1033,6 +1034,103 @@ void _lighthouseCardTests() {
         spice, find.byType(SingleChildScrollView).last, const Offset(0, -60));
     expect(spice, findsWidgets,
         reason: 'the last row must be reachable on a short screen');
+
+    await closeGame(tester);
+  });
+
+  testWidgets('the ship with animals aboard actually offers them',
+      (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final c = GameController(seedOverride: 20260815);
+    await c.load();
+    c.setSpeed(0);
+    addTearDown(c.dispose);
+
+    c.state.coin = 5000;
+    c.state.tick = c.state.petOfferDay * Balance.ticksPerDay;
+    expect(c.state.petOfferOpen, isTrue);
+
+    tester.view.physicalSize = const Size(420, 2200);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(PortsAhoyApp(controller: c));
+    await tester.pumpAndSettle();
+
+    // Every animal, with BOTH halves of its trade in figures before you pay.
+    // A cost you find out about afterwards is a trap, not a trade-off.
+    for (final p in kPets) {
+      expect(find.text(p.name), findsWidgets, reason: '${p.name} not offered');
+    }
+    expect(find.textContaining('+${(kPetBuff * 100).round()}%'), findsWidgets,
+        reason: 'the gain has to be a number, not a promise');
+    expect(find.textContaining('${(kPetDrag * 100).round()}%'), findsWidgets,
+        reason: 'and so does the cost');
+
+    await tester.tap(find.text('Turtle'));
+    await tester.pumpAndSettle();
+    expect(c.state.pet, PetKind.turtle);
+    expect(c.state.petOfferOpen, isFalse, reason: 'one a run, and only one');
+
+    await closeGame(tester);
+  });
+
+  testWidgets('a kept pet keeps saying what it does', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final c = GameController(seedOverride: 20260815);
+    await c.load();
+    c.setSpeed(0);
+    addTearDown(c.dispose);
+
+    // At 10% and 7% nobody will ever feel this by playing — five "feels like
+    // nothing" reports in this project were every one a visibility problem —
+    // so the figures have to stay on screen, not appear once at the offer.
+    c.state.pet = PetKind.monkey;
+    c.state.petOfferSettled = true;
+
+    tester.view.physicalSize = const Size(420, 2200);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(PortsAhoyApp(controller: c));
+    await tester.pump();
+    await openPanel(tester, 'Trade');
+    await tester.pumpAndSettle();
+
+    expect(find.text('Monkey'), findsWidgets);
+    expect(find.textContaining('timber'), findsWidgets,
+        reason: 'the product it helps must be named');
+    expect(find.textContaining('tools'), findsWidgets,
+        reason: 'and so must the one it costs');
+
+    await closeGame(tester);
+  });
+
+  testWidgets('a ripening shed says what it is climbing to', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final c = GameController(seedOverride: 20260815);
+    await c.load();
+    c.setSpeed(0);
+    addTearDown(c.dispose);
+
+    // The grange used to be the only card in the build tab with no number on
+    // it, because it produces nothing and the per-worker rate line never ran.
+    // Three more sheds ripen now, and the same silence would swallow all of
+    // them.
+    for (final def in kBuildingDefs.where((d) => d.ripens)) {
+      c.state.unlocked.add(def.id);
+    }
+
+    tester.view.physicalSize = const Size(420, 3000);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(PortsAhoyApp(controller: c));
+    await tester.pump();
+    await openPanel(tester, 'Build');
+    await tester.pumpAndSettle();
+
+    for (final def in kBuildingDefs.where((d) => d.ripens)) {
+      expect(find.textContaining('${def.ripenDays.round()} days'), findsWidgets,
+          reason: '${def.name} does not say how long it takes to come on');
+    }
 
     await closeGame(tester);
   });
