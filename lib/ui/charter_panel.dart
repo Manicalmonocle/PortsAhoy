@@ -203,6 +203,10 @@ class CharterPanel extends StatelessWidget {
       context: context,
       builder: (dialogContext) => AlertDialog(
         backgroundColor: Palette.panel,
+        // Scrollable, so a large system font size cannot push the buttons off
+        // the bottom — the same shape of fault that clipped spice out of the
+        // stores sheet, which could not scroll either.
+        scrollable: true,
         title: const Text('Give up the whole venture?'),
         content: Text(
           'This ends the run on day ${controller.state.day} and destroys '
@@ -240,6 +244,10 @@ class CharterPanel extends StatelessWidget {
       context: context,
       builder: (dialogContext) => AlertDialog(
         backgroundColor: Palette.panel,
+        // Scrollable, so a large system font size cannot push the buttons off
+        // the bottom — the same shape of fault that clipped spice out of the
+        // stores sheet, which could not scroll either.
+        scrollable: true,
         title: const Text('Take a new post?'),
         content: Text(
           'Your port of ${controller.state.population} on day '

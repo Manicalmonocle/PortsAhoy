@@ -211,6 +211,10 @@ class _LighthouseCard extends StatelessWidget {
       context: context,
       builder: (_) => AlertDialog(
         backgroundColor: Palette.panel,
+        // Scrollable, so a large system font size cannot push the buttons off
+        // the bottom — the same shape of fault that clipped spice out of the
+        // stores sheet, which could not scroll either.
+        scrollable: true,
         title: const Text('The light is lit'),
         content: Text(
           'You finished the Saltwind Light on day ${state.day} with a town of '
