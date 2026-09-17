@@ -698,6 +698,64 @@ track in favour of automatic carting matched what a player was already doing.
 
 ---
 
+## How close is this to shipping
+
+**Nothing is built. This document is the whole of it so far.** The plan is
+detailed, which makes it easy to mistake for progress; there is no code.
+
+It is also, as written, **the largest change the game has had.** For scale: the
+Grange was one building and two constants. This is up to eight new resources
+(meat, milk, eggs, wool, tallow, cheese, biscuit, bread), which would take the
+economy from 13 to 21 — every one of them needing a price, a category, market
+behaviour, a storage row, a UI line and a run-code short code — across the
+**13 files that touch `Resource.values`**. Plus four buildings, a rewrite of the
+weaver's recipe, and a rewrite of the lighthouse bill.
+
+### What has to land before any of it
+
+1. **`Resource.nutrition`.** One enum field, plus `foodStock` and `_feedTown`.
+   Both livestock and the bakery are meaningless without it.
+2. **Probe crewing for maturity-ramped sheds.** `marginPerWorkerTick` scores
+   them zero, so they go unstaffed and never ripen. Without this the
+   measurement reports that livestock is worthless, exactly as it did for the
+   grange and the privateer berth.
+
+### One name is already taken
+
+A building called **Coop** collides with **Cooperage** — the run code derives
+three letters from the id, so both are `coo`, and `run_code_test.dart` asserts
+against exactly that. It wants a different name: *Hen House* or *Poultry Yard*.
+Cheap to fix now, confusing to hit later.
+
+### Ship it in slices, not at once
+
+Every large feature in this project so far has shipped whole, measured badly,
+and been reworked: the grange made the bot slower, spice lost 8 of 8, the dark
+trade was unreachable in a winnable run. A first slice small enough to measure
+is the lesson those three keep teaching.
+
+**Slice one — the loop, proved.** `nutrition`, one shed (sheep: wool and meat),
+wool into the weaver, and the probe fix. Two new resources rather than eight,
+one building rather than four, no bill rewrite. It answers the only question
+that matters: *does a herd pay for the hands it costs?* If that fails, nothing
+downstream was worth building.
+
+**Slice two — the bill.** Tallow and the lighthouse rewrite, once slice one
+holds. This is where the victory-lap measure earns its keep.
+
+**Slice three — the rest.** Byre, hen house, bakery, cheese and biscuit.
+
+**Then pets**, which need the meat and the milk that slices one and three
+supply.
+
+### Still undecided
+
+The open questions below are not filler — the wool-to-sailcloth ratio and
+whether milk and eggs are one good or two both change what slice one even is.
+They want answering before code, not during it.
+
+---
+
 ## Open questions
 
 - Wool-to-sailcloth ratio against the flax chain — needs both paths costed
