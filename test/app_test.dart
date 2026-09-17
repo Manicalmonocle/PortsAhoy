@@ -989,4 +989,45 @@ void _lighthouseCardTests() {
 
     await closeGame(tester);
   });
+
+  testWidgets('every resource is reachable in the stores sheet',
+      (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final c = GameController(seedOverride: 20260815);
+    await c.load();
+    c.setSpeed(0);
+    addTearDown(c.dispose);
+
+    // THE CASE THAT BROKE. The sheet listed ten rows for an honest port and
+    // thirteen once a dark shed opened the contraband rows, inside a plain
+    // showModalBottomSheet — which caps near 9/16 of the screen and clips the
+    // remainder silently. Spice is last in the enum, so it went off the bottom
+    // the moment a player opened the dark trade. Reported from a played run as
+    // spice being cut off in the warehouse.
+    c.state.unlocked.add('distillery');
+    c.state.coin = 99999;
+    c.state.stock.add(Resource.planks, 200);
+    c.state.stock.add(Resource.barrels, 50);
+    expect(c.state.build(defById('distillery')), isTrue);
+    expect(c.state.darkTradeOpen, isTrue,
+        reason: 'the contraband rows only exist once a dark shed stands');
+
+    // A short screen, so the sheet has to scroll rather than simply fit.
+    tester.view.physicalSize = const Size(420, 700);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(PortsAhoyApp(controller: c));
+    await tester.pump();
+
+    await tester.tap(find.byIcon(Icons.inventory_2_outlined));
+    await tester.pumpAndSettle();
+
+    final spice = find.text(Resource.spice.label);
+    await tester.dragUntilVisible(
+        spice, find.byType(SingleChildScrollView).last, const Offset(0, -60));
+    expect(spice, findsWidgets,
+        reason: 'the last row must be reachable on a short screen');
+
+    await closeGame(tester);
+  });
 }

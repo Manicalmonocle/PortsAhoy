@@ -80,9 +80,9 @@ class _GameScreenState extends State<GameScreen> {
   }
 
   void _open(_Panel p) => setState(() {
-        _panel = p;
-        _selected = null;
-      });
+    _panel = p;
+    _selected = null;
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -136,9 +136,9 @@ class _GameScreenState extends State<GameScreen> {
                         icon: Icons.savings_outlined,
                         text: state.coin <= 0
                             ? 'The purse is empty and wages are going unpaid. '
-                                'Sell something at the Quay.'
+                                  'Sell something at the Quay.'
                             : 'About ${state.wageRunwayDays.floor()} days of '
-                                'wages left in the purse. Sell something.',
+                                  'wages left in the purse. Sell something.',
                       ),
                     if (state.growthIsStalled && !state.payrollAtRisk)
                       _StalledBanner(text: state.growthBlocker!),
@@ -151,8 +151,7 @@ class _GameScreenState extends State<GameScreen> {
               ),
 
               // 4. The selected building's controls, floating over the base.
-              if (_selected != null &&
-                  _selected! < state.buildings.length)
+              if (_selected != null && _selected! < state.buildings.length)
                 Positioned(
                   left: 0,
                   right: 0,
@@ -177,10 +176,7 @@ class _GameScreenState extends State<GameScreen> {
                 left: 0,
                 right: 0,
                 bottom: 0,
-                child: _Dock(
-                  controller: controller,
-                  onOpen: _open,
-                ),
+                child: _Dock(controller: controller, onOpen: _open),
               ),
 
               // 7. Panels, as sheets over the base.
@@ -246,13 +242,13 @@ class _TopHud extends StatelessWidget {
                           icon: '👣',
                           label: state.arrivalsThisTick > 0
                               ? '+${state.arrivalsThisTick} · '
-                                  '${state.idleWorkers}/${state.population}'
+                                    '${state.idleWorkers}/${state.population}'
                               : '${state.idleWorkers}/${state.population}',
                           colour: state.arrivalsThisTick > 0
                               ? Palette.moss
                               : (state.idleWorkers > 0
-                                  ? Palette.lamp
-                                  : Palette.fog),
+                                    ? Palette.lamp
+                                    : Palette.fog),
                         ),
                       ],
                     ),
@@ -310,77 +306,129 @@ class _TopHud extends StatelessWidget {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
       ),
+      // A plain bottom sheet is capped near 9/16 of the screen and simply
+      // clips whatever does not fit, with no scrollbar and nothing to drag.
+      // The stores list is ten rows for an honest port and THIRTEEN once the
+      // dark trade opens, so opening a contraband chain quietly pushed spice —
+      // the last row — off the bottom. Reported as spice being cut off in the
+      // warehouse, on a phone with plenty of screen.
+      isScrollControlled: true,
       builder: (_) => AnimatedBuilder(
         animation: controller,
         builder: (context, _) {
           final s = controller.state;
           return SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Stores  ·  cap ${fmt(s.storageCapacity)} each',
+            child: ConstrainedBox(
+              // Never taller than most of the screen, and never so tall it
+              // hides the world behind it.
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.sizeOf(context).height * 0.82,
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Stores  ·  cap ${fmt(s.storageCapacity)} each',
                       style: const TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w700,
-                          color: Colors.white)),
-                  const SizedBox(height: 12),
-                  ...Resource.values
-                      .where((r) => !r.isContraband || s.darkTradeOpen)
-                      .map((r) => Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 5),
-                            child: Row(
-                              children: [
-                                Text(r.icon,
-                                    style: const TextStyle(fontSize: 15)),
-                                const SizedBox(width: 8),
-                                SizedBox(
-                                    width: 78,
-                                    child: Text(r.label,
-                                        style: const TextStyle(
-                                            fontSize: 12,
-                                            color: Palette.fog))),
-                                Expanded(
-                                  child: ClipRRect(
-                                    borderRadius: BorderRadius.circular(3),
-                                    child: LinearProgressIndicator(
-                                      value: (s.stock[r] / s.storageCapacity)
-                                          .clamp(0.0, 1.0),
-                                      minHeight: 5,
-                                      backgroundColor: Palette.deep,
-                                      valueColor: AlwaysStoppedAnimation(
-                                          s.stock[r] >=
-                                                  s.storageCapacity - 1
-                                              ? Palette.rust
-                                              : Palette.sea),
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    // The rows scroll; the heading stays put. Whatever the
+                    // screen, every resource is reachable.
+                    Flexible(
+                      child: SingleChildScrollView(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            ...Resource.values
+                                .where(
+                                  (r) => !r.isContraband || s.darkTradeOpen,
+                                )
+                                .map(
+                                  (r) => Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 5,
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        Text(
+                                          r.icon,
+                                          style: const TextStyle(fontSize: 15),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        SizedBox(
+                                          width: 78,
+                                          child: Text(
+                                            r.label,
+                                            style: const TextStyle(
+                                              fontSize: 12,
+                                              color: Palette.fog,
+                                            ),
+                                          ),
+                                        ),
+                                        Expanded(
+                                          child: ClipRRect(
+                                            borderRadius: BorderRadius.circular(
+                                              3,
+                                            ),
+                                            child: LinearProgressIndicator(
+                                              value:
+                                                  (s.stock[r] /
+                                                          s.storageCapacity)
+                                                      .clamp(0.0, 1.0),
+                                              minHeight: 5,
+                                              backgroundColor: Palette.deep,
+                                              valueColor:
+                                                  AlwaysStoppedAnimation(
+                                                    s.stock[r] >=
+                                                            s.storageCapacity -
+                                                                1
+                                                        ? Palette.rust
+                                                        : Palette.sea,
+                                                  ),
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        SizedBox(
+                                          width: 58,
+                                          child: Text(
+                                            fmt(s.stock[r]),
+                                            textAlign: TextAlign.right,
+                                            style: const TextStyle(
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.w700,
+                                              color: Colors.white,
+                                            ),
+                                          ),
+                                        ),
+                                        SizedBox(
+                                          width: 52,
+                                          child: Text(
+                                            '${s.market.priceOf(r).toStringAsFixed(1)}c',
+                                            textAlign: TextAlign.right,
+                                            style: const TextStyle(
+                                              fontSize: 11,
+                                              color: Palette.brass,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   ),
                                 ),
-                                const SizedBox(width: 8),
-                                SizedBox(
-                                  width: 58,
-                                  child: Text(fmt(s.stock[r]),
-                                      textAlign: TextAlign.right,
-                                      style: const TextStyle(
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.w700,
-                                          color: Colors.white)),
-                                ),
-                                SizedBox(
-                                  width: 52,
-                                  child: Text(
-                                      '${s.market.priceOf(r).toStringAsFixed(1)}c',
-                                      textAlign: TextAlign.right,
-                                      style: const TextStyle(
-                                          fontSize: 11,
-                                          color: Palette.brass)),
-                                ),
-                              ],
-                            ),
-                          )),
-                ],
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           );
@@ -399,25 +447,30 @@ class _StalledBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-        margin: const EdgeInsets.fromLTRB(10, 6, 10, 0),
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-        decoration: BoxDecoration(
-          color: Colors.black.withValues(alpha: 0.55),
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: Palette.lamp.withValues(alpha: 0.7)),
-        ),
-        child: Row(
-          children: [
-            Icon(icon, size: 14, color: Palette.lamp),
-            const SizedBox(width: 7),
-            Expanded(
-              child: Text(text,
-                  style: const TextStyle(
-                      fontSize: 11, color: Palette.lamp, height: 1.3)),
+    margin: const EdgeInsets.fromLTRB(10, 6, 10, 0),
+    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+    decoration: BoxDecoration(
+      color: Colors.black.withValues(alpha: 0.55),
+      borderRadius: BorderRadius.circular(10),
+      border: Border.all(color: Palette.lamp.withValues(alpha: 0.7)),
+    ),
+    child: Row(
+      children: [
+        Icon(icon, size: 14, color: Palette.lamp),
+        const SizedBox(width: 7),
+        Expanded(
+          child: Text(
+            text,
+            style: const TextStyle(
+              fontSize: 11,
+              color: Palette.lamp,
+              height: 1.3,
             ),
-          ],
+          ),
         ),
-      );
+      ],
+    ),
+  );
 }
 
 class _Pill extends StatelessWidget {
@@ -428,25 +481,28 @@ class _Pill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-        decoration: BoxDecoration(
-          color: Colors.black.withValues(alpha: 0.55),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
+    padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+    decoration: BoxDecoration(
+      color: Colors.black.withValues(alpha: 0.55),
+      borderRadius: BorderRadius.circular(20),
+      border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
+    ),
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(icon, style: const TextStyle(fontSize: 11)),
+        const SizedBox(width: 5),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w700,
+            color: colour,
+          ),
         ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(icon, style: const TextStyle(fontSize: 11)),
-            const SizedBox(width: 5),
-            Text(label,
-                style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                    color: colour)),
-          ],
-        ),
-      );
+      ],
+    ),
+  );
 }
 
 class _SpeedPill extends StatelessWidget {
@@ -464,20 +520,28 @@ class _SpeedPill extends StatelessWidget {
           color: Colors.black.withValues(alpha: 0.55),
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
-              color: (speed == 0 ? Palette.rust : Palette.brass)
-                  .withValues(alpha: 0.7)),
+            color: (speed == 0 ? Palette.rust : Palette.brass).withValues(
+              alpha: 0.7,
+            ),
+          ),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(speed == 0 ? Icons.play_arrow : Icons.fast_forward,
-                size: 13, color: speed == 0 ? Palette.rust : Palette.brass),
+            Icon(
+              speed == 0 ? Icons.play_arrow : Icons.fast_forward,
+              size: 13,
+              color: speed == 0 ? Palette.rust : Palette.brass,
+            ),
             const SizedBox(width: 4),
-            Text(speed == 0 ? 'Paused' : '${fmtSpeed(speed)}x',
-                style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                    color: speed == 0 ? Palette.rust : Palette.brass)),
+            Text(
+              speed == 0 ? 'Paused' : '${fmtSpeed(speed)}x',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: speed == 0 ? Palette.rust : Palette.brass,
+              ),
+            ),
           ],
         ),
       ),
@@ -486,8 +550,11 @@ class _SpeedPill extends StatelessWidget {
 }
 
 class _ResourceChip extends StatelessWidget {
-  const _ResourceChip(
-      {required this.resource, required this.amount, required this.cap});
+  const _ResourceChip({
+    required this.resource,
+    required this.amount,
+    required this.cap,
+  });
   final Resource resource;
   final double amount;
   final double cap;
@@ -501,7 +568,8 @@ class _ResourceChip extends StatelessWidget {
         color: Colors.black.withValues(alpha: 0.48),
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
-            color: full ? Palette.rust : Colors.white.withValues(alpha: 0.12)),
+          color: full ? Palette.rust : Colors.white.withValues(alpha: 0.12),
+        ),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -533,18 +601,18 @@ class _MiniButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => GestureDetector(
-        onTap: onTap,
-        child: Container(
-          width: 30,
-          height: 28,
-          decoration: BoxDecoration(
-            color: Colors.black.withValues(alpha: 0.48),
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
-          ),
-          child: Icon(icon, size: 15, color: Colors.white),
-        ),
-      );
+    onTap: onTap,
+    child: Container(
+      width: 30,
+      height: 28,
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.48),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
+      ),
+      child: Icon(icon, size: 15, color: Colors.white),
+    ),
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -565,9 +633,10 @@ class _CollectAllButton extends StatelessWidget {
           borderRadius: BorderRadius.circular(24),
           boxShadow: [
             BoxShadow(
-                color: Colors.black.withValues(alpha: 0.4),
-                blurRadius: 8,
-                offset: const Offset(0, 3)),
+              color: Colors.black.withValues(alpha: 0.4),
+              blurRadius: 8,
+              offset: const Offset(0, 3),
+            ),
           ],
         ),
         child: Row(
@@ -575,11 +644,14 @@ class _CollectAllButton extends StatelessWidget {
           children: [
             const Icon(Icons.download_rounded, size: 17, color: Palette.deep),
             const SizedBox(width: 6),
-            Text('Collect ${fmt(pending)}',
-                style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w800,
-                    color: Palette.deep)),
+            Text(
+              'Collect ${fmt(pending)}',
+              style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w800,
+                color: Palette.deep,
+              ),
+            ),
           ],
         ),
       ),
@@ -685,35 +757,45 @@ class _DockButton extends StatelessWidget {
               Stack(
                 clipBehavior: Clip.none,
                 children: [
-                  Icon(icon,
-                      size: 22,
-                      color: alert ? Palette.rust : Palette.fog),
+                  Icon(
+                    icon,
+                    size: 22,
+                    color: alert ? Palette.rust : Palette.fog,
+                  ),
                   if (badge != null)
                     Positioned(
                       right: -8,
                       top: -5,
                       child: Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 5, vertical: 1),
+                          horizontal: 5,
+                          vertical: 1,
+                        ),
                         decoration: BoxDecoration(
                           color: alert ? Palette.rust : Palette.brass,
                           borderRadius: BorderRadius.circular(9),
                         ),
-                        child: Text(badge!,
-                            style: const TextStyle(
-                                fontSize: 9,
-                                fontWeight: FontWeight.w800,
-                                color: Palette.deep)),
+                        child: Text(
+                          badge!,
+                          style: const TextStyle(
+                            fontSize: 9,
+                            fontWeight: FontWeight.w800,
+                            color: Palette.deep,
+                          ),
+                        ),
                       ),
                     ),
                 ],
               ),
               const SizedBox(height: 3),
-              Text(label,
-                  style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w600,
-                      color: alert ? Palette.rust : Palette.fog)),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                  color: alert ? Palette.rust : Palette.fog,
+                ),
+              ),
             ],
           ),
         ),
@@ -737,16 +819,16 @@ class _PanelSheet extends StatelessWidget {
   final VoidCallback onClose;
 
   String get _title => switch (panel) {
-        _Panel.build => 'Build',
-        _Panel.quay => 'The Quay',
-        _Panel.trade => 'Trade',
-        _Panel.log => 'Log',
-        // The panel shows the run you are on as well as the one you are
-        // planning, so it cannot be titled for the next voyage alone.
-        _Panel.charters => 'Charters',
-        _Panel.sheds => 'Every shed',
-        _Panel.none => '',
-      };
+    _Panel.build => 'Build',
+    _Panel.quay => 'The Quay',
+    _Panel.trade => 'Trade',
+    _Panel.log => 'Log',
+    // The panel shows the run you are on as well as the one you are
+    // planning, so it cannot be titled for the next voyage alone.
+    _Panel.charters => 'Charters',
+    _Panel.sheds => 'Every shed',
+    _Panel.none => '',
+  };
 
   @override
   Widget build(BuildContext context) {
@@ -780,14 +862,19 @@ class _PanelSheet extends StatelessWidget {
                     padding: const EdgeInsets.fromLTRB(16, 10, 16, 8),
                     child: Row(
                       children: [
-                        Text(_title,
-                            style: const TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w700,
-                                color: Colors.white)),
+                        Text(
+                          _title,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white,
+                          ),
+                        ),
                         const Spacer(),
-                        const Icon(Icons.keyboard_arrow_down,
-                            color: Palette.fog),
+                        const Icon(
+                          Icons.keyboard_arrow_down,
+                          color: Palette.fog,
+                        ),
                       ],
                     ),
                   ),
@@ -803,14 +890,14 @@ class _PanelSheet extends StatelessWidget {
   }
 
   Widget _body() => switch (panel) {
-        _Panel.build => BuildTab(controller: controller),
-        _Panel.quay => MarketTab(controller: controller),
-        _Panel.trade => TradePanel(controller: controller),
-        _Panel.log => LogTab(controller: controller),
-        _Panel.charters => CharterPanel(controller: controller),
-        _Panel.sheds => ShedList(controller: controller),
-        _Panel.none => const SizedBox.shrink(),
-      };
+    _Panel.build => BuildTab(controller: controller),
+    _Panel.quay => MarketTab(controller: controller),
+    _Panel.trade => TradePanel(controller: controller),
+    _Panel.log => LogTab(controller: controller),
+    _Panel.charters => CharterPanel(controller: controller),
+    _Panel.sheds => ShedList(controller: controller),
+    _Panel.none => const SizedBox.shrink(),
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -855,11 +942,14 @@ class _BuildingBubble extends StatelessWidget {
                   Text(def.icon, style: const TextStyle(fontSize: 20)),
                   const SizedBox(width: 8),
                   Expanded(
-                    child: Text(def.name,
-                        style: const TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.white)),
+                    child: Text(
+                      def.name,
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white,
+                      ),
+                    ),
                   ),
                   IconButton(
                     visualDensity: VisualDensity.compact,
@@ -882,16 +972,18 @@ class _BuildingBubble extends StatelessWidget {
                           minHeight: 6,
                           backgroundColor: Palette.deep,
                           valueColor: AlwaysStoppedAnimation(
-                              b.holdFullness >= 0.999
-                                  ? Palette.rust
-                                  : Palette.moss),
+                            b.holdFullness >= 0.999
+                                ? Palette.rust
+                                : Palette.moss,
+                          ),
                         ),
                       ),
                     ),
                     const SizedBox(width: 10),
                     FilledButton(
-                      onPressed:
-                          ready ? () => controller.act((s) => s.collect(b)) : null,
+                      onPressed: ready
+                          ? () => controller.act((s) => s.collect(b))
+                          : null,
                       style: FilledButton.styleFrom(
                         backgroundColor: Palette.brass,
                         foregroundColor: Palette.deep,
@@ -917,29 +1009,36 @@ class _BuildingBubble extends StatelessWidget {
               if (def.isStaffable)
                 Row(
                   children: [
-                    const Text('Hands',
-                        style: TextStyle(fontSize: 12, color: Palette.fog)),
+                    const Text(
+                      'Hands',
+                      style: TextStyle(fontSize: 12, color: Palette.fog),
+                    ),
                     const Spacer(),
                     IconButton(
                       visualDensity: VisualDensity.compact,
                       onPressed: b.workers > 0
-                          ? () => controller
-                              .act((s) => s.setWorkers(index, b.workers - 1))
+                          ? () => controller.act(
+                              (s) => s.setWorkers(index, b.workers - 1),
+                            )
                           : null,
                       icon: const Icon(Icons.remove_circle_outline),
                       color: Palette.fog,
                     ),
-                    Text('${b.workers}/${def.maxWorkers}',
-                        style: const TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.white)),
+                    Text(
+                      '${b.workers}/${def.maxWorkers}',
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white,
+                      ),
+                    ),
                     IconButton(
                       visualDensity: VisualDensity.compact,
-                      onPressed: (b.workers < def.maxWorkers &&
-                              state.idleWorkers > 0)
-                          ? () => controller
-                              .act((s) => s.setWorkers(index, b.workers + 1))
+                      onPressed:
+                          (b.workers < def.maxWorkers && state.idleWorkers > 0)
+                          ? () => controller.act(
+                              (s) => s.setWorkers(index, b.workers + 1),
+                            )
                           : null,
                       icon: const Icon(Icons.add_circle_outline),
                       color: Palette.brass,
@@ -951,7 +1050,10 @@ class _BuildingBubble extends StatelessWidget {
               Text(
                 shedFlowLabel(b),
                 style: const TextStyle(
-                    fontSize: 11, color: Palette.sea, height: 1.35),
+                  fontSize: 11,
+                  color: Palette.sea,
+                  height: 1.35,
+                ),
               ),
               if (def.imports) ...[
                 const SizedBox(height: 8),
@@ -962,38 +1064,43 @@ class _BuildingBubble extends StatelessWidget {
               // nothing, which is the trap this game keeps falling into.
               if (b.defId == 'grange') ...[
                 const SizedBox(height: 6),
-                Builder(builder: (_) {
-                  final s = controller.state;
-                  final pct = (s.grangeMaturity * 100).round();
-                  final gain = ((s.grangeYieldBonus - 1) * 100).round();
-                  // The ceiling and the wait, not just where it stands. "+4%
-                  // to every shed so far" gives a player no way to judge
-                  // whether staying the course is worth it — the number that
-                  // decides that is the one it is climbing towards.
-                  final cap = (Balance.grangeMaxYield * 100).round();
-                  final left =
-                      ((1 - s.grangeMaturity) * Balance.grangeRipenDays).ceil();
-                  return Text(
-                    b.workers == 0
-                        ? 'Idle — the fields do not come on while nobody works '
-                            'them. $pct% grown, +$gain% to every shed.'
-                        : pct >= 100
-                            ? 'Fully grown. +$gain% to every shed.'
-                            : '$pct% grown — +$gain% to every shed now, '
+                Builder(
+                  builder: (_) {
+                    final s = controller.state;
+                    final pct = (s.grangeMaturity * 100).round();
+                    final gain = ((s.grangeYieldBonus - 1) * 100).round();
+                    // The ceiling and the wait, not just where it stands. "+4%
+                    // to every shed so far" gives a player no way to judge
+                    // whether staying the course is worth it — the number that
+                    // decides that is the one it is climbing towards.
+                    final cap = (Balance.grangeMaxYield * 100).round();
+                    final left =
+                        ((1 - s.grangeMaturity) * Balance.grangeRipenDays)
+                            .ceil();
+                    return Text(
+                      b.workers == 0
+                          ? 'Idle — the fields do not come on while nobody works '
+                                'them. $pct% grown, +$gain% to every shed.'
+                          : pct >= 100
+                          ? 'Fully grown. +$gain% to every shed.'
+                          : '$pct% grown — +$gain% to every shed now, '
                                 'rising to +$cap% in about $left days.',
-                    style: TextStyle(
+                      style: TextStyle(
                         fontSize: 11,
                         height: 1.35,
-                        color: b.workers == 0 ? Palette.lamp : Palette.moss),
-                  );
-                }),
+                        color: b.workers == 0 ? Palette.lamp : Palette.moss,
+                      ),
+                    );
+                  },
+                ),
               ],
               if (b.workers > 0 && b.lastEfficiency < 0.95)
                 Padding(
                   padding: const EdgeInsets.only(top: 6),
-                  child: Text(shedStarvedLabel(b),
-                      style:
-                          const TextStyle(fontSize: 11, color: Palette.rust)),
+                  child: Text(
+                    shedStarvedLabel(b),
+                    style: const TextStyle(fontSize: 11, color: Palette.rust),
+                  ),
                 ),
             ],
           ),
