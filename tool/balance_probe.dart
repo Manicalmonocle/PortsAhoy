@@ -66,7 +66,7 @@ const List<String> darkBuildOrder = [
   // dead at the distillery forever — 20 sheds, 25 people and 47,000 coin at
   // day 400, having never built a single dark shed. Every "the dark trade
   // loses 8 of 8" figure measured before this was a stalled honest port.
-  'weaver', 'cooperage', 'distillery', 'sawmill', 'bonded_cellar',
+  'bonded_cellar', 'weaver', 'cooperage', 'distillery', 'sawmill',
   'house', 'import_berth', 'warehouse', 'house', 'mine',
 ];
 
@@ -835,6 +835,17 @@ void _workTheDarkTrade(GameState g) {
       // port boarded 3 hulls in eight runs and was blocked 5,897 times for
       // want of a charge — and with no prizes there is no spice, so the whole
       // chain paid for itself in nothing.
+      // NEVER SELL SPICE. It is the only thing in the game that buys FINISHED
+      // GOODS, which is the whole reason it exists — "a subsystem that
+      // produces surplus coin cannot be worth the hands it costs" is written
+      // on the resource itself. Selling it turns the one mechanic that
+      // addresses the real constraint back into the one that never was.
+      //
+      // Measured with this missing: 45,582 spice deals seen across 16 hard
+      // seeds and 0 taken, because the port had dumped every grain for coin
+      // before a trader asked for it. Every dark-trade figure this file has
+      // ever printed was a port that sold its own answer.
+      if (offer.resource == Resource.spice) continue;
       if (offer.resource == Resource.powder &&
           g.stock[Resource.powder] <= darkPowderReserve) {
         continue;
@@ -1054,7 +1065,19 @@ void _reassign(GameState g) {
   // def declares a ripen period, the policy crews it on sight.
   for (var i = 0; i < g.buildings.length; i++) {
     final def = g.buildings[i].def;
-    if (!def.ripens && def.id != 'grange') continue;
+    // Ripening sheds, and sheds that hide things. Both earn nothing this tick
+    // — a cellar produces literally nothing ever — so both score zero in the
+    // ranking below and neither would be crewed.
+    //
+    // The cellar is the third shed to be caught by this and the most
+    // expensive: with nobody posted to it the port conceals NOTHING, every
+    // grain of spice a prize lands sits in plain sight, and the Revenue takes
+    // it before a trader can be found. Measured: 78 prizes across 16 hard
+    // seeds, 47,699 spice deals seen, 0 taken, and a spice holding of 0.0 at
+    // every single sample. Every dark-trade verdict this file has printed was
+    // a port that could not keep what it stole.
+    final hides = def.concealPerWorker > 0;
+    if (!def.ripens && !hides && def.id != 'grange') continue;
     while (g.buildings[i].workers < def.maxWorkers && g.idleWorkers > 1) {
       g.setWorkers(i, g.buildings[i].workers + 1);
     }
