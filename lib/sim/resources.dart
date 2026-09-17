@@ -6,12 +6,35 @@ library;
 
 enum ResourceCategory { raw, good, food, contraband }
 
+/// What the town eats, and in what order.
+///
+/// Perishable first so nothing rots in the store while something durable is
+/// eaten, and the keeping stores last — which also means the goods the
+/// lighthouse wants are the last thing touched. A port that lets its larder
+/// run dry can still eat its own cheese; that is a consequence of running out,
+/// not a trap, and it is avoidable by keeping fish and grain in.
+const List<Resource> kEatingOrder = [
+  Resource.fish,
+  Resource.grain,
+  Resource.meat,
+];
+
 enum Resource {
   timber('Timber', ResourceCategory.raw, 2.0, '🪵', 0.4),
   grain('Grain', ResourceCategory.food, 3.0, '🌾', 0.4),
   fish('Fish', ResourceCategory.food, 3.0, '🐟', 0.4),
   flax('Flax', ResourceCategory.raw, 4.0, '🌿', 0.4),
   ore('Ore', ResourceCategory.raw, 5.0, '⛏️', 0.4),
+
+  // ---- Husbandry ---------------------------------------------------------
+  //
+  // Wool is a raw like flax: something a shed refines rather than something
+  // worth much as it stands. Meat is food, and the ONLY food worth more than
+  // one person-day a unit — see [nutrition]. Both are priced under what their
+  // labour suggests on purpose: a herd that pays in coin is the mistake spice
+  // made, and coin has never been this game's constraint.
+  wool('Wool', ResourceCategory.raw, 6.0, '🧶', 0.4),
+  meat('Meat', ResourceCategory.food, 9.0, '🥩', 0.5, nutrition: 3.0),
   planks('Planks', ResourceCategory.good, 7.0, '🪚', 0.6),
   rope('Rope', ResourceCategory.good, 12.0, '🪢', 0.8),
   barrels('Barrels', ResourceCategory.good, 20.0, '🛢️', 1.0),
@@ -47,7 +70,8 @@ enum Resource {
   spice('Spice', ResourceCategory.contraband, 95.0, '🌶️', 5.0);
 
   const Resource(
-      this.label, this.category, this.basePrice, this.icon, this.heatWeight);
+      this.label, this.category, this.basePrice, this.icon, this.heatWeight,
+      {this.nutrition = 1.0});
 
   final String label;
   final ResourceCategory category;
@@ -55,6 +79,19 @@ enum Resource {
   /// Coin per unit at a neutral market index of 1.0.
   final double basePrice;
   final String icon;
+
+  /// Person-days one unit feeds, for anything in [ResourceCategory.food].
+  ///
+  /// One, for everything that existed before livestock: a fish and a sack of
+  /// grain each fed a person for a day and [GameState.foodStock] simply counted
+  /// units. That stops working the moment animals are involved. A herd converts
+  /// feed into food at a heavy loss — which is the whole reason a herd is a
+  /// store of value rather than a way to make calories — so a pasture eating
+  /// 3.5 grain a day cannot hand back 3.5 units of anything. Weighted, it hands
+  /// back about 1.2 of meat and the books balance.
+  ///
+  /// Ignored entirely for non-food resources.
+  final double nutrition;
 
   /// How conspicuous a unit of this is when it moves through your quay.
   ///

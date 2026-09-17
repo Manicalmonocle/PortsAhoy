@@ -516,9 +516,14 @@ class GameState {
     }
   }
 
+  /// Person-days of food in store, not units of it.
+  ///
+  /// Weighted by [Resource.nutrition], which is 1.0 for everything that
+  /// existed before livestock, so this is unchanged for an honest port that
+  /// never keeps animals.
   double get foodStock => Resource.values
       .where((r) => r.isFood)
-      .fold(0.0, (s, r) => s + stock[r]);
+      .fold(0.0, (s, r) => s + stock[r] * r.nutrition);
 
   /// Days of food remaining at the current headcount.
   double get foodDays => population == 0
@@ -1016,12 +1021,21 @@ class GameState {
         events.effects.foodScale *
         charters.foodUse;
 
-    // Fish spoils, grain keeps — so the town eats the sea first.
-    for (final r in [Resource.fish, Resource.grain]) {
+    // Perishable first, and the keeping stores last.
+    //
+    // `needed` is in PERSON-DAYS, not units. Before livestock those were the
+    // same thing — every food fed one person for one day — so this loop could
+    // subtract units straight from the requirement. Meat feeds several, so the
+    // two have to be converted across [Resource.nutrition] or the town eats
+    // three times what it should.
+    for (final r in kEatingOrder) {
       if (needed <= 0) break;
-      final taken = stock[r] < needed ? stock[r] : needed;
-      stock.remove(r, taken);
-      needed -= taken;
+      final feeds = r.nutrition;
+      if (feeds <= 0) continue;
+      final available = stock[r] * feeds; // person-days in the store
+      final given = available < needed ? available : needed;
+      stock.remove(r, given / feeds); // back to units
+      needed -= given;
     }
 
     if (needed > 1e-6 && population > 0) {
