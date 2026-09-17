@@ -102,6 +102,10 @@ class _TradePanelState extends State<TradePanel> {
         if (s.buildings.any((b) => b.defId == 'privateer_berth'))
           _RetinueCard(
               controller: controller, track: RetinueTrack.privateer),
+        // Like the privateer's card, only once the port has something for them
+        // to run. An honest port now has a third name to spend a berth on.
+        if (s.buildings.any((b) => b.defId == 'grange'))
+          _RetinueCard(controller: controller, track: RetinueTrack.reeve),
 
         // Carting used to be the quartermaster, and this is the shelf he stood
         // on. Making it automatic removed the card that said the job existed,
@@ -479,6 +483,7 @@ class _RetinueCard extends StatelessWidget {
       RetinueTrack.captain => ('🧭', 'Captain'),
       RetinueTrack.merchant => ('⚖️', 'Merchant'),
       RetinueTrack.privateer => ('🏴‍☠️', 'Privateer Captain'),
+      RetinueTrack.reeve => ('🌾', 'Reeve'),
     };
 
     String effectOf(Retainer r) => switch (track) {
@@ -491,6 +496,9 @@ class _RetinueCard extends StatelessWidget {
           RetinueTrack.privateer =>
             'Boarding odds +${(r.prizeBonus * 100).round()}%, '
                 'booty +${((r.bootyBonus - 1) * 100).round()}%',
+          RetinueTrack.reeve =>
+            'Fields and herds come on '
+                '${((r.ripenSpeed - 1) * 100).round()}% faster',
         };
 
     final idle = switch (track) {
@@ -500,6 +508,8 @@ class _RetinueCard extends StatelessWidget {
         'Nobody. You take whatever price you are offered.',
       RetinueTrack.privateer =>
         'Nobody. Boardings go at the odds your crew and berth can manage.',
+      RetinueTrack.reeve =>
+        'Nobody. Everything that ripens takes exactly as long as it takes.',
     };
 
     return Card(

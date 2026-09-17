@@ -412,7 +412,13 @@ const List<BuildingDef> kBuildingDefs = [
         'against raiders.',
     maxWorkers: 2,
     coinCost: 460,
-    cost: {Resource.planks: 45, Resource.tools: 12},
+    // TIMBER, NOT TOOLS. Moving this shed's unlock off the smithy achieved
+    // nothing while its price still wanted 12 tools, because tools come from a
+    // smithy and nowhere else — the gate simply moved from the unlock to the
+    // bill. Measured with the unlock moved and the cost left alone: 0 of 16
+    // dark seeds won, blocked on powder 124,602 times by a mill that could
+    // never be built. A gate you move has to be moved in both places.
+    cost: {Resource.planks: 55, Resource.timber: 30},
     inputs: {Resource.ore: 0.20, Resource.timber: 0.30},
     outputs: {Resource.powder: 0.055},
   ),
@@ -435,7 +441,19 @@ const List<BuildingDef> kBuildingDefs = [
         'beats raiders off the mole.',
     maxWorkers: 4,
     coinCost: 700,
-    cost: {Resource.planks: 60, Resource.rope: 40, Resource.sailcloth: 30},
+    // NO SAILCLOTH, and that is a correction rather than a discount.
+    //
+    // 30 sailcloth was a fair price when sailcloth was flax worked once. It is
+    // now wool off a ripening pasture woven with rope, so this quietly became
+    // "build the entire husbandry chain first" — and the berth, already behind
+    // the smithy, ended up the last thing in the game a player could reach. A
+    // played run had the smithy on day 56 of 79: "by the time you get your
+    // main things online for the lighthouse it's end game and hard to pivot".
+    //
+    // The rope goes up instead. Rope is what the light is actually short of,
+    // so the berth still costs something that hurts — it just costs it in a
+    // currency available from day 20 rather than day 56.
+    cost: {Resource.planks: 60, Resource.rope: 55},
     // Stores, meaning FOOD — which is what the blurb above says and what a
     // standing crew actually eats. It used to draw rope and sailcloth, and at
     // four hands that was 3.4 rope a day: a berth held for 31 days consumed

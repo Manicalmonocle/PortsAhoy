@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:ports_ahoy/sim/buildings.dart';
 import 'package:ports_ahoy/sim/game_state.dart';
 import 'package:ports_ahoy/sim/pets.dart';
 import 'package:ports_ahoy/sim/resources.dart';
@@ -116,6 +117,35 @@ void main() {
       expect(g.population, lessThan(before));
     });
 
+    test('a content port fills up faster than a grim one', () {
+      // THE FAULT THE PLAYTEST FOUND. The happiness check lived only in
+      // growthBlocker — the string that explains why a town is not growing —
+      // and never in _growTown, so the explanation was live and the mechanic
+      // was not. Above the floor it is now a rate, because a meter that only
+      // does something at one threshold is invisible everywhere else, and
+      // 30-80% is the band a player actually lives in.
+      int grown(double mood) {
+        final g = GameState.newGame(seed: 31);
+        g.buildings.add(Building(defId: 'house'));
+        g.buildings.add(Building(defId: 'house'));
+        g.placeAll();
+        final start = g.population;
+        for (var d = 0; d < 25; d++) {
+          g.happiness = mood; // hold it there against the drift
+          for (var t = 0; t < Balance.ticksPerDay; t++) {
+            g.step();
+            g.collectAll();
+          }
+          g.coin = 9999;
+          g.stock[Resource.fish] = 400;
+        }
+        return g.population - start;
+      }
+
+      expect(grown(0.85), greaterThan(grown(0.35)),
+          reason: 'word getting round has to be worth something');
+    });
+
     test('there is a wide band between stalled and collapsing', () {
       // A port can sit unable to grow for a long time and still be pulled
       // round. Losing people is the floor, not the first consequence.
@@ -130,7 +160,7 @@ void main() {
       g.happiness = 0.0;
       final worst = g.happinessWorkFactor;
       expect(best, greaterThan(worst));
-      expect(best - worst, lessThan(0.25),
+      expect(best - worst, lessThan(0.4),
           reason: 'happiness is a pressure to read, not a second economy');
     });
   });

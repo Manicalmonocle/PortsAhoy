@@ -60,7 +60,10 @@ class Balance {
   /// What a well-run port gets out of its hands, against a miserable one.
   /// Deliberately narrow: happiness is a pressure to read, not a second
   /// economy to optimise.
-  static const double happinessWorkSwing = 0.10;
+  /// 0.15: a content port gets about a seventh more out of a day than a
+  /// wretched one. Raised from 0.10, which was too fine to notice on top of a
+  /// growth effect that turned out not to be connected at all.
+  static const double happinessWorkSwing = 0.15;
 
   /// What keeping an animal is worth. Small, permanent, and the only part of
   /// a pet that is unconditionally good.
@@ -537,6 +540,7 @@ class GameState {
   int captainLevel = 0;
   int merchantLevel = 0;
   int privateerLevel = 0;
+  int reeveLevel = 0;
 
   /// How far the granges have come along, 0 to 1.
   ///
@@ -1218,7 +1222,22 @@ class GameState {
     if (foodDays < Balance.growthFoodDays) return;
     if (coin <= 0) return; // an unpaid port attracts nobody
 
-    growthProgress += Balance.growthChance * charters.growth;
+    // A MISERABLE PORT ATTRACTS NOBODY, and this is where that has to be said.
+    //
+    // The check existed in [growthBlocker] — the string that EXPLAINS why the
+    // town is not growing — and nowhere else, so the explanation was live and
+    // the mechanic was not. Happiness was left doing nothing but a few percent
+    // on output, which is exactly how it played: "kept an eye on the happiness
+    // meter and it didn't seem to change much... the outputs and game doesn't
+    // seem to change anything because of it."
+    if (happiness < Balance.happinessGrowthFloor) return;
+
+    // And above the floor it is a RATE, not a switch. A meter that only does
+    // something at one threshold is invisible everywhere else, and the band a
+    // player actually lives in — 30% early, 70-80% once the farms and bakery
+    // are running — sat entirely inside the dead zone.
+    growthProgress +=
+        Balance.growthChance * charters.growth * happinessGrowthFactor;
     if (growthProgress >= 1.0) {
       growthProgress -= 1.0;
       population += 1;
@@ -1613,6 +1632,7 @@ class GameState {
         RetinueTrack.captain => captainLevel,
         RetinueTrack.merchant => merchantLevel,
         RetinueTrack.privateer => privateerLevel,
+        RetinueTrack.reeve => reeveLevel,
       };
 
   Retainer? hiredOn(RetinueTrack t) => retainerAt(t, levelOn(t));
@@ -1675,6 +1695,8 @@ class GameState {
         merchantLevel = r.level;
       case RetinueTrack.privateer:
         privateerLevel = r.level;
+      case RetinueTrack.reeve:
+        reeveLevel = r.level;
     }
     log('${r.name}, ${r.title.toLowerCase()}, signed on at '
         '${r.dailyWage}c a day.', LogKind.good);
@@ -1700,6 +1722,8 @@ class GameState {
         merchantLevel = 0;
       case RetinueTrack.privateer:
         privateerLevel = 0;
+      case RetinueTrack.reeve:
+        reeveLevel = 0;
     }
     log('${who.name} was paid off and left the port.', LogKind.info);
   }
@@ -1796,6 +1820,11 @@ class GameState {
     if (pet != null && petFed) out.add('${petDef!.name} is about the place');
     return out;
   }
+
+  /// How fast word gets round. 0.8 at the growth floor, 1.3 at a content
+  /// port — so the difference between a grim harbour and a happy one is about
+  /// sixty percent on how quickly it fills up.
+  double get happinessGrowthFactor => 0.5 + happiness;
 
   /// What the town's mood does to a day's work.
   double get happinessWorkFactor =>
@@ -1924,10 +1953,13 @@ class GameState {
     for (final b in buildings) {
       final days = b.def.ripenDays;
       if (days <= 0 || b.workers == 0 || b.maturity >= 1.0) continue;
-      final perTick = 1.0 / (days * Balance.ticksPerDay);
+      final perTick = reeveSpeed / (days * Balance.ticksPerDay);
       b.maturity = (b.maturity + perTick).clamp(0.0, 1.0);
     }
   }
+
+  /// How fast a reeve brings the fields and the herds on, if you keep one.
+  double get reeveSpeed => hiredOn(RetinueTrack.reeve)?.ripenSpeed ?? 1.0;
 
   /// A privateer captain's edge at the rail, if you retain one.
   double get privateerPrizeBonus =>
@@ -2372,6 +2404,7 @@ class GameState {
         'captainLevel': captainLevel,
         'merchantLevel': merchantLevel,
         'privateerLevel': privateerLevel,
+        'reeveLevel': reeveLevel,
         'grangeMaturity': grangeMaturity,
         if (pet != null) 'pet': pet!.name,
         if (petOfferSettled) 'petSettled': true,
@@ -2434,6 +2467,7 @@ class GameState {
     // discarded on purpose. Carting is now automatic and free, so nothing is
     // lost — the officer's berth it used to occupy is simply freed.
     state.privateerLevel = (j['privateerLevel'] as num?)?.toInt() ?? 0;
+    state.reeveLevel = (j['reeveLevel'] as num?)?.toInt() ?? 0;
     final petName = j['pet'];
     if (petName is String) {
       for (final k in PetKind.values) {
@@ -2513,6 +2547,8 @@ class GameState {
           merchantLevel = 0;
         case RetinueTrack.privateer:
           privateerLevel = 0;
+        case RetinueTrack.reeve:
+          reeveLevel = 0;
       }
       if (who != null) {
         log('${who.name} was let go — the port keeps $officerCapacity '

@@ -129,8 +129,21 @@ const List<UnlockRule> kUnlockRules = [
   UnlockRule('distillery', text: 'Reach day 25', minDay: 25),
   UnlockRule('bonded_cellar',
       text: 'Build a warehouse', requires: ['warehouse']),
-  UnlockRule('powder_mill', text: 'Build a smithy', requires: ['smithy']),
-  UnlockRule('privateer_berth', text: 'Build a smithy', requires: ['smithy']),
+  // OFF THE SMITHY, BOTH OF THEM — the third time this pair has had to be
+  // moved forward, and the reason is always the same shape.
+  //
+  // The smithy is where a port's ENDGAME starts: it is the only road to the 80
+  // tools the light wants. Hanging the dark trade's two entry buildings off it
+  // means the choice to go dark arrives at the same moment the finish does,
+  // and by then the hands are committed. Measured in a played run, the smithy
+  // landed on day 56 of 79.
+  //
+  // A powder mill converts ore, so it wants a mine — that is its honest
+  // dependency, and its 12 tools are a real but small cost a trader can also
+  // sell you. A berth wants rigging, so it wants a ropewalk.
+  UnlockRule('powder_mill', text: 'Build an iron mine', requires: ['mine']),
+  UnlockRule('privateer_berth',
+      text: 'Build a ropewalk', requires: ['ropewalk']),
 ];
 
 UnlockRule? unlockRuleFor(String buildingId) {

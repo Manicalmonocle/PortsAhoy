@@ -710,6 +710,8 @@ void retinueTests() {
           } else if (track == RetinueTrack.privateer) {
             expect(upper.prizeBonus, greaterThan(lower.prizeBonus));
             expect(upper.bootyBonus, greaterThan(lower.bootyBonus));
+          } else if (track == RetinueTrack.reeve) {
+            expect(upper.ripenSpeed, greaterThan(lower.ripenSpeed));
           } else {
             expect(upper.sellBonus, greaterThan(lower.sellBonus));
             expect(upper.voyagePay, greaterThan(lower.voyagePay));

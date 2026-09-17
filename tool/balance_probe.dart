@@ -48,34 +48,26 @@ const List<String> buildOrder = [
 /// adds another layer for no real payoff." A layer that cannot be shown to pay
 /// for the hands it takes is one of two things, and only a run tells you which.
 const List<String> darkBuildOrder = [
-  // Identical to the honest order through the first smithy — a port that never
-  // builds one cannot make the 80 tools the light needs, and an order that
-  // buries it measures nothing but the ordering mistake. The dark sheds take
-  // the place of the SECOND smithy and weaver, which is the real trade a
-  // player makes: these hands, or those.
+  // REWRITTEN FOR A PORT THAT COMMITS EARLY, which is only now possible: the
+  // berth used to hang off the smithy and cost 30 sailcloth, so it could not
+  // be reached until the endgame had already started. It hangs off the
+  // ropewalk now and costs rope instead.
+  //
+  // This order is what "going dark" should actually look like — the berth and
+  // the mill before the second sawmill, not bolted on after the light is in
+  // sight. It still has to finish a lighthouse, so it carries a pasture and a
+  // byre for the sailcloth and cheese the bill wants; an order that skipped
+  // them would measure a port that cannot win rather than a dark one.
   'forest_camp', 'sawmill', 'house', 'flax_field', 'ropewalk',
-  'warehouse', 'farm', 'flax_field', 'weaver', 'house',
-  'mine', 'sawmill', 'smithy', 'warehouse', 'house',
+  'warehouse', 'farm', 'grange', 'pasture', 'mine',
+  'privateer_berth', 'powder_mill', 'byre', 'house', 'smithy',
   // COOPERAGE BEFORE DISTILLERY, and it is not optional: a distillery costs 10
   // barrels and barrels come from nowhere else. Without it the queue stopped
   // dead at the distillery forever — 20 sheds, 25 people and 47,000 coin at
   // day 400, having never built a single dark shed. Every "the dark trade
-  // loses 8 of 8" figure measured before this was a stalled honest port, not
-  // the dark trade.
-  // BERTH AND MILL BEFORE THE REST OF THE CHAIN. They sat at positions 22 and
-  // 23, against an expandUntil of 25 — so on many seeds the port stopped
-  // expanding before it ever built the thing the whole route is named after,
-  // and 8,165 of 11,250 blocked boardings were "no crew at the privateer
-  // berth" reported for a berth that did not exist. A played run had them up
-  // on days 57 and 60.
-  'import_berth', 'cooperage', 'privateer_berth', 'powder_mill',
-  'distillery', 'mine', 'bonded_cellar',
-  // The berth is the whole point of the chain and was missing: without it the
-  // port makes powder it can only sell, never boards a hull, and never sees a
-  // grain of spice. A "dark" run that cannot take a prize was measuring the
-  // contraband sheds alone, which is exactly the losing half.
-  'house', 'import_berth', 'warehouse',
-  'farm', 'house', 'import_berth', 'sawmill', 'house',
+  // loses 8 of 8" figure measured before this was a stalled honest port.
+  'weaver', 'cooperage', 'distillery', 'sawmill', 'bonded_cellar',
+  'house', 'import_berth', 'warehouse', 'house', 'mine',
 ];
 
 /// True when `--dark` was passed: build the contraband chain and trade it.
