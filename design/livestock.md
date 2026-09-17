@@ -490,7 +490,15 @@ Set now, so the result cannot be argued into looking good later.
    runs is not pulling its weight — this is the shape spice was given, and it
    is the right one.
 5. **Verify the sheds were staffed and ripened**, per above.
-6. **Run it with the chain disabled as a control.** The Grange's regression was
+6. **The victory lap must not grow.** `tool/balance_probe.dart` reports the
+   share of a run spent with nothing short of anything — currently a median of
+   1%, and a played run described as "the perfect balance" was tense until day
+   70 of 77, a lap of about 9%. **This is the measure livestock is most likely
+   to ruin.** It adds production to a game whose interest comes from not having
+   enough, and a median that improves while the lap grows to a third of the run
+   is a worse game that measures better. If the lap passes ~15%, the chain is
+   giving too much however fast it finishes.
+7. **Run it with the chain disabled as a control.** The Grange's regression was
    only visible against a baseline measured the same week.
 
 If 2 fails, cut in the order given under the bill rewrite: tallow, then rope,

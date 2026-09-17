@@ -273,7 +273,7 @@ class Run {
   Run(this.seed, this.winDay, this.peakCoin, this.endPopulation,
       this.endBuildings, this.shortfall, this.hazards, this.boons,
       this.minFoodDays, this.blockedFood, this.blockedRoof, this.blockedPay,
-      this.starvedDays, this.daysLived);
+      this.starvedDays, this.daysLived, this.lastPressureDay);
   final int seed;
 
   /// Day the lighthouse was lit, or -1 if the run never got there.
@@ -319,6 +319,20 @@ class Run {
   /// filling quick and there's no pressure of being low on supplies".
   final int starvedDays;
   final int daysLived;
+
+  /// The last day the port was short of ANYTHING — food, wages, or input to a
+  /// shed. After it, nothing is in doubt and the run is a victory lap.
+  ///
+  /// THE TARGET, described by a player about the best-feeling run so far:
+  /// "kept me on my toes until close to the 70 day mark as I kept running low
+  /// on something such as food or coin... it felt good playing and was the
+  /// perfect balance." That run finished on day 77, so pressure ran to roughly
+  /// 91% of it and the lap was about seven days.
+  ///
+  /// Win day alone cannot see this. Two ports can finish on the same day with
+  /// one of them tense to the end and the other coasting from the halfway
+  /// mark, and the second is the one players stop playing.
+  final int lastPressureDay;
 
   bool get won => winDay > 0;
 }
@@ -465,6 +479,22 @@ void _summarise(List<Run> runs) {
       .map((r) => r.daysLived == 0 ? 0.0 : r.starvedDays / r.daysLived)
       .toList()
     ..sort();
+  // How long the run coasts once nothing is in doubt any more. A player
+  // described the best-feeling run so far as tense until day 70 of 77 — a lap
+  // of about 7 days, or 9% of the run. Long laps are where interest dies.
+  final laps = <double>[];
+  for (final r in won) {
+    if (r.winDay <= 0) continue;
+    laps.add((r.winDay - r.lastPressureDay) / r.winDay);
+  }
+  if (laps.isNotEmpty) {
+    laps.sort();
+    final med = laps[laps.length ~/ 2];
+    final flag = med > 0.25 ? '   <- coasting; target is about 0.10' : '';
+    print('victory lap  median ${(med * 100).round()}% of the run spent with '
+        'nothing short  (worst ${(laps.last * 100).round()}%)$flag');
+  }
+
   print('scarcity  days with a shed short of input: median '
       '${(scarcity[scarcity.length ~/ 2] * 100).round()}% of the run'
       '  (min ${(scarcity.first * 100).round()}%'
@@ -493,6 +523,7 @@ Run _play(int seed, {bool verbose = false}) {
   var blockedPay = 0;
   var starvedDays = 0;
   var daysLived = 0;
+  var lastPressureDay = 0;
   final seenEvents = <ActiveEvent>{};
 
   if (verbose) print('--- seed $seed (detailed) ---');
@@ -531,10 +562,15 @@ Run _play(int seed, {bool verbose = false}) {
     daysLived++;
     // 0.95 is the threshold the shed card itself uses to say "starved", so
     // this counts exactly what the player would have been shown.
-    if (g.buildings.any((b) =>
-        b.workers > 0 && b.def.inputs.isNotEmpty && b.lastEfficiency < 0.95)) {
-      starvedDays++;
-    }
+    final shedShort = g.buildings.any((b) =>
+        b.workers > 0 && b.def.inputs.isNotEmpty && b.lastEfficiency < 0.95);
+    if (shedShort) starvedDays++;
+
+    // The three ways a port can be worried, as a player would name them:
+    // hungry, skint, or a shed standing idle for want of material.
+    final hungry = g.foodDays < 5;
+    final skint = g.payrollAtRisk;
+    if (hungry || skint || shedShort) lastPressureDay = day;
 
     final fd = g.foodDays;
     if (fd.isFinite && fd < minFoodDays) minFoodDays = fd;
@@ -581,7 +617,7 @@ Run _play(int seed, {bool verbose = false}) {
   return Run(seed, lighthouseDay, peakCoin, g.population, g.buildings.length,
       lighthouseDay > 0 ? const {} : _shortfallOf(g), hazards, boons,
       minFoodDays.isFinite ? minFoodDays : 0, blockedFood, blockedRoof,
-      blockedPay, starvedDays, daysLived);
+      blockedPay, starvedDays, daysLived, lastPressureDay);
 }
 
 /// Inflict the chosen disaster. Nothing here is subtle — the point is to ruin

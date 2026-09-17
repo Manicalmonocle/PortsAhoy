@@ -219,5 +219,11 @@ sink and a reason to keep a surplus.
    UI carries the perception.
 5. **Run +25/−20 as the "too much" reference**, to confirm the shipped value
    sits well under it.
-6. **Check the invariant by test**, not by eye: every product raised exactly
+6. **The victory lap must not grow.** The probe reports the share of a run
+   spent with nothing short of anything — a median of 1% now, against a played
+   run called "the perfect balance" that stayed tense to day 70 of 77. A pet is
+   a small permanent gift arriving at the midpoint, which is exactly the shape
+   that quietly removes the back half's tension. Watch this more closely than
+   the median.
+7. **Check the invariant by test**, not by eye: every product raised exactly
    once and lowered exactly once, and no pet touching meat.
