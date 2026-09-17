@@ -25,7 +25,22 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
   <meta name="apple-mobile-web-app-title" content="Ports Ahoy!">
   <meta name="theme-color" content="#0E1A22">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <!--
+    NO viewport-fit=cover.
+
+    It was here from the Flutter template, and on a phone it does exactly what
+    it says: the page is laid out edge to edge, running underneath the system
+    bars. That is fine for a native app, which is told how tall the bars are and
+    insets itself — the dock already wraps in SafeArea for precisely that. On
+    mobile web the engine does not reliably map env(safe-area-inset-bottom) into
+    MediaQuery.viewPadding, so SafeArea gets zero, nothing is inset, and the
+    bottom of the game sits under the on-screen navigation buttons.
+
+    Dropping it lets the browser size the visual viewport to the space actually
+    free. The game loses a few pixels of bleed behind the nav bar and stops
+    hiding its own controls there, which is the better trade.
+  -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <link rel="apple-touch-icon" href="icons/Icon-192.png">
 
   <!-- Favicon -->
@@ -235,7 +250,7 @@
     For more details:
     * https://docs.flutter.dev/platform-integration/web/initialization
   -->
-  <script src="flutter_bootstrap.js?v=1.10.0-37" async></script>
+  <script src="flutter_bootstrap.js?v=1.10.1-38" async></script>
 
   <script>
     // Keep an installed copy up to date on its own.
