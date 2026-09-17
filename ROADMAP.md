@@ -90,7 +90,14 @@ one of them for want of powder** — no other reason appeared. Powder cost is do
 from 8 to 4, and the berth no longer eats rope and sailcloth, which it consumed
 faster than the lighthouse asks for.
 
-**But the route still loses: median 102 against 80 played honestly.** And the
+**A played run has now beaten the honest path with it** —
+`human-2026-09-17-dark-77d.pa1`, 77 days against 78 and 80, the fastest trace on
+record. Three prizes in thirteen days of holding a berth, where the same player
+on the previous build got one in thirty-one, and the first privateer captain
+ever hired. One run and one seed, so not a verdict — but the powder change is
+doing what it was meant to.
+
+**The probe still says the route loses: median 102 against 80.** And the
 measurement still has a hole in it big enough to invalidate the verdict:
 
 > **The probe has never taken a spice deal.** 6,044 seen, 0 taken, across every
