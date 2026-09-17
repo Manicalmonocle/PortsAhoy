@@ -555,10 +555,25 @@ void main() {
       final g = raider();
       g.marqueTons = 200;
       g.notoriety = 5.0;
+      // Make the boarding land, rather than hoping it does.
+      //
+      // This asserted that a LAWFUL prize is not a crime, and a failed
+      // boarding adds heat by design — so the test only meant what it said
+      // when the roll succeeded, which at four crew is about a 74% chance. It
+      // passed for months on that, then flipped the day two resources were
+      // added to the enum: the market draws a different number of randoms per
+      // tick, the shared stream shifts, and this roll landed the other way.
+      // Nothing about prizes changed at all.
+      var seed = 0;
+      while (SeededRng(seed).next() > 0.2) {
+        seed++;
+      }
+      g.rng.seed = seed; // SeededRng.seed is the live state, not the origin
       final ship = foreignHull(tons: 60);
       g.market.ships.add(ship);
 
-      g.takePrize(ship);
+      expect(g.takePrize(ship), isTrue,
+          reason: 'the point of this test is what a SUCCESSFUL prize costs');
 
       expect(g.marqueTons, 140);
       expect(g.notoriety, lessThanOrEqualTo(5.0 + 1e-9),
