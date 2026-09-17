@@ -345,8 +345,10 @@ const List<BuildingDef> kBuildingDefs = [
     cost: {Resource.planks: 45, Resource.timber: 30},
     // Cattle eat more than sheep — about a fifth of a farm.
     upkeep: {Resource.grain: 0.104},
-    // Sized against the dairy: two hands here keep two hands there in milk.
-    outputs: {Resource.milk: 0.160, Resource.meat: 0.024},
+    // Milk, and cheese made from it on the spot. A separate dairy was more
+    // faithful and cost a shed and two hands the port could not spare — see
+    // the note on Resource.cheese.
+    outputs: {Resource.milk: 0.090, Resource.cheese: 0.045, Resource.meat: 0.024},
     // 28, NOT 40. Cattle should be the slowest thing in the port, but the
     // bill wants cheese and cheese is only behind this — so a herd that takes
     // forty days to come on, built around day 30, has barely started when an
@@ -355,15 +357,36 @@ const List<BuildingDef> kBuildingDefs = [
     ripenDays: 28,
   ),
   BuildingDef(
-    id: 'dairy',
-    name: 'Dairy',
-    icon: '🧀',
-    blurb: 'Turns milk into something that will still be food in a month.',
+    id: 'hen_house',
+    name: 'Hen House',
+    icon: '🐔',
+    blurb: 'Cheap, quick, and the only place eggs come from.',
+    // NOT "Coop": the run code derives three letters from an id, and coop and
+    // cooperage both give "coo". run_code_test asserts against exactly that.
+    maxWorkers: 1,
+    coinCost: 180,
+    cost: {Resource.planks: 20},
+    upkeep: {Resource.grain: 0.0625},
+    outputs: {Resource.eggs: 0.100, Resource.meat: 0.012},
+    // The short ramp, and the reason to build this first of the three: a
+    // flock of hens is worth something inside a fortnight.
+    ripenDays: 14,
+  ),
+  BuildingDef(
+    id: 'bakery',
+    name: 'Bakery',
+    icon: '🍞',
+    blurb: 'Makes the harvest go further. A loaf feeds a man three times as '
+        'far as the grain it was baked from.',
     maxWorkers: 2,
-    coinCost: 320,
+    coinCost: 300,
     cost: {Resource.planks: 30},
-    inputs: {Resource.milk: 0.135},
-    outputs: {Resource.cheese: 0.090},
+    // A GRAIN MULTIPLIER, not a food source. One grain and a little egg come
+    // out as one loaf worth three person-days, so the shed does not make food
+    // — it makes the grain the port already has stretch. Sized against the hen
+    // house: one keeps one in eggs.
+    inputs: {Resource.grain: 0.200, Resource.eggs: 0.050},
+    outputs: {Resource.bread: 0.200},
   ),
 
   // ---- The dark trade ---------------------------------------------------

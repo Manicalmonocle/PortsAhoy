@@ -17,7 +17,11 @@ const List<Resource> kEatingOrder = [
   Resource.fish,
   Resource.milk,
   Resource.grain,
+  Resource.eggs,
   Resource.meat,
+  // Last, so the lighthouse's own stores are the final thing a hungry town
+  // reaches for.
+  Resource.bread,
 ];
 
 enum Resource {
@@ -42,11 +46,31 @@ enum Resource {
   meat('Meat', ResourceCategory.food, 9.0, '🥩', 0.5, nutrition: 3.0),
   milk('Milk', ResourceCategory.food, 4.0, '🥛', 0.4, nutrition: 1.5),
 
+  eggs('Eggs', ResourceCategory.food, 5.0, '🥚', 0.4, nutrition: 1.5),
+
+  /// Grain that has been made to go further, and to keep.
+  ///
+  /// Food AND a line on the lighthouse bill, which means the town can eat the
+  /// bill if you let the larder run dry. That is deliberate: it is avoidable by
+  /// keeping fish and grain in store, and the eating order puts bread last. An
+  /// earlier draft split this into an edible loaf and an inedible ship's
+  /// biscuit so it could not happen; one good is simpler and the failure is the
+  /// player's own.
+  bread('Bread', ResourceCategory.food, 14.0, '🍞', 0.5, nutrition: 3.0),
+
   /// Milk that keeps. The reason cheese exists at all is that a lighthouse is
   /// manned and isolated: you do not finish one by building the tower, you
   /// finish it by victualling it so somebody can live out there through a
   /// winter. Milk cannot make that crossing and cheese can.
-  cheese('Cheese', ResourceCategory.good, 24.0, '🧀', 0.5),
+  ///
+  /// CHEAP ON PURPOSE, AT 7. It used to be 24, made in a dairy of its own —
+  /// but six new sheds did not fit a port that stops expanding around 25
+  /// buildings, so the dairy was folded back into the byre. Coming off an
+  /// extractor, a 24-coin good would have made the byre the best-earning shed
+  /// in the game. A low price is also the right shape: cheese is worth having
+  /// because the lighthouse wants it, not because it sells, and a herd that
+  /// pays in coin is the mistake spice made.
+  cheese('Cheese', ResourceCategory.good, 7.0, '🧀', 0.5),
   planks('Planks', ResourceCategory.good, 7.0, '🪚', 0.6),
   rope('Rope', ResourceCategory.good, 12.0, '🪢', 0.8),
   barrels('Barrels', ResourceCategory.good, 20.0, '🛢️', 1.0),

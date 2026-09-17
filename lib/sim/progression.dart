@@ -88,7 +88,11 @@ const List<UnlockRule> kUnlockRules = [
   // Cattle after sheep: the byre is the same bargain again but slower and
   // dearer, so meeting it second is meeting it in the right order.
   UnlockRule('byre', text: 'Build a pasture', requires: ['pasture']),
-  UnlockRule('dairy', text: 'Build a byre', requires: ['byre']),
+
+  // Hens off the grange like the rest, and the bakery behind the hens, since
+  // a bakery with no eggs is a shed full of idle hands.
+  UnlockRule('hen_house', text: 'Build a grange', requires: ['grange']),
+  UnlockRule('bakery', text: 'Build a hen house', requires: ['hen_house']),
 
   // ---- The dark trade, entirely optional ---------------------------------
   //

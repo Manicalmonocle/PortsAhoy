@@ -80,6 +80,21 @@ class Balance {
     // longest lead time on the bill, so the quantity has to be read against
     // the days available rather than against what the other lines cost.
     Resource.cheese: 30,
+    // NO BREAD ON THE BILL, though an earlier draft had 40 of it.
+    //
+    // Two new lines meant six new sheds the endgame could not do without —
+    // grange, pasture, hen house, bakery, byre, dairy — in a port that stops
+    // expanding around 25 buildings and already owes room to a sawmill, a
+    // mine, a smithy, a ropewalk and a weaver. Measured, it did not fit: five
+    // seeds of sixteen finished 400 days short of the ENTIRE tools
+    // requirement, having never built a smithy at all.
+    //
+    // Cheese keeps the line because without it the byre is a coin machine,
+    // and a subsystem that produces surplus coin cannot be worth the hands it
+    // costs — that is the spice lesson, written on the resource itself. The
+    // bakery needs no line, because its payoff is not coin: it makes the
+    // harvest stretch, which is worth hands on its own terms in a port whose
+    // herds eat grain.
   };
 
   /// Catch-up work is bounded so resuming after a long absence cannot hang the

@@ -25,19 +25,18 @@ import 'package:ports_ahoy/version.dart';
 /// What the policy builds, in order, whenever it can afford the next item.
 const List<String> buildOrder = [
   'forest_camp', 'sawmill', 'house', 'flax_field', 'ropewalk',
-  // GRANGE EARLY, because that is when a person builds one. A played run put
-  // it up on day 16 as the sixth building; the bot had it sixteenth in this
-  // list and reached it near day 35. With a 24-day ramp to climb afterwards,
-  // that is the difference between running on a grown grange for half the run
-  // and barely reaching maturity before winning — so every grange number
-  // measured at the old position understated the mechanic. A ceiling sweep
-  // there found no difference at all between 0.20 and 0.35, where a player
-  // was reporting a large one.
-  'warehouse', 'farm', 'grange', 'pasture', 'byre', 'dairy', 'flax_field', 'weaver', 'house',
-  'mine', 'sawmill', 'smithy', 'warehouse', 'house',
+  // GRANGE AND PASTURE EARLY, IRON RIGHT BEHIND THEM. Husbandry grew from one
+  // shed to five, and putting the whole chain ahead of the mine pushed the
+  // smithy past the point where the port stops expanding: five of sixteen
+  // seeds ran to day 400 reporting "tools short by 80" — the entire
+  // requirement, from a smithy that was never built. Played runs put the mine
+  // down between days 23 and 42, so the iron chain belongs here, and the
+  // slower half of the herd can wait behind it.
+  'warehouse', 'farm', 'grange', 'pasture', 'byre',
+  'house', 'mine', 'sawmill', 'smithy', 'weaver',
+  'warehouse', 'hen_house', 'bakery', 'house',
   'import_berth', 'forest_camp', 'cooperage', 'mine', 'smithy',
-  'house', 'import_berth', 'flax_field', 'weaver', 'warehouse',
-  'farm', 'house', 'import_berth', 'sawmill', 'house',
+  'house', 'import_berth', 'flax_field', 'warehouse', 'house',
 ];
 
 /// The same port, but committing hands to the dark trade instead of a second
