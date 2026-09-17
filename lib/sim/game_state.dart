@@ -30,6 +30,26 @@ class Balance {
   static const int baseHousing = 5;
 
   /// A fed, housed town grows on roughly half of its well-supplied days.
+  ///
+  /// HANDS ARE THE LIMIT, AND THIS IS THE DIAL — swept at 16 seeds, and left
+  /// where it was on purpose:
+  ///
+  ///     0.50   median 81   spread 22   worst  94   <- here
+  ///     0.60   median 78   spread 76   worst 139
+  ///     0.65   median 73   spread 68   worst 129
+  ///     0.70   median 72   spread 68   worst 125
+  ///
+  /// Every step up buys days off the median and pays for them in consistency:
+  /// the spread more than triples, and the unlucky seed goes from 94 days to
+  /// nearly 140. A faster town outruns its own payroll on the seeds that were
+  /// already tight, which is a fine kind of pressure and a poor kind of
+  /// variance.
+  ///
+  /// The other obvious dial is housing per cottage, and it does NOT work:
+  /// at 7 the median got worse (87), at 9 it stood still (81), and both
+  /// slackened the endgame — roofs stop being the gate and payroll becomes
+  /// one, while the victory lap swells from 1% of the run to 6-7%. More
+  /// people are only worth having if the port can pay them.
   static const double growthChance = 0.5;
 
   /// Days of food the town wants in store before anyone new moves in.
