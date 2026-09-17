@@ -16,6 +16,7 @@ import 'package:ports_ahoy/sim/buildings.dart';
 import 'package:ports_ahoy/sim/events.dart';
 import 'package:ports_ahoy/sim/charters.dart';
 import 'package:ports_ahoy/sim/game_state.dart';
+import 'package:ports_ahoy/sim/pets.dart';
 import 'package:ports_ahoy/sim/resources.dart';
 import 'package:ports_ahoy/sim/retinue.dart';
 import 'package:ports_ahoy/sim/run_code.dart';
@@ -113,6 +114,16 @@ int kPrizeOddsTooLow = 0;
 /// Kept behind a flag so the experiment is one command away rather than
 /// something to write again from scratch:  --hire
 bool kHire = false;
+
+/// Which pet to take when the ship puts in, from `--pet=dog`.
+///
+/// The bar this feature is measured against is a CEILING, not a floor: a pet
+/// that shifts the median much is a lever bolted onto a scheduled free gift,
+/// and a run would turn on one choice at the midpoint. So the number to watch
+/// is the swing between the best pick and the worst on the SAME seeds — the
+/// difference between them is the trade-off, and it is the only figure here
+/// not swamped by seed variance.
+PetKind? kPet;
 
 /// A deliberate disaster to inflict mid-run, from `--sabotage=name@day`.
 ///
@@ -446,6 +457,21 @@ void main(List<String> args) {
   kDark = args.contains('--dark');
   if (kDark) print('Dark trade: building and working the contraband chain.');
 
+  final petArg = args.firstWhere((a) => a.startsWith('--pet='),
+      orElse: () => '');
+  if (petArg.isNotEmpty) {
+    final want = petArg.substring('--pet='.length);
+    for (final k in PetKind.values) {
+      if (k.name == want) kPet = k;
+    }
+    if (kPet == null) {
+      print('Unknown pet "$want". Known: '
+          '${PetKind.values.map((k) => k.name).join(', ')}');
+      return;
+    }
+    print('Pet: taking a ${kPet!.name} when the ship puts in.');
+  }
+
   final sabArg = args.firstWhere((a) => a.startsWith('--sabotage='),
       orElse: () => '');
   if (sabArg.isNotEmpty) {
@@ -608,6 +634,7 @@ Run _play(int seed, {bool verbose = false}) {
     kBuildIndex = buildIndex;
     _reassign(g);
 
+    if (kPet != null && g.petOfferOpen) g.takePet(kPet!);
     if (kSabotage != null && day == kSabotageDay) _sabotage(g);
 
     if (g.coin > peakCoin) peakCoin = g.coin;

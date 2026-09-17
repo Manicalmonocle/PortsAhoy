@@ -3,6 +3,7 @@ import 'charters.dart';
 import 'journal.dart';
 import 'events.dart';
 import 'market.dart';
+import 'pets.dart';
 import 'progression.dart';
 import 'resources.dart';
 import 'retinue.dart';
@@ -28,6 +29,23 @@ class Balance {
   /// than 10, 15, 50), which reads as an off-by-one bug every single time.
   /// Matching them makes the arithmetic obvious: five a roof, all the way up.
   static const int baseHousing = 5;
+
+  // ---- The pet, and when it turns up ------------------------------------
+  //
+  // A window rather than a day, jittered inside it, because the arrival should
+  // still surprise. Only the timing is random: WHETHER is guaranteed and WHICH
+  // is the player's pick, which is what keeps this clear of a rare drop to
+  // chase.
+  //
+  // It lands here because the game goes quiet here. The last timed unlock
+  // anywhere is the distillery on day 25, and everything after it is
+  // condition-gated and resolves early — so from about day 30 to a finish near
+  // day 80 a competent port is executing a plan it already has, with nothing
+  // new ever revealed. This is the beat that fills it, and it is also the
+  // first moment a player knows which lighthouse line they are behind on,
+  // which is exactly what the choice is a read on.
+  static const int petOfferFirstDay = 40;
+  static const int petOfferLastDay = 50;
 
   /// A fed, housed town grows on roughly half of its well-supplied days.
   ///
@@ -1013,7 +1031,7 @@ class GameState {
         final ripe = b.ripeness;
         def.outputs.forEach((r, pw) => b.hold[r] = (b.hold[r] ?? 0) +
             pw * effWorkers * efficiency * yieldMul * charters.production *
-                husbandry * ripe);
+                husbandry * ripe * petYieldFactor(r));
       }
       b.lastEfficiency = efficiency;
     }
@@ -1050,6 +1068,7 @@ class GameState {
 
   void _endOfDay({bool interactive = true}) {
     _feedTown();
+    _feedPet();
     _payWages();
     _growTown();
     if (interactive) _rivalRaid();
@@ -1650,6 +1669,83 @@ class GameState {
   bool get grangeWorked =>
       buildings.any((b) => b.defId == 'grange' && b.workers > 0);
 
+  /// The animal this port keeps, or null. One a run, and never a second.
+  PetKind? pet;
+
+  /// True once the ship with animals aboard has been dealt with, either way.
+  /// Declining is a real answer and must not be asked again.
+  bool petOfferSettled = false;
+
+  /// The day that ship puts in, rolled from the world seed so it cannot be
+  /// re-rolled by closing the app.
+  late int petOfferDay = Balance.petOfferFirstDay +
+      (worldSeed.abs() %
+          (Balance.petOfferLastDay - Balance.petOfferFirstDay + 1));
+
+  /// True while the offer is on the table.
+  bool get petOfferOpen =>
+      !petOfferSettled && pet == null && day >= petOfferDay;
+
+  /// False when there was no meat for it. The buff sleeps until there is.
+  ///
+  /// An underfed pet must never die. It works poorly until it is fed again —
+  /// recoverable, legible, and not a punishment loop. Losing one to a bad week
+  /// would be the wrong kind of pressure, and the ramp on a herd means a
+  /// shortage is rarely the player's fault alone.
+  bool petFed = true;
+
+  Pet? get petDef => pet == null ? null : petByKind(pet!);
+
+  /// What the pet does to one product's yield.
+  ///
+  /// Per PRODUCT, not per shed. "The dog improves the byre" would quietly
+  /// include the meat the byre makes, and a pet that raised meat would be
+  /// partly feeding itself.
+  double petYieldFactor(Resource r) {
+    final p = petDef;
+    if (p == null || !petFed) return 1.0;
+    if (p.raises == r) return 1.0 + kPetBuff;
+    if (p.lowers == r) return 1.0 - kPetDrag;
+    return 1.0;
+  }
+
+  /// Take the one on offer. Returns false, changing nothing, if it cannot.
+  bool takePet(PetKind kind) {
+    if (!petOfferOpen || coin < kPetPrice) return false;
+    coin -= kPetPrice;
+    pet = kind;
+    petOfferSettled = true;
+    final p = petByKind(kind);
+    log('${p.name} came ashore and stayed.', LogKind.good);
+    journal.mark(day, 'took on a ${p.name.toLowerCase()}',
+        code: 'p$day.${p.id}');
+    return true;
+  }
+
+  /// Wave the ship on. The offer does not come round again.
+  void declinePet() {
+    if (!petOfferOpen) return;
+    petOfferSettled = true;
+    log('You let the animals sail on.', LogKind.info);
+  }
+
+  /// Feed it, once a day. Meat only — it is what a pet is for.
+  void _feedPet() {
+    if (pet == null) return;
+    final want = kPetAppetite;
+    if (stock[Resource.meat] >= want) {
+      stock.remove(Resource.meat, want);
+      if (!petFed) {
+        petFed = true;
+        log('${petDef!.name} is properly fed again.', LogKind.good);
+      }
+    } else if (petFed) {
+      petFed = false;
+      log('${petDef!.name} has gone hungry — no meat in the stores.',
+          LogKind.bad);
+    }
+  }
+
   /// How far along the grange is, 0 to 1.
   ///
   /// Reads the building rather than a field on the port. Maturity moved onto
@@ -2128,6 +2224,10 @@ class GameState {
         'merchantLevel': merchantLevel,
         'privateerLevel': privateerLevel,
         'grangeMaturity': grangeMaturity,
+        if (pet != null) 'pet': pet!.name,
+        if (petOfferSettled) 'petSettled': true,
+        if (!petFed) 'petFed': false,
+        'petDay': petOfferDay,
         'tick': tick,
         'stock': stock.toJson(),
         'coin': coin,
@@ -2184,6 +2284,20 @@ class GameState {
     // discarded on purpose. Carting is now automatic and free, so nothing is
     // lost — the officer's berth it used to occupy is simply freed.
     state.privateerLevel = (j['privateerLevel'] as num?)?.toInt() ?? 0;
+    final petName = j['pet'];
+    if (petName is String) {
+      for (final k in PetKind.values) {
+        if (k.name == petName) state.pet = k;
+      }
+    }
+    state.petOfferSettled = j['petSettled'] as bool? ?? false;
+    state.petFed = j['petFed'] as bool? ?? true;
+    // Kept rather than re-derived: worldSeed gives the same answer, but a save
+    // written before the pet existed has no day at all and must not have one
+    // invented in the past, or the ship arrives the instant it is loaded.
+    final petDay = (j['petDay'] as num?)?.toInt();
+    if (petDay != null) state.petOfferDay = petDay;
+
     // Maturity used to be one figure on the port and now lives on each
     // building. A save written before that carries the old key and buildings
     // with no ripeness of their own, so put it back where it now belongs —
