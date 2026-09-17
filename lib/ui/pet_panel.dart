@@ -73,7 +73,7 @@ class PetCard extends StatelessWidget {
           const SizedBox(height: 2),
           Text(
             fed
-                ? '${pet.why}  Eats ${kPetAppetite} meat a day.'
+                ? '${pet.why}  Eats $kPetAppetite meat a day.'
                 : 'No meat in the stores, so it is not working. Feed it and '
                     'it picks straight back up.',
             style: const TextStyle(

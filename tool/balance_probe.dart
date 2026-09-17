@@ -339,7 +339,8 @@ class Run {
   Run(this.seed, this.winDay, this.peakCoin, this.endPopulation,
       this.endBuildings, this.shortfall, this.hazards, this.boons,
       this.minFoodDays, this.blockedFood, this.blockedRoof, this.blockedPay,
-      this.starvedDays, this.daysLived, this.lastPressureDay);
+      this.starvedDays, this.daysLived, this.lastPressureDay,
+      this.blockedMood, this.endHappiness);
   final int seed;
 
   /// Day the lighthouse was lit, or -1 if the run never got there.
@@ -375,6 +376,7 @@ class Run {
   final int blockedFood;
   final int blockedRoof;
   final int blockedPay;
+  final int blockedMood;
 
   /// Days on which at least one staffed shed was short of input.
   ///
@@ -399,6 +401,9 @@ class Run {
   /// one of them tense to the end and the other coasting from the halfway
   /// mark, and the second is the one players stop playing.
   final int lastPressureDay;
+
+  /// Where the town's mood finished.
+  final double endHappiness;
 
   bool get won => winDay > 0;
 }
@@ -550,9 +555,19 @@ void _summarise(List<Run> runs) {
   print('food      lowest median ${lowFood[lowFood.length ~/ 2].toStringAsFixed(1)}d'
       '  (min ${lowFood.first.toStringAsFixed(1)}d)'
       '  ·  gate is ${Balance.growthFoodDays.toStringAsFixed(0)}d');
+  final bMood = runs.map((r) => r.blockedMood).toList()..sort();
   print('growth    blocked days — median: roofs ${bRoof[bRoof.length ~/ 2]}'
       ' · payroll ${bPay[bPay.length ~/ 2]}'
+      ' · mood ${bMood[bMood.length ~/ 2]}'
       ' · food ${bFood[bFood.length ~/ 2]}');
+
+  // Where the town's mood actually sat. A meter nobody ever sees move is a
+  // meter that is not doing anything.
+  final mood = runs.map((r) => r.endHappiness).toList()..sort();
+  print('mood      at the finish: median '
+      '${(mood[mood.length ~/ 2] * 100).round()}%'
+      '  (min ${(mood.first * 100).round()}%'
+      '  max ${(mood.last * 100).round()}%)');
 
   // Scarcity, as a share of the run. This is the number that answers "does it
   // still feel like a game about supply", which win-day cannot.
@@ -602,6 +617,7 @@ Run _play(int seed, {bool verbose = false}) {
   var blockedFood = 0;
   var blockedRoof = 0;
   var blockedPay = 0;
+  var blockedMood = 0;
   var starvedDays = 0;
   var daysLived = 0;
   var lastPressureDay = 0;
@@ -662,6 +678,8 @@ Run _play(int seed, {bool verbose = false}) {
       blockedRoof++;
     } else if (g.coin < g.dailyWageBill + g.retinueWageBill) {
       blockedPay++;
+    } else if (g.happiness < Balance.happinessGrowthFloor) {
+      blockedMood++;
     } else if (fd < Balance.growthFoodDays) {
       blockedFood++;
     }
@@ -699,7 +717,8 @@ Run _play(int seed, {bool verbose = false}) {
   return Run(seed, lighthouseDay, peakCoin, g.population, g.buildings.length,
       lighthouseDay > 0 ? const {} : _shortfallOf(g), hazards, boons,
       minFoodDays.isFinite ? minFoodDays : 0, blockedFood, blockedRoof,
-      blockedPay, starvedDays, daysLived, lastPressureDay);
+      blockedPay, starvedDays, daysLived, lastPressureDay, blockedMood,
+      g.happiness);
 }
 
 /// Inflict the chosen disaster. Nothing here is subtle — the point is to ruin

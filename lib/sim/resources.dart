@@ -13,6 +13,19 @@ enum ResourceCategory { raw, good, food, contraband }
 /// lighthouse wants are the last thing touched. A port that lets its larder
 /// run dry can still eat its own cheese; that is a consequence of running out,
 /// not a trap, and it is avoidable by keeping fish and grain in.
+/// Food a town is glad to see, as against food that merely feeds it.
+///
+/// Everything a port could eat before husbandry is a staple: fish and grain,
+/// every day, for eighty days. What the herds add is not calories — the meat
+/// is there to cancel the feed the animals take — it is VARIETY, and that is
+/// the half of happiness the honest route can actually buy.
+const Set<Resource> kGoodEating = {
+  Resource.meat,
+  Resource.milk,
+  Resource.eggs,
+  Resource.bread,
+};
+
 const List<Resource> kEatingOrder = [
   Resource.fish,
   Resource.milk,

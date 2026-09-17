@@ -30,6 +30,42 @@ class Balance {
   /// Matching them makes the arithmetic obvious: five a roof, all the way up.
   static const int baseHousing = 5;
 
+  // ---- Happiness --------------------------------------------------------
+  //
+  // THE ONE RULE: no relief for sale. Pressure is the point of this — a
+  // *purchase* that makes the pressure go away is the pattern this game is
+  // built against. Notoriety sets the shape and sets it well: no bribe and no
+  // passive decay, but there IS a way down, through play. Happiness answers
+  // the same way — to feeding people properly, housing them, paying them and
+  // keeping the port steady — and to nothing you can pay.
+  //
+  // It also gives the honest route the pressure it has been missing. Once the
+  // chains are running, nothing on that side pushes back; growth you can lose
+  // is something to lose.
+
+  /// Where a port with nothing to recommend it and nothing wrong sits.
+  static const double happinessNeutral = 0.5;
+
+  /// How far it can move in a day. Slow, so a single bad afternoon is weather
+  /// rather than a verdict, and so a recovery has to be sustained.
+  static const double happinessDrift = 0.04;
+
+  /// Below this nobody new comes. Above it the town grows as it always did.
+  static const double happinessGrowthFloor = 0.30;
+
+  /// Below this people start leaving. Well under the growth floor, so there is
+  /// a wide band where a port is merely stalled and can still be pulled round.
+  static const double happinessExodusFloor = 0.12;
+
+  /// What a well-run port gets out of its hands, against a miserable one.
+  /// Deliberately narrow: happiness is a pressure to read, not a second
+  /// economy to optimise.
+  static const double happinessWorkSwing = 0.10;
+
+  /// What keeping an animal is worth. Small, permanent, and the only part of
+  /// a pet that is unconditionally good.
+  static const double petHappiness = 0.08;
+
   // ---- The pet, and when it turns up ------------------------------------
   //
   // A window rather than a day, jittered inside it, because the arrival should
@@ -629,6 +665,10 @@ class GameState {
       return 'The payroll is short — unpaid hands leave, and the town cannot '
           'grow while it is losing people';
     }
+    if (happiness < Balance.happinessGrowthFloor) {
+      final why = happinessReasons.isEmpty ? '' : ' — ${happinessReasons.first}';
+      return 'Word has got round and nobody new is coming$why';
+    }
     if (foodDays < Balance.growthFoodDays) {
       return 'Not enough food put by — the town wants '
           '${Balance.growthFoodDays.toStringAsFixed(0)} days in store '
@@ -1031,7 +1071,7 @@ class GameState {
         final ripe = b.ripeness;
         def.outputs.forEach((r, pw) => b.hold[r] = (b.hold[r] ?? 0) +
             pw * effWorkers * efficiency * yieldMul * charters.production *
-                husbandry * ripe * petYieldFactor(r));
+                husbandry * ripe * petYieldFactor(r) * happinessWorkFactor);
       }
       b.lastEfficiency = efficiency;
     }
@@ -1069,6 +1109,7 @@ class GameState {
   void _endOfDay({bool interactive = true}) {
     _feedTown();
     _feedPet();
+    _settleMood();
     _payWages();
     _growTown();
     if (interactive) _rivalRaid();
@@ -1669,6 +1710,102 @@ class GameState {
   bool get grangeWorked =>
       buildings.any((b) => b.defId == 'grange' && b.workers > 0);
 
+  /// How the town feels, 0 to 1. Starts level.
+  double happiness = Balance.happinessNeutral;
+
+  /// How well the table is set: the share of the food in store that is
+  /// something other than fish and grain.
+  ///
+  /// READ FROM THE LARDER, NOT THE PLATE. The first version counted what the
+  /// town actually ate, and measured zero forever — [kEatingOrder] puts the
+  /// staples first on purpose, so a port with fish in the barrel never reaches
+  /// the meat, and the happiness the herds are supposed to buy would never
+  /// have arrived. A larder with meat and milk in it is a better-fed town
+  /// whichever unit today's supper came out of.
+  double get mealQuality {
+    final total = foodStock;
+    if (total <= 0) return 0.0;
+    var good = 0.0;
+    for (final r in kGoodEating) {
+      good += stock[r] * r.nutrition;
+    }
+    return (good / total).clamp(0.0, 1.0);
+  }
+
+  /// Where happiness is heading, given how the port is being run right now.
+  ///
+  /// Four things, all of them consequences of decisions rather than of time
+  /// passing, and each worth naming on screen — see [happinessReasons].
+  double get happinessTarget {
+    var t = Balance.happinessNeutral;
+
+    // Fed well, or merely fed. This is what the herds buy.
+    t += 0.25 * mealQuality;
+
+    // Crowded. Full housing is not a crisis, but it is a reason to grumble.
+    final crowding = housingCapacity <= 0
+        ? 1.0
+        : (population / housingCapacity).clamp(0.0, 1.0);
+    t -= 0.15 * crowding;
+
+    // Paid. The sharpest of the four, because an unpaid crew is the one thing
+    // here that is unambiguously the harbourmaster's fault.
+    t += payrollAtRisk ? -0.25 : 0.10;
+
+    // And whether they are living in a smuggler's port. No coin path down,
+    // exactly as notoriety has none.
+    t -= 0.20 * (notoriety / 100).clamp(0.0, 1.0);
+
+    if (pet != null && petFed) t += Balance.petHappiness;
+
+    return t.clamp(0.0, 1.0);
+  }
+
+  /// Why it sits where it does, worst first. The codebase's own rule: if
+  /// something is holding the town back, say which thing.
+  List<String> get happinessReasons {
+    final out = <String>[];
+    if (payrollAtRisk) {
+      out.add('wages are not being met');
+    } else {
+      out.add('the crew is paid');
+    }
+    if (mealQuality < 0.1) {
+      out.add('nothing on the table but fish and grain');
+    } else if (mealQuality > 0.35) {
+      out.add('the table is well set');
+    }
+    if (housingCapacity > 0 && population >= housingCapacity) {
+      out.add('every roof is full');
+    }
+    if (notoriety > Balance.patrolFloor) {
+      out.add('the port has a reputation');
+    }
+    if (pet != null && petFed) out.add('${petDef!.name} is about the place');
+    return out;
+  }
+
+  /// What the town's mood does to a day's work.
+  double get happinessWorkFactor =>
+      1.0 + Balance.happinessWorkSwing * (happiness - Balance.happinessNeutral) * 2;
+
+  /// Nudge the mood toward where the port deserves it to be. Once a day.
+  void _settleMood() {
+    final target = happinessTarget;
+    final gap = target - happiness;
+    final step = gap.abs() < Balance.happinessDrift
+        ? gap
+        : Balance.happinessDrift * gap.sign;
+    happiness = (happiness + step).clamp(0.0, 1.0);
+
+    if (happiness < Balance.happinessExodusFloor && population > 1) {
+      population -= 1;
+      _clampAssignments();
+      log('A family had enough of this place and took a berth out.',
+          LogKind.bad);
+    }
+  }
+
   /// The animal this port keeps, or null. One a run, and never a second.
   PetKind? pet;
 
@@ -2228,6 +2365,7 @@ class GameState {
         if (petOfferSettled) 'petSettled': true,
         if (!petFed) 'petFed': false,
         'petDay': petOfferDay,
+        'happiness': double.parse(happiness.toStringAsFixed(4)),
         'tick': tick,
         'stock': stock.toJson(),
         'coin': coin,
@@ -2290,6 +2428,9 @@ class GameState {
         if (k.name == petName) state.pet = k;
       }
     }
+    state.happiness = ((j['happiness'] as num?)?.toDouble() ??
+            Balance.happinessNeutral)
+        .clamp(0.0, 1.0);
     state.petOfferSettled = j['petSettled'] as bool? ?? false;
     state.petFed = j['petFed'] as bool? ?? true;
     // Kept rather than re-derived: worldSeed gives the same answer, but a save

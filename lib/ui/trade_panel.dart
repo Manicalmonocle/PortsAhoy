@@ -89,6 +89,12 @@ class _TradePanelState extends State<TradePanel> {
                 fontSize: 11, color: Palette.fog, height: 1.4),
           ),
         ),
+        // How the town feels, and why — named, because a meter you cannot
+        // read is the fault this project keeps having to fix. It moves slowly
+        // by design, so without the reasons beside it a player would have no
+        // way to tell a port that is recovering from one that is stuck.
+        _MoodLine(state: s),
+
         _RetinueCard(controller: controller, track: RetinueTrack.captain),
         _RetinueCard(controller: controller, track: RetinueTrack.merchant),
         // The privateer captain is only shown once a privateer berth stands —
@@ -338,6 +344,71 @@ class _TradePanelState extends State<TradePanel> {
 ///
 /// The thresholds are the old quartermaster's building gates (5, 9, 13), so
 /// this reads as the same progression it always was — only free.
+class _MoodLine extends StatelessWidget {
+  const _MoodLine({required this.state});
+
+  final GameState state;
+
+  @override
+  Widget build(BuildContext context) {
+    final h = state.happiness;
+    final pct = (h * 100).round();
+    final (label, colour) = switch (h) {
+      < Balance.happinessExodusFloor => ('Wretched', Palette.rust),
+      < Balance.happinessGrowthFloor => ('Unhappy', Palette.rust),
+      < 0.45 => ('Restless', Palette.lamp),
+      < 0.65 => ('Settled', Palette.fog),
+      _ => ('Content', Palette.moss),
+    };
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 2, 20, 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Text('The town is $label',
+                  style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: colour)),
+              const SizedBox(width: 6),
+              Text('$pct%',
+                  style: const TextStyle(fontSize: 11, color: Palette.fog)),
+            ],
+          ),
+          const SizedBox(height: 3),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(3),
+            child: LinearProgressIndicator(
+              value: h,
+              minHeight: 4,
+              backgroundColor: Palette.deep,
+              valueColor: AlwaysStoppedAnimation(colour),
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            state.happinessReasons.join(' · '),
+            style: const TextStyle(
+                fontSize: 11, color: Palette.fog, height: 1.4),
+          ),
+          if (h < Balance.happinessGrowthFloor)
+            const Padding(
+              padding: EdgeInsets.only(top: 3),
+              child: Text(
+                'Nobody new will settle here until this turns round. There is '
+                'nothing to buy that fixes it.',
+                style: TextStyle(fontSize: 11, color: Palette.rust),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
 class _CartingNote extends StatelessWidget {
   const _CartingNote({required this.state});
 
