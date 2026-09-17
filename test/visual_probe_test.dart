@@ -19,6 +19,7 @@ import 'package:ports_ahoy/ui/world_view.dart';
 import 'package:vector_math/vector_math_64.dart' show Vector3;
 import 'package:shared_preferences/shared_preferences.dart';
 
+
 void main() {
   testWidgets('render one of every shed', (tester) async {
     final out = Platform.environment['VISUAL_OUT'] ??
@@ -70,7 +71,11 @@ void main() {
     g.market.ships.add(Ship(name: 'Test Crown 2', departTick: 99999,
         offers: const [], foreign: false));
     // Ripen the grange so its fields show green in the lineup.
-    g.grangeMaturity = 1.0;
+    // Grown, so ripening sheds draw at full size rather than as the stub a
+    // freshly raised one would be.
+    for (final b in g.buildings) {
+      if (b.def.ripens) b.maturity = 1.0;
+    }
     g.population = 80;
     g.tick = 240; // mid-morning, so anything tick-driven is mid-motion
 

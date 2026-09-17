@@ -33,7 +33,7 @@ const List<String> buildOrder = [
   // measured at the old position understated the mechanic. A ceiling sweep
   // there found no difference at all between 0.20 and 0.35, where a player
   // was reporting a large one.
-  'warehouse', 'farm', 'grange', 'flax_field', 'weaver', 'house',
+  'warehouse', 'farm', 'grange', 'pasture', 'flax_field', 'weaver', 'house',
   'mine', 'sawmill', 'smithy', 'warehouse', 'house',
   'import_berth', 'forest_camp', 'cooperage', 'mine', 'smithy',
   'house', 'import_berth', 'flax_field', 'weaver', 'warehouse',
@@ -922,14 +922,18 @@ void _reassign(GameState g) {
     }
   }
 
-  // 1a. Crew the grange. It has no outputs, so marginPerWorkerTick scores it
-  // zero and the allocation below would never give it a hand — the same
-  // omission that left the privateer berth uncrewed. A grange nobody works
-  // never ripens, so the port pays 400 coin for a shed that does nothing, and
-  // the measurement blames the mechanic instead of the policy.
+  // 1a. Crew anything that ripens, before the margin ranking gets a look.
+  //
+  // The ranking below scores a shed on what it earns THIS tick, and a ripening
+  // shed earns almost nothing for weeks by design — a grange earns literally
+  // nothing ever, having no outputs at all. So they score last or zero, never
+  // get a hand, never ripen, and the run reports that husbandry is worthless.
+  // That has now happened twice (the grange, the privateer berth) and this is
+  // written generically so the third time does not need finding again: if a
+  // def declares a ripen period, the policy crews it on sight.
   for (var i = 0; i < g.buildings.length; i++) {
-    if (g.buildings[i].defId != 'grange') continue;
     final def = g.buildings[i].def;
+    if (!def.ripens && def.id != 'grange') continue;
     while (g.buildings[i].workers < def.maxWorkers && g.idleWorkers > 1) {
       g.setWorkers(i, g.buildings[i].workers + 1);
     }

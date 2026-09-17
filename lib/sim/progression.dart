@@ -77,6 +77,11 @@ const List<UnlockRule> kUnlockRules = [
   // to be a real question rather than an obvious no.
   UnlockRule('grange', text: 'Build a farm', requires: ['farm']),
 
+  // Behind the grange rather than the farm. A pasture is the second half of
+  // the same bargain — time into yield — and meeting it before the cheaper,
+  // simpler version of the idea would be learning the lesson backwards.
+  UnlockRule('pasture', text: 'Build a grange', requires: ['grange']),
+
   // ---- The dark trade, entirely optional ---------------------------------
   //
   // These used to be a chain: each dark shed unlocked only once you had BUILT

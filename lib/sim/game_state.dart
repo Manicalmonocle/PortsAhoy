@@ -181,7 +181,10 @@ class Balance {
   ///
   /// Paying back sooner recovers nearly all the speed and removes the
   /// catastrophe, without putting back the flooding the ceiling cut was for.
-  static const double grangeRipenDays = 24;
+  /// Read off the building rather than declared twice. The number lives in
+  /// `buildings.dart` now, because every ripening shed needs one and a second
+  /// copy here would be a second thing to forget.
+  static double get grangeRipenDays => defById('grange').ripenDays;
 
   /// What a fully grown grange adds to every shed's yield.
   ///
@@ -426,7 +429,6 @@ class GameState {
   /// grange adds nothing, which is deliberate and is what "a single grange"
   /// means. It advances only while a grange is actually staffed, so hands left
   /// off it stop the clock — the investment is the hands as much as the coin.
-  double grangeMaturity = 0;
 
   // ---- The dark trade, all derived so a save can never disagree ----------
 
@@ -626,7 +628,7 @@ class GameState {
     arrivalsThisTick = 0;
     _applyEventTransitions(events.advance(tick,
         pressure: _eventContext().pressure * charters.hazardSeverity));
-    _ripenGrange();
+    _ripen();
     _landImports();
     _produce();
     _crewBerths();
@@ -653,15 +655,21 @@ class GameState {
       final def = b.def;
       if (!def.isCrewed || b.workers == 0) continue;
 
+      // A small flock eats less than a grown one, so feed rises with the herd
+      // rather than landing in full on the day the fence goes up. The cost
+      // then tracks the benefit instead of falling hardest when the shed is
+      // worth least — which is the difference between a slow bet and a trap.
+      final appetite = b.ripeness;
+
       double readiness = 1.0;
       def.upkeep.forEach((r, perWorker) {
-        final need = perWorker * b.workers;
+        final need = perWorker * b.workers * appetite;
         if (need > 0) {
           readiness = readiness.clamp(0.0, (stock[r] / need).clamp(0.0, 1.0));
         }
       });
-      def.upkeep
-          .forEach((r, pw) => stock.remove(r, pw * b.workers * readiness));
+      def.upkeep.forEach(
+          (r, pw) => stock.remove(r, pw * b.workers * appetite * readiness));
       b.lastEfficiency = readiness;
     }
   }
@@ -939,9 +947,12 @@ class GameState {
         // does not move anything. Boosting the whole port instead: 96 days on
         // a plain run and 106 under A Grander Light, against 100 and 116.
         final husbandry = grangeYieldBonus;
+        // A ripening shed produces at its own maturity as well. 1.0 for
+        // everything that does not ripen, so this is inert for the old port.
+        final ripe = b.ripeness;
         def.outputs.forEach((r, pw) => b.hold[r] = (b.hold[r] ?? 0) +
             pw * effWorkers * efficiency * yieldMul * charters.production *
-                husbandry);
+                husbandry * ripe);
       }
       b.lastEfficiency = efficiency;
     }
@@ -1578,17 +1589,38 @@ class GameState {
   bool get grangeWorked =>
       buildings.any((b) => b.defId == 'grange' && b.workers > 0);
 
+  /// How far along the grange is, 0 to 1.
+  ///
+  /// Reads the building rather than a field on the port. Maturity moved onto
+  /// [Building] when a second thing started ripening — the old single scalar
+  /// could not describe a port holding a grange and a pasture at once.
+  double get grangeMaturity {
+    var best = 0.0;
+    for (final b in buildings) {
+      if (b.defId == 'grange' && b.maturity > best) best = b.maturity;
+    }
+    return best;
+  }
+
   /// What a grange currently adds to an extractor's yield, as a multiplier.
   ///
   /// 1.0 on the day it is built, rising to 1 + [Balance.grangeMaxYield] once
   /// it has been worked for [Balance.grangeRipenDays].
   double get grangeYieldBonus => 1.0 + Balance.grangeMaxYield * grangeMaturity;
 
-  /// Advance the ripening. Called once a tick while the port runs.
-  void _ripenGrange() {
-    if (!grangeWorked || grangeMaturity >= 1.0) return;
-    final perTick = 1.0 / (Balance.grangeRipenDays * Balance.ticksPerDay);
-    grangeMaturity = (grangeMaturity + perTick).clamp(0.0, 1.0);
+  /// Advance every ripening building that is being worked. Once a tick.
+  ///
+  /// Only worked sheds ripen, which is the rule the Grange set: a field nobody
+  /// tends does not come on, and a flock nobody keeps does not grow. It is also
+  /// what stops a player raising every ripening shed on day one and collecting
+  /// later for nothing.
+  void _ripen() {
+    for (final b in buildings) {
+      final days = b.def.ripenDays;
+      if (days <= 0 || b.workers == 0 || b.maturity >= 1.0) continue;
+      final perTick = 1.0 / (days * Balance.ticksPerDay);
+      b.maturity = (b.maturity + perTick).clamp(0.0, 1.0);
+    }
   }
 
   /// A privateer captain's edge at the rail, if you retain one.
@@ -2091,8 +2123,18 @@ class GameState {
     // discarded on purpose. Carting is now automatic and free, so nothing is
     // lost — the officer's berth it used to occupy is simply freed.
     state.privateerLevel = (j['privateerLevel'] as num?)?.toInt() ?? 0;
-    state.grangeMaturity =
-        (j['grangeMaturity'] as num?)?.toDouble().clamp(0.0, 1.0) ?? 0;
+    // Maturity used to be one figure on the port and now lives on each
+    // building. A save written before that carries the old key and buildings
+    // with no ripeness of their own, so put it back where it now belongs —
+    // otherwise a run in progress silently loses every week its grange spent
+    // coming on, which is most of what a grange is.
+    final legacyRipe =
+        ((j['grangeMaturity'] as num?)?.toDouble() ?? 0).clamp(0.0, 1.0);
+    if (legacyRipe > 0) {
+      for (final b in state.buildings) {
+        if (b.defId == 'grange' && b.maturity <= 0) b.maturity = legacyRipe;
+      }
+    }
     state.voyages.addAll((j['voyages'] as List? ?? [])
         .map((v) => Voyage.fromJson(v as Map<String, dynamic>))
         .whereType<Voyage>());

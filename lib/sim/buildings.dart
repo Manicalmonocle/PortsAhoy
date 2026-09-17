@@ -31,6 +31,7 @@ class BuildingDef {
     this.workSite = false,
     this.buildable = true,
     this.footprint = 2,
+    this.ripenDays = 0,
   });
 
   final String id;
@@ -82,6 +83,17 @@ class BuildingDef {
 
   /// Side length of the square this building occupies, in tiles.
   final int footprint;
+
+  /// Days of being worked before this reaches full strength. Zero for
+  /// everything that works the day it is raised.
+  ///
+  /// A shed that ripens is a bet on the run being long enough to collect: it
+  /// costs its hands and its upkeep from the first day and returns almost
+  /// nothing for weeks. That bargain is the whole of the Grange, and it is the
+  /// whole of a herd — stock is worth nothing the week you buy it.
+  final double ripenDays;
+
+  bool get ripens => ripenDays > 0;
 
   /// True when this building draws hands and does something with them.
   ///
@@ -273,6 +285,32 @@ const List<BuildingDef> kBuildingDefs = [
     coinCost: 400,
     cost: {Resource.planks: 40, Resource.timber: 20},
     workSite: true,
+    // The ramp. Measured at 16 seeds against a ceiling of 0.20: 35 days left a
+    // worst case of 302 because the investment stranded on unlucky seeds,
+    // where 24 brings it back to 101 for three days of median. See
+    // Balance.grangeMaxYield for the full sweep.
+    ripenDays: 24,
+  ),
+
+  BuildingDef(
+    id: 'pasture',
+    name: 'Pasture',
+    icon: '🐑',
+    blurb: 'Sheep, and the wool off them. Eats grain from the day it is '
+        'fenced; worth having by shearing.',
+    maxWorkers: 2,
+    coinCost: 350,
+    cost: {Resource.planks: 35, Resource.timber: 20},
+    // Grain, as feed. Priced against a farm: a fully crewed one makes about
+    // 27 grain a day, so this takes roughly an eighth of one. Large enough
+    // that the flock is a claim on the harvest and not a rounding error,
+    // small enough that a single farm still feeds a town beside it.
+    upkeep: {Resource.grain: 0.073},
+    // Wool is the point. The meat is there to hand back the food value the
+    // feed took out — see Resource.nutrition — so the flock comes out roughly
+    // even on the supper table and earns its keep in the weaver instead.
+    outputs: {Resource.wool: 0.050, Resource.meat: 0.024},
+    ripenDays: 30,
   ),
 
   // ---- The dark trade ---------------------------------------------------
@@ -403,6 +441,22 @@ class Building {
   /// warning in the UI, and it must keep meaning *scarcity* and nothing else.
   double lastEfficiency = 1.0;
 
+  /// How far this building has ripened, 0 to 1. Only meaningful when
+  /// [BuildingDef.ripens].
+  ///
+  /// Per building rather than per port. The Grange kept a single scalar on
+  /// GameState, which was fine while exactly one thing ripened and impossible
+  /// the moment a port could hold a pasture and a byre at once, each with its
+  /// own herd growing at its own pace.
+  double maturity = 0;
+
+  /// What this building is worth right now, as a share of its grown self.
+  ///
+  /// Never zero: a new pasture is a going concern with a small flock, not an
+  /// empty field. Starting at nothing would mean the first fortnight produced
+  /// literally no evidence the shed worked at all.
+  double get ripeness => def.ripens ? 0.25 + 0.75 * maturity : 1.0;
+
   /// Event throughput multiplier applied this tick. Transient, never saved.
   /// Kept separate from [lastEfficiency] so a gale does not make the
   /// "short on input" warning lie.
@@ -454,6 +508,7 @@ class Building {
           'hold': hold.map((k, v) =>
               MapEntry(k.name, double.parse(v.toStringAsFixed(3)))),
         if (def.imports) 'import': importResource.name,
+        if (def.ripens) 'ripe': double.parse(maturity.toStringAsFixed(4)),
       };
 
   static Building fromJson(Map<String, dynamic> j) {
@@ -475,6 +530,8 @@ class Building {
       col: (j['col'] as num?)?.toInt() ?? -1,
       row: (j['row'] as num?)?.toInt() ?? -1,
     );
+    b.maturity =
+        ((j['ripe'] as num?)?.toDouble() ?? 0).clamp(0.0, 1.0).toDouble();
     final held = j['hold'];
     if (held is Map<String, dynamic>) {
       held.forEach((k, v) {
