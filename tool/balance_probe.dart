@@ -33,7 +33,7 @@ const List<String> buildOrder = [
   // measured at the old position understated the mechanic. A ceiling sweep
   // there found no difference at all between 0.20 and 0.35, where a player
   // was reporting a large one.
-  'warehouse', 'farm', 'grange', 'pasture', 'flax_field', 'weaver', 'house',
+  'warehouse', 'farm', 'grange', 'pasture', 'byre', 'dairy', 'flax_field', 'weaver', 'house',
   'mine', 'sawmill', 'smithy', 'warehouse', 'house',
   'import_berth', 'forest_camp', 'cooperage', 'mine', 'smithy',
   'house', 'import_berth', 'flax_field', 'weaver', 'warehouse',
@@ -229,6 +229,27 @@ bool inEndgame(GameState g) =>
 /// about to build.
 int kBuildIndex = 0;
 
+/// True when [r] is made by a chain that has a ripening shed somewhere in it.
+///
+/// Derived rather than listed, so a good added later is covered without anyone
+/// remembering to come back here. Two hops is enough for every chain the game
+/// has: cheese off a byre, sailcloth off a pasture.
+bool _slowToRemake(GameState g, Resource r) {
+  bool madeBy(BuildingDef d) => d.outputs.containsKey(r);
+  for (final b in g.buildings) {
+    if (!madeBy(b.def)) continue;
+    if (b.def.ripens) return true;
+    for (final input in b.def.inputs.keys) {
+      for (final other in g.buildings) {
+        if (other.def.outputs.containsKey(input) && other.def.ripens) {
+          return true;
+        }
+      }
+    }
+  }
+  return false;
+}
+
 Map<Resource, double> reservesNow(GameState g) {
   final out = <Resource, double>{...workingReserve};
 
@@ -247,6 +268,41 @@ Map<Resource, double> reservesNow(GameState g) {
       final current = out[r] ?? 0;
       out[r] = keep > current ? keep : current;
     });
+  }
+
+  // NEVER SELL WHAT YOUR OWN SHEDS EAT.
+  //
+  // The quay sold every drop of milk the tick it was carted in, so the dairy
+  // beside it never had any: 16 of 16 seeds ran to day 400 reporting "cheese
+  // short by 40" while sitting on six figures of coin. Exactly the plank-floor
+  // trap above, one chain further along — a policy that sells an intermediate
+  // is measuring its own selling rule and calling the result a balance
+  // finding. Written for every input in the port rather than for milk, so the
+  // next chain does not have to discover it again.
+  for (final b in g.buildings) {
+    final def = b.def;
+    def.inputs.forEach((r, perWorker) {
+      // Two days of full draw: enough that a shed never idles waiting on the
+      // quay, small enough that the surplus is still income.
+      final keep = perWorker * def.maxWorkers * Balance.ticksPerDay * 2;
+      final current = out[r] ?? 0;
+      out[r] = keep > current ? keep : current;
+    });
+  }
+
+  // BANK WHAT YOU CANNOT RE-MAKE, from the first day rather than the endgame.
+  //
+  // The working reserve exists on a premise stated above: sell freely while
+  // the light is far off, because a working port can re-make 160 planks in a
+  // few days. That is true of planks and false of cheese, which sits behind a
+  // byre taking forty days to come on and a dairy behind that. Sold early it
+  // is not re-made, it is gone — 14 of 16 seeds ran to day 400 short of cheese
+  // while rich enough to buy the lighthouse twice over.
+  for (final r in g.lighthouseGoodsCost.keys) {
+    if (!_slowToRemake(g, r)) continue;
+    final need = g.lighthouseGoodsCost[r]! * endgameMargin;
+    final current = out[r] ?? 0;
+    out[r] = need > current ? need : current;
   }
 
   if (!inEndgame(g)) return out;

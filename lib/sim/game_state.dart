@@ -48,12 +48,38 @@ class Balance {
   /// is trivial and the last stretch is just waiting. Requiring rope *and*
   /// sailcloth also forces the flax decision to be answered "both, eventually",
   /// which is the most interesting way to end the game.
-  static const int lighthouseCoin = 9000;
+  /// 8,000, DOWN FROM 9,000, and planks down from 160 — the slack that pays
+  /// for cheese joining the bill.
+  ///
+  /// Where the slack is was measured, not guessed. `tool/survey_reports.dart`
+  /// over every played run asks which requirement each win came closest to
+  /// missing, and what was left over afterwards:
+  ///
+  ///     Rope       bound 3 of 4 wins   0.05x spare   <- came in on fumes
+  ///     Tools      bound 1 of 4        0.36x
+  ///     Planks     —                   0.99x         <- a second bill over
+  ///     Sailcloth  —                   0.99x         <- a second bill over
+  ///
+  /// So planks and coin give way, tools hold, and **rope is never cut**: it is
+  /// what actually gates a win, and softening it would take the tension out of
+  /// the ending to make room for the new goods.
+  static const int lighthouseCoin = 8000;
   static const Map<Resource, double> lighthouseCost = {
-    Resource.planks: 160,
+    Resource.planks: 130,
     Resource.tools: 80,
     Resource.rope: 120,
-    Resource.sailcloth: 90,
+    // 70, DOWN FROM 90, because a bolt of sailcloth is not the thing it was.
+    // It used to be flax worked once. It is now wool off a ripening pasture,
+    // woven with rope that the bill also wants — so holding the quantity
+    // steady would have been a large increase wearing the old number.
+    Resource.sailcloth: 70,
+    // A lighthouse is manned. You do not finish one by raising the tower, you
+    // finish it by victualling it so a keeper can live out there through a
+    // winter — which is what puts a food on the bill at all.
+    // 30. The chain behind it — a byre coming on, then a dairy — is the
+    // longest lead time on the bill, so the quantity has to be read against
+    // the days available rather than against what the other lines cost.
+    Resource.cheese: 30,
   };
 
   /// Catch-up work is bounded so resuming after a long absence cannot hang the

@@ -15,6 +15,7 @@ enum ResourceCategory { raw, good, food, contraband }
 /// not a trap, and it is avoidable by keeping fish and grain in.
 const List<Resource> kEatingOrder = [
   Resource.fish,
+  Resource.milk,
   Resource.grain,
   Resource.meat,
 ];
@@ -39,6 +40,13 @@ enum Resource {
   // staff, which is not what a slow bet is supposed to feel like.
   wool('Wool', ResourceCategory.raw, 3.0, '🧶', 0.4),
   meat('Meat', ResourceCategory.food, 9.0, '🥩', 0.5, nutrition: 3.0),
+  milk('Milk', ResourceCategory.food, 4.0, '🥛', 0.4, nutrition: 1.5),
+
+  /// Milk that keeps. The reason cheese exists at all is that a lighthouse is
+  /// manned and isolated: you do not finish one by building the tower, you
+  /// finish it by victualling it so somebody can live out there through a
+  /// winter. Milk cannot make that crossing and cheese can.
+  cheese('Cheese', ResourceCategory.good, 24.0, '🧀', 0.5),
   planks('Planks', ResourceCategory.good, 7.0, '🪚', 0.6),
   rope('Rope', ResourceCategory.good, 12.0, '🪢', 0.8),
   barrels('Barrels', ResourceCategory.good, 20.0, '🛢️', 1.0),

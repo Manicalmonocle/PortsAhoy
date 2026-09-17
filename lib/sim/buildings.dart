@@ -334,6 +334,38 @@ const List<BuildingDef> kBuildingDefs = [
     ripenDays: 30,
   ),
 
+  BuildingDef(
+    id: 'byre',
+    name: 'Byre',
+    icon: '🐄',
+    blurb: 'Cattle, and the milk off them. The slowest thing you can build, '
+        'and the only road to cheese.',
+    maxWorkers: 2,
+    coinCost: 500,
+    cost: {Resource.planks: 45, Resource.timber: 30},
+    // Cattle eat more than sheep — about a fifth of a farm.
+    upkeep: {Resource.grain: 0.104},
+    // Sized against the dairy: two hands here keep two hands there in milk.
+    outputs: {Resource.milk: 0.160, Resource.meat: 0.024},
+    // 28, NOT 40. Cattle should be the slowest thing in the port, but the
+    // bill wants cheese and cheese is only behind this — so a herd that takes
+    // forty days to come on, built around day 30, has barely started when an
+    // 80-day run wants to finish. Measured at 40: 4 of 16 seeds never won at
+    // all, and the median was 127 against a baseline of 80.
+    ripenDays: 28,
+  ),
+  BuildingDef(
+    id: 'dairy',
+    name: 'Dairy',
+    icon: '🧀',
+    blurb: 'Turns milk into something that will still be food in a month.',
+    maxWorkers: 2,
+    coinCost: 320,
+    cost: {Resource.planks: 30},
+    inputs: {Resource.milk: 0.135},
+    outputs: {Resource.cheese: 0.090},
+  ),
+
   // ---- The dark trade ---------------------------------------------------
   // Building any one of these opens the free-trader market. A port that never
   // builds one never sees contraband, is never inspected, and can still win.

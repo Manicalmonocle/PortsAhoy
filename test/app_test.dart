@@ -906,14 +906,20 @@ void _lighthouseCardTests() {
     await tester.pumpAndSettle();
 
     // The card must not claim the coin requirement is met when it is not.
-    // fmt() renders 13500 as "13.5k" and 240 as "240".
-    expect(find.textContaining('13.5k'), findsWidgets,
-        reason: 'the card must print the scaled coin cost, not the base 9000');
-    expect(find.textContaining('/ 9000'), findsNothing,
-        reason: 'printing the base coin cost is what caused the report');
-    expect(find.textContaining('/ 240'), findsWidgets,
-        reason: 'planks must show the scaled 240, not the base 160');
-    expect(find.textContaining('/ 160'), findsNothing);
+    // Derived from Balance rather than written out: the first version of this
+    // hardcoded 13.5k and 240, and broke the day the bill was retuned — which
+    // is a test reporting on a number the game had stopped believing.
+    final scale = c.state.charters.lighthouseCost;
+    final scaledPlanks =
+        (Balance.lighthouseCost[Resource.planks]! * scale).round();
+    final basePlanks = Balance.lighthouseCost[Resource.planks]!.round();
+
+    expect(find.textContaining('/ $scaledPlanks'), findsWidgets,
+        reason: 'planks must show the scaled figure, not the base');
+    expect(find.textContaining('/ $basePlanks'), findsNothing,
+        reason: 'printing the unscaled cost is what caused the report');
+    expect(find.textContaining('/ ${Balance.lighthouseCoin}'), findsNothing,
+        reason: 'nor the unscaled coin cost');
 
     await closeGame(tester);
   });

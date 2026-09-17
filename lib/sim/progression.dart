@@ -85,6 +85,11 @@ const List<UnlockRule> kUnlockRules = [
   // simpler version of the idea would be learning the lesson backwards.
   UnlockRule('pasture', text: 'Build a grange', requires: ['grange']),
 
+  // Cattle after sheep: the byre is the same bargain again but slower and
+  // dearer, so meeting it second is meeting it in the right order.
+  UnlockRule('byre', text: 'Build a pasture', requires: ['pasture']),
+  UnlockRule('dairy', text: 'Build a byre', requires: ['byre']),
+
   // ---- The dark trade, entirely optional ---------------------------------
   //
   // These used to be a chain: each dark shed unlocked only once you had BUILT
