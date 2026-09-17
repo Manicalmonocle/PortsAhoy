@@ -7,6 +7,7 @@ import 'package:vector_math/vector_math_64.dart' show Matrix4, Vector3, Vector4;
 import '../game_controller.dart';
 import '../sim/buildings.dart';
 import '../sim/game_state.dart';
+import '../sim/pets.dart';
 import '../sim/terrain.dart';
 import 'theme.dart';
 
@@ -889,6 +890,71 @@ class _ScenePainter extends CustomPainter {
       _person(home.x + ox + wx, home.z + oz + wz, tick, seed,
           _coats[seed % _coats.length]);
     }
+
+    _buildPet();
+  }
+
+  /// The animal the port keeps, wandering where the hands are.
+  ///
+  /// THIS IS HALF THE FEATURE, and the cheaper half. A pet moves one product
+  /// by 10% and another by 7% — numbers nobody will ever feel by playing, and
+  /// small on purpose, because a pet is a scheduled gift rather than something
+  /// earned. What makes it land is being able to watch it: a dog on the quay
+  /// does more for a player's sense that something arrived than any percentage
+  /// does, and it costs the balance nothing at all.
+  ///
+  /// It keeps near a house rather than roaming the whole island, so it reads
+  /// as belonging to the port instead of being loose in it. A hungry one lies
+  /// down — visible at a glance, and the same information the struck-through
+  /// line on its card carries.
+  void _buildPet() {
+    final pet = state.petDef;
+    if (pet == null) return;
+
+    Vector3? home;
+    for (final b in state.buildings) {
+      if (b.isPlaced && b.defId == 'house') {
+        final f = b.def.footprint;
+        home = tileCorner(b.col + f / 2, b.row + f / 2, 0);
+        break;
+      }
+    }
+    home ??= tileCorner(Terrain.size / 2, Terrain.size / 2, 0);
+
+    final tick = state.tick;
+    final fed = state.petFed;
+    // A fed animal wanders; a hungry one stays put.
+    final wx = fed ? math.sin(tick * 0.08) * 0.7 : 0.0;
+    final wz = fed ? math.cos(tick * 0.055) * 0.7 : 0.0;
+    final x = home.x + 0.6 + wx;
+    final z = home.z + 0.6 + wz;
+    final y = _groundAt(x, z, tick);
+
+    final hide = switch (pet.kind) {
+      PetKind.dog => const Color(0xFF8A6238),
+      PetKind.cat => const Color(0xFF4A4A52),
+      PetKind.bird => const Color(0xFFD9B23A),
+      PetKind.monkey => const Color(0xFF6E5136),
+      PetKind.turtle => const Color(0xFF4E6B3A),
+    };
+
+    // Turtles and birds are not dogs: the silhouette should say which animal
+    // it is from the only angle the camera ever gives.
+    final len = switch (pet.kind) {
+      PetKind.bird => 0.16,
+      PetKind.cat => 0.22,
+      PetKind.turtle => 0.24,
+      _ => 0.28,
+    };
+    // Dimmed when hungry, by the same rule and the same amount an unstaffed
+    // shed is dimmed by: the scene's job is to tell you what is working, and a
+    // pet that has gone without meat is not.
+    final dim = fed ? 1.0 : 0.66;
+    Color sh(Color c) => Color.lerp(const Color(0xFF33402C), c, dim)!;
+
+    _beast(x, z, y, len, sh(hide),
+        head: sh(Color.lerp(hide, Colors.black, 0.3)!),
+        lift: fed ? (pet.kind == PetKind.turtle ? 0.02 : 0.05) : 0.01);
   }
 
   /// Ships moored off the island whenever there are traders at the quay.
@@ -1176,6 +1242,26 @@ class _ScenePainter extends CustomPainter {
     }
   }
 
+  /// A four-legged animal, seen from a long way up: a body, a head, and enough
+  /// suggestion of legs to read as standing rather than lying.
+  ///
+  /// Small enough that detail is wasted — what carries it is silhouette and
+  /// count. A field with six sheep in it reads as a flock; the same field with
+  /// one reads as a field that has a sheep in it, which is exactly the
+  /// difference a ripening pasture is supposed to show.
+  void _beast(double x, double z, double y0, double len, Color hide,
+      {Color? head, double lift = 0.06}) {
+    final w = len * 0.45;
+    final h = len * 0.5;
+    // Legs, as one low block — four posts at this scale is noise.
+    _slab(x - w * 0.8, z - w * 0.5, x + w * 0.8, z + w * 0.5, y0, lift,
+        Color.lerp(hide, Colors.black, 0.45)!);
+    _slab(x - len * 0.5, z - w, x + len * 0.5, z + w, y0 + lift, h, hide,
+        top: Color.lerp(hide, Colors.white, 0.12));
+    _slab(x + len * 0.42, z - w * 0.6, x + len * 0.78, z + w * 0.6,
+        y0 + lift + h * 0.35, h * 0.62, head ?? hide);
+  }
+
   /// A low-poly tree: a trunk and two stacked cones.
   void _tree(double x, double z, double y0, double h, Color leaf, Color trunk) {
     _pole(x, z, y0, h * 0.35, 0.05, trunk);
@@ -1396,6 +1482,74 @@ class _ScenePainter extends CustomPainter {
         _pole(max.x + 0.25, cz, y + 0.5, 0.6, 0.012, dark);
         _slab(max.x + 0.1, cz - 0.15, max.x + 0.4, cz + 0.15, y + 0.28, 0.24, crate);
         _slab(min.x + 0.85, min.z + 0.15, min.x + 1.15, min.z + 0.45, y + 0.08, 0.26, crate);
+
+      case 'pasture':
+        // A fenced field, and the flock grows into it. A maturing shed that
+        // looks identical on day one and day thirty is a bonus nobody can see
+        // coming good — the same fault the grange's fields were drawn to fix.
+        final flock = b.maturity.clamp(0.0, 1.0);
+        for (var i = 0; i < 5; i++) {
+          final t = i / 4;
+          _pole(min.x + 0.06 + t * (w - 0.12), min.z + 0.06, y, 0.2, 0.025,
+              sh(timber));
+          _pole(min.x + 0.06 + t * (w - 0.12), max.z - 0.06, y, 0.2, 0.025,
+              sh(timber));
+        }
+        _slab(min.x + 0.05, min.z + 0.04, max.x - 0.05, min.z + 0.07,
+            y + 0.14, 0.03, sh(timber));
+        _slab(min.x + 0.05, max.z - 0.07, max.x - 0.05, max.z - 0.04,
+            y + 0.14, 0.03, sh(timber));
+        // One at a bare fold, six at a grown one.
+        final sheep = 1 + (flock * 5).round();
+        for (var i = 0; i < sheep; i++) {
+          final a = i * 2.39; // spread without a pattern
+          _beast(cx + math.cos(a) * w * 0.28, cz + math.sin(a) * d * 0.26, y,
+              0.3, sh(const Color(0xFFE2DDD2)),
+              head: sh(const Color(0xFF4A4038)));
+        }
+
+      case 'byre':
+        // A long barn with the herd in the yard beside it.
+        final herd = b.maturity.clamp(0.0, 1.0);
+        _gable(Vector3(min.x, y, min.z), Vector3(min.x + 0.78, y, max.z - 0.1),
+            0.55, 0.42, wall, roof);
+        final cattle = 1 + (herd * 3).round();
+        for (var i = 0; i < cattle; i++) {
+          final a = i * 2.39;
+          _beast(cx + 0.25 + math.cos(a) * 0.3, cz + math.sin(a) * d * 0.28, y,
+              0.42, sh(const Color(0xFF6B4A32)),
+              head: sh(const Color(0xFF3C2A1C)), lift: 0.08);
+        }
+
+      case 'hen_house':
+        // A small raised coop and a scratching run. Quick to come on, so it is
+        // busy early — which is the reason to build it first of the three.
+        final brood = b.maturity.clamp(0.0, 1.0);
+        _pole(min.x + 0.3, min.z + 0.3, y, 0.16, 0.03, sh(dark));
+        _pole(min.x + 0.7, min.z + 0.3, y, 0.16, 0.03, sh(dark));
+        _gable(Vector3(min.x + 0.22, y + 0.16, min.z + 0.22),
+            Vector3(min.x + 0.78, y + 0.16, min.z + 0.72), 0.26, 0.2,
+            wall, roof);
+        final hens = 2 + (brood * 4).round();
+        for (var i = 0; i < hens; i++) {
+          final a = i * 2.39;
+          _beast(cx + 0.15 + math.cos(a) * 0.32, cz + math.sin(a) * d * 0.24,
+              y, 0.15, sh(const Color(0xFFC96A4A)),
+              head: sh(const Color(0xFFD9403A)), lift: 0.03);
+        }
+
+      case 'bakery':
+        // A chimney that works, because an oven that never smokes is a shed
+        // with a hat on. Gated on hands like every other moving part.
+        _gable(min, max, 0.52, 0.4, wall, roof);
+        _slab(max.x - 0.34, min.z + 0.16, max.x - 0.14, min.z + 0.36,
+            y + 0.5, 0.42, sh(const Color(0xFF8A6152)));
+        if (b.workers > 0) _smoke(max.x - 0.24, y + 0.92, min.z + 0.26, tick);
+        // Loaves cooling on a board by the door.
+        for (var i = 0; i < 3; i++) {
+          _slab(min.x + 0.2 + i * 0.16, max.z - 0.28, min.x + 0.32 + i * 0.16,
+              max.z - 0.16, y + 0.02, 0.07, sh(const Color(0xFFC8A063)));
+        }
 
       case 'distillery':
         _gable(Vector3(min.x, y, min.z), Vector3(max.x - 0.6, y, max.z), 0.6, 0.4, wall, roof);
