@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <!--
+    If you are serving your web app in a path other than the root, change the
+    href value below to reflect the base path you are serving from.
+
+    The path provided below has to start and end with a slash "/" in order for
+    it to work correctly.
+
+    For more details:
+    * https://developer.mozilla.org/en-US/docs/Web/HTML/Element/base
+
+    This is a placeholder for base href that will be replaced by the value of
+    the `--base-href` argument provided to `flutter build`.
+  -->
+  <base href="./">
+
+  <meta charset="UTF-8">
+  <meta content="IE=Edge" http-equiv="X-UA-Compatible">
+  <meta name="description" content="A resource management game with no ads, no purchases and no paid speed-ups.">
+
+  <!-- iOS meta tags & icons -->
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="apple-mobile-web-app-title" content="Ports Ahoy!">
+  <meta name="theme-color" content="#0E1A22">
+  <!--
+    NO viewport-fit=cover.
+
+    It was here from the Flutter template, and on a phone it does exactly what
+    it says: the page is laid out edge to edge, running underneath the system
+    bars. That is fine for a native app, which is told how tall the bars are and
+    insets itself — the dock already wraps in SafeArea for precisely that. On
+    mobile web the engine does not reliably map env(safe-area-inset-bottom) into
+    MediaQuery.viewPadding, so SafeArea gets zero, nothing is inset, and the
+    bottom of the game sits under the on-screen navigation buttons.
+
+    Dropping it lets the browser size the visual viewport to the space actually
+    free. The game loses a few pixels of bleed behind the nav bar and stops
+    hiding its own controls there, which is the better trade.
+  -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <link rel="apple-touch-icon" href="icons/Icon-192.png">
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/png" href="favicon.png"/>
+
+  <title>Ports Ahoy!</title>
+  <link rel="manifest" href="manifest.json">
+
+  <!--
+    The boot screen.
+
+    Until this existed the first thing anyone saw was Flutter's stock template
+    blue with nothing on it, for however long the engine took to download. The
+    palette below is lifted from lib/ui/theme.dart so the wait belongs to the
+    game rather than to the toolchain.
+
+    Everything here is inline on purpose: no fonts, no images, no stylesheets
+    to fetch. A boot screen that waits on a network request is worse than none,
+    and this has to work offline for an installed PWA.
+  -->
+  <style>
+    :root {
+      --deep:  #0E1A22;
+      --hull:  #16262F;
+      --brass: #D9A441;
+      --lamp:  #F2C572;
+      --fog:   #B6C6CE;
+    }
+    html, body { margin: 0; padding: 0; background: var(--deep); }
+
+    #boot {
+      position: fixed;
+      inset: 0;
+      z-index: 9999;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: var(--deep);
+      /* Safe areas, so the notch never clips the wordmark. */
+      padding: env(safe-area-inset-top) env(safe-area-inset-right)
+               env(safe-area-inset-bottom) env(safe-area-inset-left);
+      opacity: 1;
+      transition: opacity 420ms ease;
+      font-family: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+      -webkit-font-smoothing: antialiased;
+    }
+    #boot.gone { opacity: 0; pointer-events: none; }
+
+    /* The lamp: a light seen through weather. It is also the progress
+       indicator — a lighthouse's slow characteristic flash, rather than a
+       spinner that belongs to no particular game. */
+    #boot::before {
+      content: "";
+      position: absolute;
+      top: 18%;
+      left: 50%;
+      width: min(120vw, 900px);
+      height: min(120vw, 900px);
+      transform: translate(-50%, -50%);
+      background: radial-gradient(circle,
+                  rgba(242,197,114,0.20) 0%,
+                  rgba(242,197,114,0.09) 32%,
+                  rgba(242,197,114,0.00) 68%);
+      animation: beam 4.2s ease-in-out infinite;
+      pointer-events: none;
+    }
+    @keyframes beam {
+      0%, 100% { opacity: 0.45; }
+      45%      { opacity: 1; }
+    }
+
+    .boot-stack { position: relative; text-align: center; padding: 0 24px; }
+
+    /* Slot for the ManicalGaming logo. It removes itself if the file is not
+       there, so the screen is complete with or without it — drop the artwork
+       in at web/icons/manical-logo.png and it appears. */
+    #boot-logo {
+      display: block;
+      margin: 0 auto 22px;
+      width: auto;
+      max-width: min(38vw, 132px);
+      max-height: 132px;
+      image-rendering: auto;
+    }
+
+    .boot-title {
+      margin: 0;
+      font-size: clamp(30px, 8.5vw, 54px);
+      font-weight: 600;
+      letter-spacing: 0.012em;
+      color: var(--lamp);
+      text-shadow: 0 0 26px rgba(242,197,114,0.30);
+    }
+
+    .boot-rule {
+      width: clamp(120px, 38vw, 220px);
+      height: 1px;
+      margin: 20px auto 0;
+      background: linear-gradient(90deg,
+                  rgba(217,164,65,0) 0%,
+                  rgba(217,164,65,0.75) 50%,
+                  rgba(217,164,65,0) 100%);
+    }
+
+    /* Indeterminate, because the engine reports no progress to read. */
+    .boot-bar {
+      position: relative;
+      width: clamp(120px, 38vw, 220px);
+      height: 2px;
+      margin: 26px auto 0;
+      overflow: hidden;
+      border-radius: 2px;
+      background: rgba(182,198,206,0.13);
+    }
+    .boot-bar > i {
+      position: absolute;
+      inset: 0 auto 0 0;
+      width: 42%;
+      border-radius: 2px;
+      background: linear-gradient(90deg,
+                  rgba(217,164,65,0) 0%,
+                  var(--brass) 50%,
+                  rgba(217,164,65,0) 100%);
+      animation: sweep 1.5s ease-in-out infinite;
+    }
+    @keyframes sweep {
+      0%   { transform: translateX(-110%); }
+      100% { transform: translateX(340%); }
+    }
+
+    .boot-by {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: calc(28px + env(safe-area-inset-bottom));
+      margin: 0;
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      font-size: 12px;
+      letter-spacing: 0.17em;
+      text-transform: uppercase;
+      color: rgba(182,198,206,0.62);
+    }
+    .boot-by b { font-weight: 600; color: rgba(182,198,206,0.92); }
+
+    /* Anyone who has asked for less movement gets a still lamp. */
+    @media (prefers-reduced-motion: reduce) {
+      #boot::before { animation: none; opacity: 0.8; }
+      .boot-bar > i { animation: none; width: 100%; }
+    }
+  </style>
+</head>
+<body>
+  <div id="boot" role="status" aria-label="Loading Ports Ahoy">
+    <div class="boot-stack">
+      <img id="boot-logo" src="icons/manical-logo.png" alt=""
+           onerror="this.remove()">
+      <h1 class="boot-title">Ports Ahoy!</h1>
+      <div class="boot-rule"></div>
+      <div class="boot-bar"><i></i></div>
+    </div>
+    <p class="boot-by">A game by <b>ManicalGaming</b></p>
+  </div>
+
+  <script>
+    // Take the boot screen down once Flutter has actually put a view on the
+    // page. There is no "ready" event to hook, so watch for the element the
+    // engine mounts — the selector covers what current and older embeddings
+    // create, since being wrong here means the screen never leaves.
+    (function () {
+      var boot = document.getElementById('boot');
+      if (!boot) return;
+      var SEL = 'flutter-view, flt-glass-pane, flt-scene-host';
+      var done = false;
+
+      function dismiss() {
+        if (done) return;
+        done = true;
+        if (obs) obs.disconnect();
+        boot.classList.add('gone');
+        setTimeout(function () {
+          if (boot.parentNode) boot.parentNode.removeChild(boot);
+        }, 460);
+      }
+
+      var obs = new MutationObserver(function () {
+        // A short grace period: the view is mounted a moment before it has
+        // anything painted in it, and fading on that instant shows a flash of
+        // empty canvas.
+        if (document.querySelector(SEL)) setTimeout(dismiss, 260);
+      });
+      obs.observe(document.documentElement, { childList: true, subtree: true });
+
+      if (document.querySelector(SEL)) dismiss();
+
+      // Last resort. If the engine fails to boot, a game that is merely broken
+      // is better than one stuck behind a screen that never lifts.
+      setTimeout(dismiss, 25000);
+    })();
+  </script>
+
+  <!--
+    You can customize the "flutter_bootstrap.js" script.
+    This is useful to provide a custom configuration to the Flutter loader
+    or to give the user feedback during the initialization process.
+
+    For more details:
+    * https://docs.flutter.dev/platform-integration/web/initialization
+  -->
+  <script src="flutter_bootstrap.js?v=1.12.0-42" async></script>
+
+  <script>
+    // Keep an installed copy up to date on its own.
+    //
+    // A sideloaded APK cannot update itself — Android only allows that through
+    // a store. The installed web app can, but Flutter's service worker caches
+    // hard and will happily serve a stale build until something forces it to
+    // look. So: check on every launch, check again when the app is brought
+    // back to the foreground, and reload once the new worker takes over.
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', function () {
+        navigator.serviceWorker.getRegistration().then(function (reg) {
+          if (!reg) return;
+
+          reg.update();
+
+          // Fired when a waiting worker becomes the active one, which only
+          // happens once a genuinely new build has downloaded.
+          var reloading = false;
+          navigator.serviceWorker.addEventListener('controllerchange', function () {
+            if (reloading) return;
+            reloading = true;
+            window.location.reload();
+          });
+
+          // Re-check whenever the app comes back to the foreground, so a
+          // long-lived home-screen install still picks up new builds.
+          document.addEventListener('visibilitychange', function () {
+            if (document.visibilityState === 'visible') reg.update();
+          });
+        });
+      });
+    }
+  </script>
+</body>
+</html>

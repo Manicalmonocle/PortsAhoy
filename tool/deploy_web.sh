@@ -24,10 +24,15 @@ sed -i "s|m(\"main.dart.js\")|m(\"main.dart.js?v=$VER\")|g" "$BOOT"
 sed -i "s|flutter_bootstrap.js\" async|flutter_bootstrap.js?v=$VER\" async|g" "$IDX"
 sed -i 's|<base href="/">|<base href="./">|' "$IDX"
 
-# Preserve the downloads that live under docs/dl across the rebuild.
+# Preserve what lives under docs/ but is not the game: the downloads, and any
+# preview build parked alongside it. This script deletes docs/ wholesale, so
+# anything not carried across here is gone without a word.
 mkdir -p /tmp/pa_dl && cp -f docs/dl/* /tmp/pa_dl/ 2>/dev/null || true
+rm -rf /tmp/pa_keep_preview
+[ -d docs/preview ] && cp -r docs/preview /tmp/pa_keep_preview
 rm -rf docs && cp -r build/web docs
 mkdir -p docs/dl && cp -f /tmp/pa_dl/* docs/dl/ 2>/dev/null || true
+[ -d /tmp/pa_keep_preview ] && cp -r /tmp/pa_keep_preview docs/preview || true
 
 echo "staged docs/ at $VER"
 grep -o "main.dart.js?v=$VER" docs/flutter_bootstrap.js | head -1
