@@ -80,10 +80,20 @@ const List<UnlockRule> kUnlockRules = [
   // to be a real question rather than an obvious no.
   UnlockRule('grange', text: 'Build a farm', requires: ['farm']),
 
-  // Behind the grange rather than the farm. A pasture is the second half of
-  // the same bargain — time into yield — and meeting it before the cheaper,
-  // simpler version of the idea would be learning the lesson backwards.
-  UnlockRule('pasture', text: 'Build a grange', requires: ['grange']),
+  // BEHIND THE FARM, NOT THE GRANGE, and that ordering is worth more than the
+  // tidy lesson it replaced.
+  //
+  // A pasture reads as the second half of the grange's bargain, so it was put
+  // behind one. But the weaver sits behind the pasture — no wool, no sailcloth
+  // — and burying the pasture two deep buried the weaver three. A played run
+  // came back with the whole opening spent on raws: "coin kept running
+  // low/empty until about day 20ish. rarely got any ships in the quay that
+  // wanted raw goods where that's all I had the sheds for". Their only refined
+  // good before day 45 was rope.
+  //
+  // Sailcloth is the port's first valuable thing to sell, and putting the
+  // flock in front of it took the early game's income with it.
+  UnlockRule('pasture', text: 'Build a farm', requires: ['farm']),
 
   // Cattle after sheep: the byre is the same bargain again but slower and
   // dearer, so meeting it second is meeting it in the right order.

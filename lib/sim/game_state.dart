@@ -762,7 +762,7 @@ class GameState {
     }
     _runAutoCollect(dayTurned: dayTurned);
     market.advance(tick, rng, events.effects.conditions, darkTradeOpen,
-        notoriety);
+        notoriety, producedHere);
   }
 
   /// A standing crew eats stores whether or not it sails.
@@ -1709,6 +1709,18 @@ class GameState {
   /// True while at least one grange has hands in it.
   bool get grangeWorked =>
       buildings.any((b) => b.defId == 'grange' && b.workers > 0);
+
+  /// What this port's staffed sheds actually turn out.
+  ///
+  /// Handed to the market so traders favour a quay that has something to sell
+  /// them — see the note in `_rollShip`.
+  Set<Resource> get producedHere {
+    final out = <Resource>{};
+    for (final b in buildings) {
+      if (b.workers > 0) out.addAll(b.def.outputs.keys);
+    }
+    return out;
+  }
 
   /// How the town feels, 0 to 1. Starts level.
   double happiness = Balance.happinessNeutral;

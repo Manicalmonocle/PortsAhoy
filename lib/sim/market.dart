@@ -272,6 +272,7 @@ class Market {
     PortConditions conditions = PortConditions.calm,
     bool darkTradeOpen = false,
     double notoriety = 0.0,
+    Set<Resource> produces = const {},
   ]) {
     for (final r in Resource.values) {
       final cur = index[r] ?? 1.0;
@@ -292,8 +293,8 @@ class Market {
       final free = darkTradeOpen && rng.next() < freeTraderShare;
       ships.add(free
           ? _rollFreeTrader(tick, rng, notoriety)
-          : _rollShip(
-              tick, rng, conditions.demandScale, notoriety, darkTradeOpen));
+          : _rollShip(tick, rng, conditions.demandScale, notoriety,
+              darkTradeOpen, produces));
     }
   }
 
@@ -385,7 +386,8 @@ class Market {
   Ship _rollShip(int tick, SeededRng rng,
       [double demandScale = 1.0,
       double notoriety = 0.0,
-      bool darkTradeOpen = false]) {
+      bool darkTradeOpen = false,
+      Set<Resource> produces = const {}]) {
     // Ships favour finished goods — that is the pull toward refining.
     // An honest captain will not touch contraband at any price.
     final legit =
@@ -394,6 +396,20 @@ class Market {
       ...legit.where((r) => r.category == ResourceCategory.good),
       ...legit.where((r) => r.category == ResourceCategory.good),
       ...legit.where((r) => r.category != ResourceCategory.good),
+      // AND AGAIN, FOR WHATEVER THIS PORT ACTUALLY MAKES.
+      //
+      // Traders go where the goods are, which is both true and a fix for
+      // something husbandry broke. This pool is built by listing resources, so
+      // its odds move whenever the list grows: five new foods took the chance
+      // a ship wants timber specifically from about 6.7% to 4.5%, a third off,
+      // and a young port making three or four raws felt the whole of that.
+      // Reported from a played run — "rarely got any ships in the quay that
+      // wanted raw goods where that's all I had the sheds for."
+      //
+      // Weighting what the port produces holds a young port's odds steady
+      // however many goods are added later, and costs a mature one nothing,
+      // since by then it makes most of the list anyway.
+      ...legit.where(produces.contains),
     ];
 
     final count = rng.rangeInt(2, 4);
