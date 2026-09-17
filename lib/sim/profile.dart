@@ -93,19 +93,46 @@ class Profile {
   ///
   /// Deterministic in [seed] so the offer cannot be rerolled by closing the
   /// app — the choice is meant to be a decision, not a slot machine.
+  ///
+  /// ALWAYS AT LEAST ONE OF EACH KIND, when both are still available. A flat
+  /// draw from a pool of 9 hardships and 8 advantages leaves an 8.2% chance of
+  /// offering three advantages and nothing else, and a player hit it: "the
+  /// charters all made the next run easier, none more difficult".
+  ///
+  /// That is not merely dull, it is a dead offer. Hardships *earn* the budget
+  /// that advantages *spend* ([CharterSet.isLegal]), so a hand of three
+  /// advantages hands you nothing you can afford to turn on and no way to pay
+  /// for it later. Guaranteeing one of each makes every offer the trade the
+  /// system is actually built on: take on a difficulty to fund a comfort.
   List<String> offer(int seed) {
     final pool = kCharters.where((c) => !owned.contains(c.id)).toList();
     if (pool.isEmpty) return const [];
     pool.sort((a, b) => a.id.compareTo(b.id));
 
-    final picked = <String>[];
     var s = seed & 0x7FFFFFFF;
-    final taken = <int>{};
-    while (picked.length < 3 && taken.length < pool.length) {
-      s = (s * 1103515245 + 12345) & 0x7FFFFFFF;
-      final i = s % pool.length;
-      if (taken.add(i)) picked.add(pool[i].id);
+    int next() => s = (s * 1103515245 + 12345) & 0x7FFFFFFF;
+
+    final picked = <String>[];
+    final taken = <String>{};
+
+    /// Take one at random from [from], if it has anything left to give.
+    void drawFrom(List<Charter> from) {
+      final left = from.where((c) => !taken.contains(c.id)).toList();
+      if (left.isEmpty) return;
+      final c = left[next() % left.length];
+      taken.add(c.id);
+      picked.add(c.id);
     }
+
+    // Order matters for determinism, not for fairness: the hardship is drawn
+    // first so an identical seed always yields an identical offer.
+    drawFrom(pool.where((c) => c.isHardship).toList());
+    drawFrom(pool.where((c) => !c.isHardship).toList());
+    while (picked.length < 3 && taken.length < pool.length) {
+      drawFrom(pool);
+    }
+    // Sorted so the guaranteed pair never sits in a giveaway position.
+    picked.sort();
     return picked;
   }
 

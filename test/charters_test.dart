@@ -348,4 +348,51 @@ void endOfRunTests() {
           lessThanOrEqualTo(all.activeSet.budgetEarned + kBaseBudget));
     });
   });
+
+  group('the charter offer', () {
+    test('always holds a hardship and an advantage while both remain', () {
+      // A flat draw left an 8.2% chance of three advantages and nothing else,
+      // which a played run hit: "the charters all made the next run easier
+      // none more difficult". That offer is not just dull — hardships earn the
+      // budget advantages spend, so three advantages fund nothing.
+      for (var seed = 0; seed < 400; seed++) {
+        final p = Profile();
+        final ids = p.offer(seed);
+        expect(ids.length, 3, reason: 'seed $seed offered ${ids.length}');
+        final cs = ids.map((id) => kCharters.firstWhere((c) => c.id == id));
+        expect(cs.any((c) => c.isHardship), isTrue,
+            reason: 'seed $seed offered no hardship at all: $ids');
+        expect(cs.any((c) => !c.isHardship), isTrue,
+            reason: 'seed $seed offered no advantage at all: $ids');
+      }
+    });
+
+    test('the same seed always offers the same three', () {
+      // The offer must not be rerollable by closing the app.
+      final p = Profile();
+      for (var seed = 0; seed < 50; seed++) {
+        expect(p.offer(seed), equals(p.offer(seed)));
+      }
+    });
+
+    test('never offers a charter already owned', () {
+      final p = Profile();
+      p.owned.addAll(kCharters.take(6).map((c) => c.id));
+      for (var seed = 0; seed < 200; seed++) {
+        for (final id in p.offer(seed)) {
+          expect(p.owned.contains(id), isFalse,
+              reason: 'seed $seed re-offered $id');
+        }
+      }
+    });
+
+    test('degrades rather than failing when one kind runs out', () {
+      // Own every hardship: the offer must still fill up with advantages.
+      final p = Profile();
+      p.owned.addAll(kCharters.where((c) => c.isHardship).map((c) => c.id));
+      final ids = p.offer(7);
+      expect(ids.length, 3);
+      expect(ids.every((id) => p.owned.contains(id)), isFalse);
+    });
+  });
 }
