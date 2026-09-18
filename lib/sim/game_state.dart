@@ -726,8 +726,34 @@ class GameState {
   int get lighthouseCoinCost =>
       (Balance.lighthouseCoin * charters.lighthouseCost).round();
 
-  Map<Resource, double> get lighthouseGoodsCost => Balance.lighthouseCost
-      .map((r, q) => MapEntry(r, q * charters.lighthouseCost));
+  /// The bill this RUN was started under, before charters scale it.
+  ///
+  /// A run keeps the terms it began under. That rule is already written into
+  /// this file for charters — "resuming cannot quietly change the terms" — and
+  /// it matters far more for the bill, because the bill is the win condition.
+  ///
+  /// Without this, shipping the husbandry update would have stranded every run
+  /// in flight: a port at day 61 holding 200 planks, 90 tools, 140 rope and
+  /// 100 sailcloth — every old requirement beaten — would have been told it
+  /// now needs 30 cheese, with neither the pasture nor the byre unlocked and
+  /// no way to buy cheese at any price, since the ware pool is raws and planks
+  /// by design. Forty days added to a run that was one day from finishing.
+  Map<Resource, double> runBill = Map.of(Balance.lighthouseCost);
+
+  /// The bill the previous release shipped with.
+  ///
+  /// Used for saves written before [runBill] existed, which cannot say what
+  /// they were promised. Guessing the CURRENT bill would be guessing wrong in
+  /// the one direction that costs a player their run.
+  static const Map<Resource, double> legacyBill = {
+    Resource.planks: 160,
+    Resource.tools: 80,
+    Resource.rope: 120,
+    Resource.sailcloth: 90,
+  };
+
+  Map<Resource, double> get lighthouseGoodsCost =>
+      runBill.map((r, q) => MapEntry(r, q * charters.lighthouseCost));
 
   bool get canBuildLighthouse =>
       !lighthouseBuilt &&
@@ -2406,6 +2432,7 @@ class GameState {
         'privateerLevel': privateerLevel,
         'reeveLevel': reeveLevel,
         'grangeMaturity': grangeMaturity,
+        'bill': runBill.map((r, q) => MapEntry(r.name, q)),
         if (pet != null) 'pet': pet!.name,
         if (petOfferSettled) 'petSettled': true,
         if (!petFed) 'petFed': false,
@@ -2468,6 +2495,24 @@ class GameState {
     // lost — the officer's berth it used to occupy is simply freed.
     state.privateerLevel = (j['privateerLevel'] as num?)?.toInt() ?? 0;
     state.reeveLevel = (j['reeveLevel'] as num?)?.toInt() ?? 0;
+    final rawBill = j['bill'];
+    if (rawBill is Map) {
+      final restored = <Resource, double>{};
+      rawBill.forEach((k, v) {
+        try {
+          restored[Resource.byId(k as String)] = (v as num).toDouble();
+        } on StateError {
+          // A requirement in a resource this build no longer has. Dropping it
+          // can only make the run easier, which is the safe direction.
+        }
+      });
+      if (restored.isNotEmpty) state.runBill = restored;
+    } else {
+      // Written before the bill was recorded, so it was written under the
+      // bill of the release before this one. Honour that.
+      state.runBill = Map.of(legacyBill);
+    }
+
     final petName = j['pet'];
     if (petName is String) {
       for (final k in PetKind.values) {

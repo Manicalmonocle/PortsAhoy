@@ -70,6 +70,7 @@ Future<void> scrollTo(WidgetTester tester, Finder target) async {
 }
 
 void main() {
+  _runBillTests();
   group('the base is the screen', () {
     testWidgets('boots straight into the harbour, with no tabs', (tester) async {
       await pumpGame(tester);
@@ -1133,5 +1134,45 @@ void _lighthouseCardTests() {
     }
 
     await closeGame(tester);
+  });
+}
+
+void _runBillTests() {
+  group('a run keeps the bill it began under', () {
+    test('an old save is not handed a requirement it cannot meet', () {
+      // THE CASE THIS EXISTS FOR. A run at day 61 on the previous release,
+      // holding more than every requirement it was promised, would otherwise
+      // have been told it now needs 30 cheese — with neither the pasture nor
+      // the byre unlocked, a 28-day ramp behind them, and no way to buy cheese
+      // at any price, since the ware pool is raws and planks by design.
+      final g = GameState.newGame(seed: 9);
+      g.tick = 60 * Balance.ticksPerDay;
+      g.coin = 12000;
+      g.stock[Resource.planks] = 200;
+      g.stock[Resource.tools] = 90;
+      g.stock[Resource.rope] = 140;
+      g.stock[Resource.sailcloth] = 100;
+
+      final j = jsonDecode(jsonEncode(g.toJson())) as Map<String, dynamic>;
+      j.remove('bill'); // as a save from before this existed
+      final back = GameState.fromJson(j);
+
+      expect(back.lighthouseGoodsCost.containsKey(Resource.cheese), isFalse,
+          reason: 'a run cannot be asked for something it was never promised');
+      expect(back.canBuildLighthouse, isTrue,
+          reason: 'this run had earned its light before the update landed');
+    });
+
+    test('a new run gets the current bill', () {
+      final g = GameState.newGame(seed: 3);
+      expect(g.lighthouseGoodsCost.containsKey(Resource.cheese), isTrue);
+    });
+
+    test('the bill survives a save', () {
+      final g = GameState.newGame(seed: 5);
+      final back = GameState.fromJson(
+          jsonDecode(jsonEncode(g.toJson())) as Map<String, dynamic>);
+      expect(back.lighthouseGoodsCost, g.lighthouseGoodsCost);
+    });
   });
 }
