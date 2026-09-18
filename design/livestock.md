@@ -1,6 +1,24 @@
 # Livestock — design plan
 
-**Status: planning only. Nothing here is built.** The point of writing it down
+## What actually got built
+
+**This document is the PLAN. Four things came out differently, and the
+differences are the interesting part — each was forced by a measurement.**
+
+| Planned | Shipped | Why |
+| --- | --- | --- |
+| A separate Dairy | Cheese comes off the Byre | Six new sheds did not fit a port that stops near 25 buildings; five seeds of sixteen never built a smithy at all. Folding it in took the median from 101 days to 81. |
+| Cheese at 24 coin | 7 coin | Off an extractor, a dear good made the Byre the best-earning shed in the game. Cheap is also the right shape: cheese is worth having because the light wants it, not because it sells. |
+| Bread on the bill at 40 | Not on the bill | Two new requirements meant six mandatory sheds. The Bakery earns its place by stretching grain, which is a payoff in labour rather than coin. |
+| Bill: rope 120 → 100 | Rope untouched at 120 | The survey has rope gating three wins in four at 0.05x spare. Softening it would have taken the tension out of the ending to make room for new goods. |
+
+Sailcloth also came down 90 → 70, which was not planned: it used to be flax
+worked once and is now wool off a ripening pasture woven with rope, so holding
+the number would have been a large increase wearing the old one.
+
+---
+
+**Status: the plan below. Built on the `livestock` branch; see the table above.** The point of writing it down
 first is that this chain has one specific way of failing, and this project has
 already failed that way twice.
 

@@ -1,6 +1,22 @@
 # Pets — design plan
 
-**Status: planning only. Nothing here is built.** Depends on
+## What actually got built
+
+**Built on the `livestock` branch, close to this plan.** Three differences:
+
+- **Appetite is 0.25 meat a day, not 0.5.** At a half, feeding alone cost two
+  days on every pet — meat is scarce by design, being what offsets the feed the
+  herds take, and the town eats first. Every option came out neutral-or-worse,
+  which made taking one irrational.
+- **Happiness exists**, so the "small permanent lift" this document wanted is
+  real: +8%, and the only unconditional good in keeping an animal.
+- **Measured at 81 days with no pet:** a matched pick (turtle, bird) is free,
+  a careless one (monkey, dog) costs 3-4 days. A four-day swing, which is what
+  this document predicted, inside the ceiling it set.
+
+---
+
+**Status: the plan below.** Depends on
 [the livestock chain](livestock.md), which supplies the meat.
 
 ---
