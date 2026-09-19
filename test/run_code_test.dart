@@ -404,6 +404,7 @@ void _lighthouseSectionTests() {
         RunCode.voyageMark(5, 100, 'ostmark', 3.0, 600),
         RunCode.prizeMark(5, 40, 10),
         RunCode.petMark(5, 'bird'),
+        RunCode.barterMark(5, 'spice', 20, 'tools', 40),
         RunCode.winMark(5, 30),
       ];
       final leads = codes.map((c) => c[0]).toList();

@@ -453,7 +453,19 @@ const List<BuildingDef> kBuildingDefs = [
     // The rope goes up instead. Rope is what the light is actually short of,
     // so the berth still costs something that hurts — it just costs it in a
     // currency available from day 20 rather than day 56.
-    cost: {Resource.planks: 60, Resource.rope: 55},
+    // BARRELS, NOT ROPE — and that is a principle, not a discount.
+    //
+    // A cost denominated in the lighthouse's own materials makes the dark
+    // trade a straight subtraction from winning: every coil spent here is a
+    // coil the light does not get, so the route is dominated before it starts.
+    // 55 rope was 46% of the bill's entire rope requirement, and a played run
+    // that took the berth finished on ONE rope spare.
+    //
+    // Barrels are a real cost — planks through a cooperage, and worth good
+    // coin unspent — without being anything the light asks for. The berth
+    // should cost you hands, time and a chain you built for it, not the win
+    // condition itself.
+    cost: {Resource.planks: 60, Resource.barrels: 35},
     // Stores, meaning FOOD — which is what the blurb above says and what a
     // standing crew actually eats. It used to draw rope and sailcloth, and at
     // four hands that was 3.4 rope a day: a berth held for 31 days consumed

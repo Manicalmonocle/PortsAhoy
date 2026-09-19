@@ -343,6 +343,13 @@ class RunCode {
           'tons': _dec(f[1]),
           'spiceHeld': f.length > 2 ? _dec(f[2]) : 0,
         });
+      case 'T':
+        return DecodedMark(_dec(f[0]), 'barter', {
+          'gave': f[1],
+          'gaveQty': _dec(f[2]),
+          'got': f[3],
+          'gotQty': _dec(f[4]),
+        });
       case 'A':
         return DecodedMark(_dec(f[0]), 'pet', {'animal': f[1]});
       case 'W':
@@ -367,6 +374,18 @@ class RunCode {
   /// A boarded hull: tonnage taken, and the spice held afterwards.
   static String prizeMark(int day, int tons, int spiceHeld) =>
       'p${_enc(day)}.${_enc(tons)}.${_enc(spiceHeld)}';
+
+  /// A barter with a free trader: contraband out, materials in.
+  ///
+  /// Spice exists to buy FINISHED GOODS, and whether a player ever actually
+  /// spends it that way is the single most important thing about the dark
+  /// trade — and no report could say. A run came back holding 50 spice with no
+  /// way to tell whether any of it had been traded for the tools and rope the
+  /// port was starving for.
+  static String barterMark(
+          int day, String gave, int gaveQty, String got, int gotQty) =>
+      'T${_enc(day)}.${shortCode(gave)}.${_enc(gaveQty)}'
+      '.${shortCode(got)}.${_enc(gotQty)}';
 
   /// The animal a run took on.
   ///

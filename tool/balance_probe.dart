@@ -59,14 +59,19 @@ const List<String> darkBuildOrder = [
   // byre for the sailcloth and cheese the bill wants; an order that skipped
   // them would measure a port that cannot win rather than a dark one.
   'forest_camp', 'sawmill', 'house', 'flax_field', 'ropewalk',
-  'warehouse', 'farm', 'grange', 'pasture', 'mine',
-  'privateer_berth', 'powder_mill', 'byre', 'house', 'smithy',
-  // COOPERAGE BEFORE DISTILLERY, and it is not optional: a distillery costs 10
+  'warehouse', 'farm', 'cooperage', 'grange', 'pasture',
+  'mine', 'privateer_berth', 'powder_mill', 'byre', 'house',
+  'smithy',
+  // COOPERAGE BEFORE THE BERTH AND THE DISTILLERY, and it is not optional.
+  // The berth is priced in barrels now, and the first order written after that
+  // change left the cooperage behind it: the queue stalled on a berth it could
+  // never afford and the whole run built nothing, 0 prizes and 0 deals across
+  // 16 seeds. That is this exact trap, walked into a second time — a distillery costs 10
   // barrels and barrels come from nowhere else. Without it the queue stopped
   // dead at the distillery forever — 20 sheds, 25 people and 47,000 coin at
   // day 400, having never built a single dark shed. Every "the dark trade
   // loses 8 of 8" figure measured before this was a stalled honest port.
-  'bonded_cellar', 'weaver', 'cooperage', 'distillery', 'sawmill',
+  'bonded_cellar', 'weaver', 'distillery', 'sawmill',
   'house', 'import_berth', 'warehouse', 'house', 'mine',
 ];
 

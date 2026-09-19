@@ -792,7 +792,7 @@ class GameState {
     }
     _runAutoCollect(dayTurned: dayTurned);
     market.advance(tick, rng, events.effects.conditions, darkTradeOpen,
-        notoriety, producedHere);
+        notoriety, producedHere, billShortfall);
   }
 
   /// A standing crew eats stores whether or not it sails.
@@ -1760,6 +1760,20 @@ class GameState {
   bool get grangeWorked =>
       buildings.any((b) => b.defId == 'grange' && b.workers > 0);
 
+  /// How much of the light's bill is still owing, as a share of each line.
+  ///
+  /// Handed to the free traders so a spice swap offers what the port is
+  /// actually short of — see `_pickWanted`.
+  Map<Resource, double> get billShortfall {
+    final out = <Resource, double>{};
+    lighthouseGoodsCost.forEach((r, need) {
+      if (need <= 0) return;
+      final short = (need - stock[r]) / need;
+      if (short > 0) out[r] = short.clamp(0.0, 1.0);
+    });
+    return out;
+  }
+
   /// What this port's staffed sheds actually turn out.
   ///
   /// Handed to the market so traders favour a quay that has something to sell
@@ -2197,6 +2211,18 @@ class GameState {
     darkEarned += deal.takeQty * market.priceOf(deal.take) -
         deal.giveQty * market.priceOf(deal.give);
     _addHeat(deal.giveQty * deal.give.heatWeight * Balance.heatPerBarterUnit);
+
+    // Recorded, because it was not. Spice exists to buy FINISHED GOODS, and
+    // whether a player ever spends it that way is the whole question about
+    // this route — a played run came back holding 50 spice with no way to tell
+    // whether a grain of it had been traded for the tools and rope the port
+    // was starving for.
+    journal.mark(
+        day,
+        'traded ${deal.giveQty.round()} ${deal.give.label.toLowerCase()} '
+            'for ${deal.takeQty.round()} ${deal.take.label.toLowerCase()}',
+        code: RunCode.barterMark(day, deal.give.name, deal.giveQty.round(),
+            deal.take.name, deal.takeQty.round()));
 
     log('Traded ${deal.giveQty.round()} ${deal.give.label.toLowerCase()} to the '
         '${ship.name} for ${deal.takeQty.round()} '
