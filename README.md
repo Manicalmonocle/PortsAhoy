@@ -790,15 +790,16 @@ their behalf.
 - No tech or upgrade progression beyond building more sheds
 - The archipelago/trade-route map (ships' origins, lanes, blockades) — only the
   harbour scene exists
-- **The bot still does not hire a retinue or use the chandler**, so pacing
-  measured against it ignores two systems a real player leans on. It does send
-  consignments and can work the dark trade (`--dark`) — both were added after
-  their absence produced two wrong readings.
+- **The bot does not use the chandler**, so pacing measured against it ignores
+  a system a real player leans on. It can now hire a retinue (`--hire`) and work
+  the dark trade (`--dark`), and it sends consignments — every one of those was
+  added after its absence produced a wrong reading. Hiring is off by default
+  because it measured worse, at 90 days against 82: wages crowd out houses.
 - Not on the Play Store. That needs twelve testers running a closed track for
   fourteen unbroken days; internal testing does not count toward it.
 
-What is intended next — animals and husbandry, the charter reweighting, the
-Play Store track — is in [ROADMAP.md](ROADMAP.md). It carries no dates.
+What is intended next — settling the dark trade, the charter weights, the Play
+Store track — is in [ROADMAP.md](ROADMAP.md). It carries no dates.
 
 ### What used to be here, and is no longer true
 

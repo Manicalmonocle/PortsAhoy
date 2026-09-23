@@ -13,27 +13,50 @@ direction rather than a commitment. What the game already does is described in
 
 ---
 
+## Just shipped — 1.14, the livestock update
+
+The three items that stood at the top of this file are built and live, and are
+described properly in [README.md](README.md). In a line each:
+
+- **Animals and husbandry.** Pasture, byre, hen house and bakery, all of them
+  eating grain. Wool into sailcloth, cheese onto the bill, and a fourth retinue
+  track — the reeve — that ripens them faster.
+- **A happiness system.** The town has an opinion and it has teeth: growth runs
+  0.8x to 1.5x with it, a day's work swings ±15%, and below 0.30 nobody new
+  arrives at all. It answers to feeding, housing and paying people. Never to a
+  payment.
+- **Pets, with trade-offs.** One ship, day 40-50, five animals, +10%/-7%, and a
+  meat bill for as long as you keep one.
+
+Both plans are kept as they were written —
+[design/livestock.md](design/livestock.md) and [design/pets.md](design/pets.md)
+— including the numbers that were wrong the first time and what they measured
+at.
+
+---
+
 ## Next
 
-**Animals and husbandry.** The second half of the Grange, and the obvious
-extension of the route it opened. The Grange converts *time* into yield; herds
-are the same bargain in a more literal form — stock that grows on its own if it
-is fed and housed, and is worth nothing the week you buy it. Likely shape:
-livestock as a slow-growing chain producing food and wool, with wool feeding
-the existing weaver and a hide or dairy good giving the farm chain somewhere to
-go. The point is to give the honest side depth without adding another thing to
-click every few minutes.
+**Decide the dark trade — keep it, or cut it.** It has been reworked three
+times and has never once been measured on a policy that could actually play it.
+1.14 fixed the last two things standing in the way: the berth is priced in
+barrels instead of rope, so entering the route no longer subtracts from the
+bill; and spice now buys what the port is *short of* rather than whatever a
+trader felt like offering. What is missing is a played run under those terms.
+If it still is not worth the hands when the payoff finally lands on the right
+goods, cutting it is the honest answer and the game loses nothing it needs.
 
-**[The full plan is written up in design/livestock.md](design/livestock.md)** —
-cows for milk, chickens for eggs, sheep for wool and meat from all three, plus a
-bakery; wool into sailcloth, and cheese and bread onto the lighthouse bill, so
-the chain is load-bearing rather than optional. The animals earn in goods, not food: meat, milk and eggs exist only to
-cancel the grain the herds eat, so they never become a second town competing for
-the harvest. It also
-records the two things that have to be fixed *before* any of it is built (food
-is counted one unit per person-day, so meat would be strictly worse than fish;
-and the balance probe never staffs a shed with no immediate output, which has
-already wrecked two measurements), and the pass/fail bar agreed in advance.
+**Teach the probe to trade spice, and stop it committing on day ten.** The
+blocker on the item above, and the longest-standing hole in this project's
+measurements. The probe has never taken a spice deal — 0 of 47,699 seen —
+because it never crews a bonded cellar, which scores zero on
+margin-per-worker-tick like every other shed whose output is not immediate. Its
+dark policy also builds a cooperage, a berth and a powder mill before its second
+sawmill, which no player would. Its dark median of 282 days against 77 honest is
+therefore not evidence of anything, and **no further dark-trade balance change
+should be made until it is.** This is the same error for the fourth time — the
+grange that never ripened, the berth that never got built, the cellar that never
+got crewed. The measurement keeps measuring the policy rather than the mechanic.
 
 **~~Diagnose the Grange outlier~~ — probably explained.** Under *A Grander
 Light*, one seed of eight blew out to 351 days against a baseline maximum of
@@ -65,10 +88,15 @@ rather than because the bot is poor.
 
 ## Planned
 
-**Recalibrate the charters.** The difficulty budget does not match what the
-charters actually cost. Measured: *Poor Soil* carries weight 1 and costs about
-46 days; *Bitter Seas* carries weight 2 and cost about −1. The weights were set
-by judgement and have never been re-derived from play.
+**Recalibrate the charter weights.** *Half of this shipped in 1.14:* every
+offer now guarantees at least one hardship and one advantage, after a player
+drew three advantages and had no way to pay for any of them — an 8.2% hand from
+a flat draw. What is still open is the budget itself.
+
+The difficulty budget does not match what the charters actually cost.
+Measured: *Poor Soil* carries weight 1 and costs about 46 days; *Bitter Seas*
+carries weight 2 and cost about −1. The weights were set by judgement and have
+never been re-derived from play.
 
 **Measure the dark trade end to end.** First played attempt is in —
 `human-2026-09-16-dark-prize-88d.pa1`, build 1.9.1+36, no charters, won on day
@@ -97,54 +125,28 @@ on the previous build got one in thirty-one, and the first privateer captain
 ever hired. One run and one seed, so not a verdict — but the powder change is
 doing what it was meant to.
 
-**The probe still says the route loses: median 102 against 80.** And the
-measurement still has a hole in it big enough to invalidate the verdict:
+**The probe still says the route loses** — 102 against 80 when this was
+written, 282 against 77 at 1.14. And the measurement still has a hole in it big
+enough to invalidate the verdict:
 
-> **The probe has never taken a spice deal.** 6,044 seen, 0 taken, across every
-> dark run ever measured.
+> **The probe has never taken a spice deal.** 0 taken, across every dark run
+> ever measured — 6,044 deals seen when this was written, 47,699 by 1.14.
 
 Spice exists because coin was never the constraint — it is the one thing that
 converts risk into *finished goods*, which is what the lighthouse actually
 wants. A dark run that never trades spice is measuring the chain with its payoff
-removed, which is the same class of error as the berth that never got built and
-the grange that never ripened. **Teaching the probe to trade spice is the next
-step, and no further dark-trade balance change should be made before it.**
+removed. **That work has moved to "Next" above, along with the decision it
+blocks.**
 
 **More life in the world.** Smoke that drifts on the wind, a ship that visibly
 leaves the quay when you send a consignment, weather you can see arriving. The
 world went from flat shapes to a populated port recently; this is the
 remainder of that work, and it is polish rather than mechanics.
 
-**A happiness system.** The port has people in it and they have no opinion. A
-happiness reading would give the town a voice — responding to whether they are
-fed well or merely fed, housed or crowded, worked in a port that runs sweetly or
-one that lurches from crisis to crisis, and whether you are in the dark trade at
-all. It should have teeth: unhappy hands work worse, newcomers stop arriving,
-and a port run badly enough starts losing the people it has. Growth you can lose
-is the pressure the honest route is currently missing — nothing on that side
-pushes back once the chains are running.
-
-The one rule it must hold to is the fourth row of the table in
-[README.md](README.md): **no relief for sale.** Pressure is the point; a
-*purchase* that makes the pressure go away is the pattern. Notoriety already
-sets the shape, and sets it well: there is no bribe and no passive decay, but
-there *is* a way down — honest commerce launders, and a clean inspection pays
-back four points. The meter comes down through play. Happiness should answer the
-same way: to feeding people properly, housing them, paying them, keeping the
-port steady. Never to a payment, and never to simply waiting it out.
-
-**Pets, with trade-offs.** *After animals and husbandry, which supplies the
-meat.* A ship puts in around day 40-50 with animals aboard and you buy one —
-the only pet the run will ever offer. Each lifts happiness, raises one product
-and lowers another, and eats meat, so keeping one is an obligation as well as a
-gift. Dog, cat, bird, monkey and turtle, arranged so that every product one
-raises is another's cost: nothing is strictly best, and the pick is a read on
-which lighthouse item you are behind on — which day 40-50 is exactly when you
-first know.
-
-**[The full plan is in design/pets.md](design/pets.md)**, including the numbers
-to start from, why no pet may touch meat, and how a meat-fed pet avoids gating
-one optional system behind another.
+**The boot screen.** It is a blue field with the game's name on it, and it
+should carry the ManicalGaming name and logo. The web slot is already wired —
+drop a file in at `web/icons/manical-logo.png` and it appears — and the Android
+splash needs its own drawable.
 
 **Play Store release.** The build side is done — signed AAB, privacy policy,
 version stamping. What is left is paperwork and people: the $25 registration,
