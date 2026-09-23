@@ -16,6 +16,7 @@ import 'package:ports_ahoy/sim/buildings.dart';
 import 'package:ports_ahoy/sim/events.dart';
 import 'package:ports_ahoy/sim/charters.dart';
 import 'package:ports_ahoy/sim/game_state.dart';
+import 'package:ports_ahoy/sim/pets.dart';
 import 'package:ports_ahoy/sim/resources.dart';
 import 'package:ports_ahoy/sim/retinue.dart';
 import 'package:ports_ahoy/sim/run_code.dart';
@@ -25,19 +26,18 @@ import 'package:ports_ahoy/version.dart';
 /// What the policy builds, in order, whenever it can afford the next item.
 const List<String> buildOrder = [
   'forest_camp', 'sawmill', 'house', 'flax_field', 'ropewalk',
-  // GRANGE EARLY, because that is when a person builds one. A played run put
-  // it up on day 16 as the sixth building; the bot had it sixteenth in this
-  // list and reached it near day 35. With a 24-day ramp to climb afterwards,
-  // that is the difference between running on a grown grange for half the run
-  // and barely reaching maturity before winning — so every grange number
-  // measured at the old position understated the mechanic. A ceiling sweep
-  // there found no difference at all between 0.20 and 0.35, where a player
-  // was reporting a large one.
-  'warehouse', 'farm', 'grange', 'flax_field', 'weaver', 'house',
-  'mine', 'sawmill', 'smithy', 'warehouse', 'house',
+  // GRANGE AND PASTURE EARLY, IRON RIGHT BEHIND THEM. Husbandry grew from one
+  // shed to five, and putting the whole chain ahead of the mine pushed the
+  // smithy past the point where the port stops expanding: five of sixteen
+  // seeds ran to day 400 reporting "tools short by 80" — the entire
+  // requirement, from a smithy that was never built. Played runs put the mine
+  // down between days 23 and 42, so the iron chain belongs here, and the
+  // slower half of the herd can wait behind it.
+  'warehouse', 'farm', 'grange', 'pasture', 'byre',
+  'house', 'mine', 'sawmill', 'smithy', 'weaver',
+  'warehouse', 'hen_house', 'bakery', 'house',
   'import_berth', 'forest_camp', 'cooperage', 'mine', 'smithy',
-  'house', 'import_berth', 'flax_field', 'weaver', 'warehouse',
-  'farm', 'house', 'import_berth', 'sawmill', 'house',
+  'house', 'import_berth', 'flax_field', 'warehouse', 'house',
 ];
 
 /// The same port, but committing hands to the dark trade instead of a second
@@ -48,34 +48,31 @@ const List<String> buildOrder = [
 /// adds another layer for no real payoff." A layer that cannot be shown to pay
 /// for the hands it takes is one of two things, and only a run tells you which.
 const List<String> darkBuildOrder = [
-  // Identical to the honest order through the first smithy — a port that never
-  // builds one cannot make the 80 tools the light needs, and an order that
-  // buries it measures nothing but the ordering mistake. The dark sheds take
-  // the place of the SECOND smithy and weaver, which is the real trade a
-  // player makes: these hands, or those.
+  // REWRITTEN FOR A PORT THAT COMMITS EARLY, which is only now possible: the
+  // berth used to hang off the smithy and cost 30 sailcloth, so it could not
+  // be reached until the endgame had already started. It hangs off the
+  // ropewalk now and costs rope instead.
+  //
+  // This order is what "going dark" should actually look like — the berth and
+  // the mill before the second sawmill, not bolted on after the light is in
+  // sight. It still has to finish a lighthouse, so it carries a pasture and a
+  // byre for the sailcloth and cheese the bill wants; an order that skipped
+  // them would measure a port that cannot win rather than a dark one.
   'forest_camp', 'sawmill', 'house', 'flax_field', 'ropewalk',
-  'warehouse', 'farm', 'flax_field', 'weaver', 'house',
-  'mine', 'sawmill', 'smithy', 'warehouse', 'house',
-  // COOPERAGE BEFORE DISTILLERY, and it is not optional: a distillery costs 10
+  'warehouse', 'farm', 'cooperage', 'grange', 'pasture',
+  'mine', 'privateer_berth', 'powder_mill', 'byre', 'house',
+  'smithy',
+  // COOPERAGE BEFORE THE BERTH AND THE DISTILLERY, and it is not optional.
+  // The berth is priced in barrels now, and the first order written after that
+  // change left the cooperage behind it: the queue stalled on a berth it could
+  // never afford and the whole run built nothing, 0 prizes and 0 deals across
+  // 16 seeds. That is this exact trap, walked into a second time — a distillery costs 10
   // barrels and barrels come from nowhere else. Without it the queue stopped
   // dead at the distillery forever — 20 sheds, 25 people and 47,000 coin at
   // day 400, having never built a single dark shed. Every "the dark trade
-  // loses 8 of 8" figure measured before this was a stalled honest port, not
-  // the dark trade.
-  // BERTH AND MILL BEFORE THE REST OF THE CHAIN. They sat at positions 22 and
-  // 23, against an expandUntil of 25 — so on many seeds the port stopped
-  // expanding before it ever built the thing the whole route is named after,
-  // and 8,165 of 11,250 blocked boardings were "no crew at the privateer
-  // berth" reported for a berth that did not exist. A played run had them up
-  // on days 57 and 60.
-  'import_berth', 'cooperage', 'privateer_berth', 'powder_mill',
-  'distillery', 'mine', 'bonded_cellar',
-  // The berth is the whole point of the chain and was missing: without it the
-  // port makes powder it can only sell, never boards a hull, and never sees a
-  // grain of spice. A "dark" run that cannot take a prize was measuring the
-  // contraband sheds alone, which is exactly the losing half.
-  'house', 'import_berth', 'warehouse',
-  'farm', 'house', 'import_berth', 'sawmill', 'house',
+  // loses 8 of 8" figure measured before this was a stalled honest port.
+  'bonded_cellar', 'weaver', 'distillery', 'sawmill',
+  'house', 'import_berth', 'warehouse', 'house', 'mine',
 ];
 
 /// True when `--dark` was passed: build the contraband chain and trade it.
@@ -114,6 +111,16 @@ int kPrizeOddsTooLow = 0;
 /// Kept behind a flag so the experiment is one command away rather than
 /// something to write again from scratch:  --hire
 bool kHire = false;
+
+/// Which pet to take when the ship puts in, from `--pet=dog`.
+///
+/// The bar this feature is measured against is a CEILING, not a floor: a pet
+/// that shifts the median much is a lever bolted onto a scheduled free gift,
+/// and a run would turn on one choice at the midpoint. So the number to watch
+/// is the swing between the best pick and the worst on the SAME seeds — the
+/// difference between them is the trade-off, and it is the only figure here
+/// not swamped by seed variance.
+PetKind? kPet;
 
 /// A deliberate disaster to inflict mid-run, from `--sabotage=name@day`.
 ///
@@ -229,6 +236,27 @@ bool inEndgame(GameState g) =>
 /// about to build.
 int kBuildIndex = 0;
 
+/// True when [r] is made by a chain that has a ripening shed somewhere in it.
+///
+/// Derived rather than listed, so a good added later is covered without anyone
+/// remembering to come back here. Two hops is enough for every chain the game
+/// has: cheese off a byre, sailcloth off a pasture.
+bool _slowToRemake(GameState g, Resource r) {
+  bool madeBy(BuildingDef d) => d.outputs.containsKey(r);
+  for (final b in g.buildings) {
+    if (!madeBy(b.def)) continue;
+    if (b.def.ripens) return true;
+    for (final input in b.def.inputs.keys) {
+      for (final other in g.buildings) {
+        if (other.def.outputs.containsKey(input) && other.def.ripens) {
+          return true;
+        }
+      }
+    }
+  }
+  return false;
+}
+
 Map<Resource, double> reservesNow(GameState g) {
   final out = <Resource, double>{...workingReserve};
 
@@ -247,6 +275,41 @@ Map<Resource, double> reservesNow(GameState g) {
       final current = out[r] ?? 0;
       out[r] = keep > current ? keep : current;
     });
+  }
+
+  // NEVER SELL WHAT YOUR OWN SHEDS EAT.
+  //
+  // The quay sold every drop of milk the tick it was carted in, so the dairy
+  // beside it never had any: 16 of 16 seeds ran to day 400 reporting "cheese
+  // short by 40" while sitting on six figures of coin. Exactly the plank-floor
+  // trap above, one chain further along — a policy that sells an intermediate
+  // is measuring its own selling rule and calling the result a balance
+  // finding. Written for every input in the port rather than for milk, so the
+  // next chain does not have to discover it again.
+  for (final b in g.buildings) {
+    final def = b.def;
+    def.inputs.forEach((r, perWorker) {
+      // Two days of full draw: enough that a shed never idles waiting on the
+      // quay, small enough that the surplus is still income.
+      final keep = perWorker * def.maxWorkers * Balance.ticksPerDay * 2;
+      final current = out[r] ?? 0;
+      out[r] = keep > current ? keep : current;
+    });
+  }
+
+  // BANK WHAT YOU CANNOT RE-MAKE, from the first day rather than the endgame.
+  //
+  // The working reserve exists on a premise stated above: sell freely while
+  // the light is far off, because a working port can re-make 160 planks in a
+  // few days. That is true of planks and false of cheese, which sits behind a
+  // byre taking forty days to come on and a dairy behind that. Sold early it
+  // is not re-made, it is gone — 14 of 16 seeds ran to day 400 short of cheese
+  // while rich enough to buy the lighthouse twice over.
+  for (final r in g.lighthouseGoodsCost.keys) {
+    if (!_slowToRemake(g, r)) continue;
+    final need = g.lighthouseGoodsCost[r]! * endgameMargin;
+    final current = out[r] ?? 0;
+    out[r] = need > current ? need : current;
   }
 
   if (!inEndgame(g)) return out;
@@ -273,7 +336,9 @@ class Run {
   Run(this.seed, this.winDay, this.peakCoin, this.endPopulation,
       this.endBuildings, this.shortfall, this.hazards, this.boons,
       this.minFoodDays, this.blockedFood, this.blockedRoof, this.blockedPay,
-      this.starvedDays, this.daysLived, this.lastPressureDay);
+      this.starvedDays, this.daysLived, this.lastPressureDay,
+      this.blockedMood, this.endHappiness, this.popAtDay20, this.builtAtDay20,
+      this.firstSailDay);
   final int seed;
 
   /// Day the lighthouse was lit, or -1 if the run never got there.
@@ -309,6 +374,7 @@ class Run {
   final int blockedFood;
   final int blockedRoof;
   final int blockedPay;
+  final int blockedMood;
 
   /// Days on which at least one staffed shed was short of input.
   ///
@@ -333,6 +399,18 @@ class Run {
   /// one of them tense to the end and the other coasting from the halfway
   /// mark, and the second is the one players stop playing.
   final int lastPressureDay;
+
+  /// Where the town's mood finished.
+  final double endHappiness;
+
+  /// The opening, on its own. A played report on the livestock build sailed
+  /// first on day 18 against days 10-13 on the build before it, and stood at 8
+  /// people on day 10 where every earlier run stood at 10 — "early game is a
+  /// lot tougher... afraid it will turn people off". One run cannot tell that
+  /// from seed luck. These can.
+  final int popAtDay20;
+  final int builtAtDay20;
+  final int firstSailDay;
 
   bool get won => winDay > 0;
 }
@@ -390,6 +468,21 @@ void main(List<String> args) {
 
   kDark = args.contains('--dark');
   if (kDark) print('Dark trade: building and working the contraband chain.');
+
+  final petArg = args.firstWhere((a) => a.startsWith('--pet='),
+      orElse: () => '');
+  if (petArg.isNotEmpty) {
+    final want = petArg.substring('--pet='.length);
+    for (final k in PetKind.values) {
+      if (k.name == want) kPet = k;
+    }
+    if (kPet == null) {
+      print('Unknown pet "$want". Known: '
+          '${PetKind.values.map((k) => k.name).join(', ')}');
+      return;
+    }
+    print('Pet: taking a ${kPet!.name} when the ship puts in.');
+  }
 
   final sabArg = args.firstWhere((a) => a.startsWith('--sabotage='),
       orElse: () => '');
@@ -469,9 +562,26 @@ void _summarise(List<Run> runs) {
   print('food      lowest median ${lowFood[lowFood.length ~/ 2].toStringAsFixed(1)}d'
       '  (min ${lowFood.first.toStringAsFixed(1)}d)'
       '  ·  gate is ${Balance.growthFoodDays.toStringAsFixed(0)}d');
+  final bMood = runs.map((r) => r.blockedMood).toList()..sort();
   print('growth    blocked days — median: roofs ${bRoof[bRoof.length ~/ 2]}'
       ' · payroll ${bPay[bPay.length ~/ 2]}'
+      ' · mood ${bMood[bMood.length ~/ 2]}'
       ' · food ${bFood[bFood.length ~/ 2]}');
+
+  final p20 = runs.map((r) => r.popAtDay20).toList()..sort();
+  final b20 = runs.map((r) => r.builtAtDay20).toList()..sort();
+  final sail = runs.map((r) => r.firstSailDay).toList()..sort();
+  print('opening   day 20: pop ${p20[p20.length ~/ 2]}'
+      ' · built ${b20[b20.length ~/ 2]}'
+      '   ·   first consignment day ${sail[sail.length ~/ 2]}');
+
+  // Where the town's mood actually sat. A meter nobody ever sees move is a
+  // meter that is not doing anything.
+  final mood = runs.map((r) => r.endHappiness).toList()..sort();
+  print('mood      at the finish: median '
+      '${(mood[mood.length ~/ 2] * 100).round()}%'
+      '  (min ${(mood.first * 100).round()}%'
+      '  max ${(mood.last * 100).round()}%)');
 
   // Scarcity, as a share of the run. This is the number that answers "does it
   // still feel like a game about supply", which win-day cannot.
@@ -521,6 +631,10 @@ Run _play(int seed, {bool verbose = false}) {
   var blockedFood = 0;
   var blockedRoof = 0;
   var blockedPay = 0;
+  var blockedMood = 0;
+  var popAtDay20 = 0;
+  var builtAtDay20 = 0;
+  var firstSailDay = -1;
   var starvedDays = 0;
   var daysLived = 0;
   var lastPressureDay = 0;
@@ -553,6 +667,14 @@ Run _play(int seed, {bool verbose = false}) {
     kBuildIndex = buildIndex;
     _reassign(g);
 
+    if (day == 20) {
+      popAtDay20 = g.population;
+      builtAtDay20 = g.buildings.length;
+    }
+    if (firstSailDay < 0 && g.journal.marks.any((m) => m.code?.startsWith('v') ?? false)) {
+      firstSailDay = day;
+    }
+    if (kPet != null && g.petOfferOpen) g.takePet(kPet!);
     if (kSabotage != null && day == kSabotageDay) _sabotage(g);
 
     if (g.coin > peakCoin) peakCoin = g.coin;
@@ -580,6 +702,8 @@ Run _play(int seed, {bool verbose = false}) {
       blockedRoof++;
     } else if (g.coin < g.dailyWageBill + g.retinueWageBill) {
       blockedPay++;
+    } else if (g.happiness < Balance.happinessGrowthFloor) {
+      blockedMood++;
     } else if (fd < Balance.growthFoodDays) {
       blockedFood++;
     }
@@ -617,7 +741,9 @@ Run _play(int seed, {bool verbose = false}) {
   return Run(seed, lighthouseDay, peakCoin, g.population, g.buildings.length,
       lighthouseDay > 0 ? const {} : _shortfallOf(g), hazards, boons,
       minFoodDays.isFinite ? minFoodDays : 0, blockedFood, blockedRoof,
-      blockedPay, starvedDays, daysLived, lastPressureDay);
+      blockedPay, starvedDays, daysLived, lastPressureDay, blockedMood,
+      g.happiness, popAtDay20, builtAtDay20,
+      firstSailDay < 0 ? 999 : firstSailDay);
 }
 
 /// Inflict the chosen disaster. Nothing here is subtle — the point is to ruin
@@ -714,6 +840,17 @@ void _workTheDarkTrade(GameState g) {
       // port boarded 3 hulls in eight runs and was blocked 5,897 times for
       // want of a charge — and with no prizes there is no spice, so the whole
       // chain paid for itself in nothing.
+      // NEVER SELL SPICE. It is the only thing in the game that buys FINISHED
+      // GOODS, which is the whole reason it exists — "a subsystem that
+      // produces surplus coin cannot be worth the hands it costs" is written
+      // on the resource itself. Selling it turns the one mechanic that
+      // addresses the real constraint back into the one that never was.
+      //
+      // Measured with this missing: 45,582 spice deals seen across 16 hard
+      // seeds and 0 taken, because the port had dumped every grain for coin
+      // before a trader asked for it. Every dark-trade figure this file has
+      // ever printed was a port that sold its own answer.
+      if (offer.resource == Resource.spice) continue;
       if (offer.resource == Resource.powder &&
           g.stock[Resource.powder] <= darkPowderReserve) {
         continue;
@@ -922,14 +1059,30 @@ void _reassign(GameState g) {
     }
   }
 
-  // 1a. Crew the grange. It has no outputs, so marginPerWorkerTick scores it
-  // zero and the allocation below would never give it a hand — the same
-  // omission that left the privateer berth uncrewed. A grange nobody works
-  // never ripens, so the port pays 400 coin for a shed that does nothing, and
-  // the measurement blames the mechanic instead of the policy.
+  // 1a. Crew anything that ripens, before the margin ranking gets a look.
+  //
+  // The ranking below scores a shed on what it earns THIS tick, and a ripening
+  // shed earns almost nothing for weeks by design — a grange earns literally
+  // nothing ever, having no outputs at all. So they score last or zero, never
+  // get a hand, never ripen, and the run reports that husbandry is worthless.
+  // That has now happened twice (the grange, the privateer berth) and this is
+  // written generically so the third time does not need finding again: if a
+  // def declares a ripen period, the policy crews it on sight.
   for (var i = 0; i < g.buildings.length; i++) {
-    if (g.buildings[i].defId != 'grange') continue;
     final def = g.buildings[i].def;
+    // Ripening sheds, and sheds that hide things. Both earn nothing this tick
+    // — a cellar produces literally nothing ever — so both score zero in the
+    // ranking below and neither would be crewed.
+    //
+    // The cellar is the third shed to be caught by this and the most
+    // expensive: with nobody posted to it the port conceals NOTHING, every
+    // grain of spice a prize lands sits in plain sight, and the Revenue takes
+    // it before a trader can be found. Measured: 78 prizes across 16 hard
+    // seeds, 47,699 spice deals seen, 0 taken, and a spice holding of 0.0 at
+    // every single sample. Every dark-trade verdict this file has printed was
+    // a port that could not keep what it stole.
+    final hides = def.concealPerWorker > 0;
+    if (!def.ripens && !hides && def.id != 'grange') continue;
     while (g.buildings[i].workers < def.maxWorkers && g.idleWorkers > 1) {
       g.setWorkers(i, g.buildings[i].workers + 1);
     }

@@ -3,6 +3,7 @@ import 'charters.dart';
 import 'journal.dart';
 import 'events.dart';
 import 'market.dart';
+import 'pets.dart';
 import 'progression.dart';
 import 'resources.dart';
 import 'retinue.dart';
@@ -29,7 +30,83 @@ class Balance {
   /// Matching them makes the arithmetic obvious: five a roof, all the way up.
   static const int baseHousing = 5;
 
+  // ---- Happiness --------------------------------------------------------
+  //
+  // THE ONE RULE: no relief for sale. Pressure is the point of this — a
+  // *purchase* that makes the pressure go away is the pattern this game is
+  // built against. Notoriety sets the shape and sets it well: no bribe and no
+  // passive decay, but there IS a way down, through play. Happiness answers
+  // the same way — to feeding people properly, housing them, paying them and
+  // keeping the port steady — and to nothing you can pay.
+  //
+  // It also gives the honest route the pressure it has been missing. Once the
+  // chains are running, nothing on that side pushes back; growth you can lose
+  // is something to lose.
+
+  /// Where a port with nothing to recommend it and nothing wrong sits.
+  static const double happinessNeutral = 0.5;
+
+  /// How far it can move in a day. Slow, so a single bad afternoon is weather
+  /// rather than a verdict, and so a recovery has to be sustained.
+  static const double happinessDrift = 0.04;
+
+  /// Below this nobody new comes. Above it the town grows as it always did.
+  static const double happinessGrowthFloor = 0.30;
+
+  /// Below this people start leaving. Well under the growth floor, so there is
+  /// a wide band where a port is merely stalled and can still be pulled round.
+  static const double happinessExodusFloor = 0.12;
+
+  /// What a well-run port gets out of its hands, against a miserable one.
+  /// Deliberately narrow: happiness is a pressure to read, not a second
+  /// economy to optimise.
+  /// 0.15: a content port gets about a seventh more out of a day than a
+  /// wretched one. Raised from 0.10, which was too fine to notice on top of a
+  /// growth effect that turned out not to be connected at all.
+  static const double happinessWorkSwing = 0.15;
+
+  /// What keeping an animal is worth. Small, permanent, and the only part of
+  /// a pet that is unconditionally good.
+  static const double petHappiness = 0.08;
+
+  // ---- The pet, and when it turns up ------------------------------------
+  //
+  // A window rather than a day, jittered inside it, because the arrival should
+  // still surprise. Only the timing is random: WHETHER is guaranteed and WHICH
+  // is the player's pick, which is what keeps this clear of a rare drop to
+  // chase.
+  //
+  // It lands here because the game goes quiet here. The last timed unlock
+  // anywhere is the distillery on day 25, and everything after it is
+  // condition-gated and resolves early — so from about day 30 to a finish near
+  // day 80 a competent port is executing a plan it already has, with nothing
+  // new ever revealed. This is the beat that fills it, and it is also the
+  // first moment a player knows which lighthouse line they are behind on,
+  // which is exactly what the choice is a read on.
+  static const int petOfferFirstDay = 40;
+  static const int petOfferLastDay = 50;
+
   /// A fed, housed town grows on roughly half of its well-supplied days.
+  ///
+  /// HANDS ARE THE LIMIT, AND THIS IS THE DIAL — swept at 16 seeds, and left
+  /// where it was on purpose:
+  ///
+  ///     0.50   median 81   spread 22   worst  94   <- here
+  ///     0.60   median 78   spread 76   worst 139
+  ///     0.65   median 73   spread 68   worst 129
+  ///     0.70   median 72   spread 68   worst 125
+  ///
+  /// Every step up buys days off the median and pays for them in consistency:
+  /// the spread more than triples, and the unlucky seed goes from 94 days to
+  /// nearly 140. A faster town outruns its own payroll on the seeds that were
+  /// already tight, which is a fine kind of pressure and a poor kind of
+  /// variance.
+  ///
+  /// The other obvious dial is housing per cottage, and it does NOT work:
+  /// at 7 the median got worse (87), at 9 it stood still (81), and both
+  /// slackened the endgame — roofs stop being the gate and payroll becomes
+  /// one, while the victory lap swells from 1% of the run to 6-7%. More
+  /// people are only worth having if the port can pay them.
   static const double growthChance = 0.5;
 
   /// Days of food the town wants in store before anyone new moves in.
@@ -48,12 +125,53 @@ class Balance {
   /// is trivial and the last stretch is just waiting. Requiring rope *and*
   /// sailcloth also forces the flax decision to be answered "both, eventually",
   /// which is the most interesting way to end the game.
-  static const int lighthouseCoin = 9000;
+  /// 8,000, DOWN FROM 9,000, and planks down from 160 — the slack that pays
+  /// for cheese joining the bill.
+  ///
+  /// Where the slack is was measured, not guessed. `tool/survey_reports.dart`
+  /// over every played run asks which requirement each win came closest to
+  /// missing, and what was left over afterwards:
+  ///
+  ///     Rope       bound 3 of 4 wins   0.05x spare   <- came in on fumes
+  ///     Tools      bound 1 of 4        0.36x
+  ///     Planks     —                   0.99x         <- a second bill over
+  ///     Sailcloth  —                   0.99x         <- a second bill over
+  ///
+  /// So planks and coin give way, tools hold, and **rope is never cut**: it is
+  /// what actually gates a win, and softening it would take the tension out of
+  /// the ending to make room for the new goods.
+  static const int lighthouseCoin = 8000;
   static const Map<Resource, double> lighthouseCost = {
-    Resource.planks: 160,
+    Resource.planks: 130,
     Resource.tools: 80,
     Resource.rope: 120,
-    Resource.sailcloth: 90,
+    // 70, DOWN FROM 90, because a bolt of sailcloth is not the thing it was.
+    // It used to be flax worked once. It is now wool off a ripening pasture,
+    // woven with rope that the bill also wants — so holding the quantity
+    // steady would have been a large increase wearing the old number.
+    Resource.sailcloth: 70,
+    // A lighthouse is manned. You do not finish one by raising the tower, you
+    // finish it by victualling it so a keeper can live out there through a
+    // winter — which is what puts a food on the bill at all.
+    // 30. The chain behind it — a byre coming on, then a dairy — is the
+    // longest lead time on the bill, so the quantity has to be read against
+    // the days available rather than against what the other lines cost.
+    Resource.cheese: 30,
+    // NO BREAD ON THE BILL, though an earlier draft had 40 of it.
+    //
+    // Two new lines meant six new sheds the endgame could not do without —
+    // grange, pasture, hen house, bakery, byre, dairy — in a port that stops
+    // expanding around 25 buildings and already owes room to a sawmill, a
+    // mine, a smithy, a ropewalk and a weaver. Measured, it did not fit: five
+    // seeds of sixteen finished 400 days short of the ENTIRE tools
+    // requirement, having never built a smithy at all.
+    //
+    // Cheese keeps the line because without it the byre is a coin machine,
+    // and a subsystem that produces surplus coin cannot be worth the hands it
+    // costs — that is the spice lesson, written on the resource itself. The
+    // bakery needs no line, because its payoff is not coin: it makes the
+    // harvest stretch, which is worth hands on its own terms in a port whose
+    // herds eat grain.
   };
 
   /// Catch-up work is bounded so resuming after a long absence cannot hang the
@@ -181,7 +299,10 @@ class Balance {
   ///
   /// Paying back sooner recovers nearly all the speed and removes the
   /// catastrophe, without putting back the flooding the ceiling cut was for.
-  static const double grangeRipenDays = 24;
+  /// Read off the building rather than declared twice. The number lives in
+  /// `buildings.dart` now, because every ripening shed needs one and a second
+  /// copy here would be a second thing to forget.
+  static double get grangeRipenDays => defById('grange').ripenDays;
 
   /// What a fully grown grange adds to every shed's yield.
   ///
@@ -419,6 +540,7 @@ class GameState {
   int captainLevel = 0;
   int merchantLevel = 0;
   int privateerLevel = 0;
+  int reeveLevel = 0;
 
   /// How far the granges have come along, 0 to 1.
   ///
@@ -426,7 +548,6 @@ class GameState {
   /// grange adds nothing, which is deliberate and is what "a single grange"
   /// means. It advances only while a grange is actually staffed, so hands left
   /// off it stop the clock — the investment is the hands as much as the coin.
-  double grangeMaturity = 0;
 
   // ---- The dark trade, all derived so a save can never disagree ----------
 
@@ -516,9 +637,14 @@ class GameState {
     }
   }
 
+  /// Person-days of food in store, not units of it.
+  ///
+  /// Weighted by [Resource.nutrition], which is 1.0 for everything that
+  /// existed before livestock, so this is unchanged for an honest port that
+  /// never keeps animals.
   double get foodStock => Resource.values
       .where((r) => r.isFood)
-      .fold(0.0, (s, r) => s + stock[r]);
+      .fold(0.0, (s, r) => s + stock[r] * r.nutrition);
 
   /// Days of food remaining at the current headcount.
   double get foodDays => population == 0
@@ -542,6 +668,10 @@ class GameState {
     if (coin < dailyWageBill + retinueWageBill) {
       return 'The payroll is short — unpaid hands leave, and the town cannot '
           'grow while it is losing people';
+    }
+    if (happiness < Balance.happinessGrowthFloor) {
+      final why = happinessReasons.isEmpty ? '' : ' — ${happinessReasons.first}';
+      return 'Word has got round and nobody new is coming$why';
     }
     if (foodDays < Balance.growthFoodDays) {
       return 'Not enough food put by — the town wants '
@@ -596,8 +726,34 @@ class GameState {
   int get lighthouseCoinCost =>
       (Balance.lighthouseCoin * charters.lighthouseCost).round();
 
-  Map<Resource, double> get lighthouseGoodsCost => Balance.lighthouseCost
-      .map((r, q) => MapEntry(r, q * charters.lighthouseCost));
+  /// The bill this RUN was started under, before charters scale it.
+  ///
+  /// A run keeps the terms it began under. That rule is already written into
+  /// this file for charters — "resuming cannot quietly change the terms" — and
+  /// it matters far more for the bill, because the bill is the win condition.
+  ///
+  /// Without this, shipping the husbandry update would have stranded every run
+  /// in flight: a port at day 61 holding 200 planks, 90 tools, 140 rope and
+  /// 100 sailcloth — every old requirement beaten — would have been told it
+  /// now needs 30 cheese, with neither the pasture nor the byre unlocked and
+  /// no way to buy cheese at any price, since the ware pool is raws and planks
+  /// by design. Forty days added to a run that was one day from finishing.
+  Map<Resource, double> runBill = Map.of(Balance.lighthouseCost);
+
+  /// The bill the previous release shipped with.
+  ///
+  /// Used for saves written before [runBill] existed, which cannot say what
+  /// they were promised. Guessing the CURRENT bill would be guessing wrong in
+  /// the one direction that costs a player their run.
+  static const Map<Resource, double> legacyBill = {
+    Resource.planks: 160,
+    Resource.tools: 80,
+    Resource.rope: 120,
+    Resource.sailcloth: 90,
+  };
+
+  Map<Resource, double> get lighthouseGoodsCost =>
+      runBill.map((r, q) => MapEntry(r, q * charters.lighthouseCost));
 
   bool get canBuildLighthouse =>
       !lighthouseBuilt &&
@@ -621,7 +777,7 @@ class GameState {
     arrivalsThisTick = 0;
     _applyEventTransitions(events.advance(tick,
         pressure: _eventContext().pressure * charters.hazardSeverity));
-    _ripenGrange();
+    _ripen();
     _landImports();
     _produce();
     _crewBerths();
@@ -636,7 +792,7 @@ class GameState {
     }
     _runAutoCollect(dayTurned: dayTurned);
     market.advance(tick, rng, events.effects.conditions, darkTradeOpen,
-        notoriety);
+        notoriety, producedHere, billShortfall);
   }
 
   /// A standing crew eats stores whether or not it sails.
@@ -648,15 +804,21 @@ class GameState {
       final def = b.def;
       if (!def.isCrewed || b.workers == 0) continue;
 
+      // A small flock eats less than a grown one, so feed rises with the herd
+      // rather than landing in full on the day the fence goes up. The cost
+      // then tracks the benefit instead of falling hardest when the shed is
+      // worth least — which is the difference between a slow bet and a trap.
+      final appetite = b.ripeness;
+
       double readiness = 1.0;
       def.upkeep.forEach((r, perWorker) {
-        final need = perWorker * b.workers;
+        final need = perWorker * b.workers * appetite;
         if (need > 0) {
           readiness = readiness.clamp(0.0, (stock[r] / need).clamp(0.0, 1.0));
         }
       });
-      def.upkeep
-          .forEach((r, pw) => stock.remove(r, pw * b.workers * readiness));
+      def.upkeep.forEach(
+          (r, pw) => stock.remove(r, pw * b.workers * appetite * readiness));
       b.lastEfficiency = readiness;
     }
   }
@@ -934,9 +1096,12 @@ class GameState {
         // does not move anything. Boosting the whole port instead: 96 days on
         // a plain run and 106 under A Grander Light, against 100 and 116.
         final husbandry = grangeYieldBonus;
+        // A ripening shed produces at its own maturity as well. 1.0 for
+        // everything that does not ripen, so this is inert for the old port.
+        final ripe = b.ripeness;
         def.outputs.forEach((r, pw) => b.hold[r] = (b.hold[r] ?? 0) +
             pw * effWorkers * efficiency * yieldMul * charters.production *
-                husbandry);
+                husbandry * ripe * petYieldFactor(r) * happinessWorkFactor);
       }
       b.lastEfficiency = efficiency;
     }
@@ -973,6 +1138,8 @@ class GameState {
 
   void _endOfDay({bool interactive = true}) {
     _feedTown();
+    _feedPet();
+    _settleMood();
     _payWages();
     _growTown();
     if (interactive) _rivalRaid();
@@ -1016,12 +1183,21 @@ class GameState {
         events.effects.foodScale *
         charters.foodUse;
 
-    // Fish spoils, grain keeps — so the town eats the sea first.
-    for (final r in [Resource.fish, Resource.grain]) {
+    // Perishable first, and the keeping stores last.
+    //
+    // `needed` is in PERSON-DAYS, not units. Before livestock those were the
+    // same thing — every food fed one person for one day — so this loop could
+    // subtract units straight from the requirement. Meat feeds several, so the
+    // two have to be converted across [Resource.nutrition] or the town eats
+    // three times what it should.
+    for (final r in kEatingOrder) {
       if (needed <= 0) break;
-      final taken = stock[r] < needed ? stock[r] : needed;
-      stock.remove(r, taken);
-      needed -= taken;
+      final feeds = r.nutrition;
+      if (feeds <= 0) continue;
+      final available = stock[r] * feeds; // person-days in the store
+      final given = available < needed ? available : needed;
+      stock.remove(r, given / feeds); // back to units
+      needed -= given;
     }
 
     if (needed > 1e-6 && population > 0) {
@@ -1072,7 +1248,22 @@ class GameState {
     if (foodDays < Balance.growthFoodDays) return;
     if (coin <= 0) return; // an unpaid port attracts nobody
 
-    growthProgress += Balance.growthChance * charters.growth;
+    // A MISERABLE PORT ATTRACTS NOBODY, and this is where that has to be said.
+    //
+    // The check existed in [growthBlocker] — the string that EXPLAINS why the
+    // town is not growing — and nowhere else, so the explanation was live and
+    // the mechanic was not. Happiness was left doing nothing but a few percent
+    // on output, which is exactly how it played: "kept an eye on the happiness
+    // meter and it didn't seem to change much... the outputs and game doesn't
+    // seem to change anything because of it."
+    if (happiness < Balance.happinessGrowthFloor) return;
+
+    // And above the floor it is a RATE, not a switch. A meter that only does
+    // something at one threshold is invisible everywhere else, and the band a
+    // player actually lives in — 30% early, 70-80% once the farms and bakery
+    // are running — sat entirely inside the dead zone.
+    growthProgress +=
+        Balance.growthChance * charters.growth * happinessGrowthFactor;
     if (growthProgress >= 1.0) {
       growthProgress -= 1.0;
       population += 1;
@@ -1467,6 +1658,7 @@ class GameState {
         RetinueTrack.captain => captainLevel,
         RetinueTrack.merchant => merchantLevel,
         RetinueTrack.privateer => privateerLevel,
+        RetinueTrack.reeve => reeveLevel,
       };
 
   Retainer? hiredOn(RetinueTrack t) => retainerAt(t, levelOn(t));
@@ -1529,6 +1721,8 @@ class GameState {
         merchantLevel = r.level;
       case RetinueTrack.privateer:
         privateerLevel = r.level;
+      case RetinueTrack.reeve:
+        reeveLevel = r.level;
     }
     log('${r.name}, ${r.title.toLowerCase()}, signed on at '
         '${r.dailyWage}c a day.', LogKind.good);
@@ -1554,6 +1748,8 @@ class GameState {
         merchantLevel = 0;
       case RetinueTrack.privateer:
         privateerLevel = 0;
+      case RetinueTrack.reeve:
+        reeveLevel = 0;
     }
     log('${who.name} was paid off and left the port.', LogKind.info);
   }
@@ -1564,18 +1760,246 @@ class GameState {
   bool get grangeWorked =>
       buildings.any((b) => b.defId == 'grange' && b.workers > 0);
 
+  /// How much of the light's bill is still owing, as a share of each line.
+  ///
+  /// Handed to the free traders so a spice swap offers what the port is
+  /// actually short of — see `_pickWanted`.
+  Map<Resource, double> get billShortfall {
+    final out = <Resource, double>{};
+    lighthouseGoodsCost.forEach((r, need) {
+      if (need <= 0) return;
+      final short = (need - stock[r]) / need;
+      if (short > 0) out[r] = short.clamp(0.0, 1.0);
+    });
+    return out;
+  }
+
+  /// What this port's staffed sheds actually turn out.
+  ///
+  /// Handed to the market so traders favour a quay that has something to sell
+  /// them — see the note in `_rollShip`.
+  Set<Resource> get producedHere {
+    final out = <Resource>{};
+    for (final b in buildings) {
+      if (b.workers > 0) out.addAll(b.def.outputs.keys);
+    }
+    return out;
+  }
+
+  /// How the town feels, 0 to 1. Starts level.
+  double happiness = Balance.happinessNeutral;
+
+  /// How well the table is set: the share of the food in store that is
+  /// something other than fish and grain.
+  ///
+  /// READ FROM THE LARDER, NOT THE PLATE. The first version counted what the
+  /// town actually ate, and measured zero forever — [kEatingOrder] puts the
+  /// staples first on purpose, so a port with fish in the barrel never reaches
+  /// the meat, and the happiness the herds are supposed to buy would never
+  /// have arrived. A larder with meat and milk in it is a better-fed town
+  /// whichever unit today's supper came out of.
+  double get mealQuality {
+    final total = foodStock;
+    if (total <= 0) return 0.0;
+    var good = 0.0;
+    for (final r in kGoodEating) {
+      good += stock[r] * r.nutrition;
+    }
+    return (good / total).clamp(0.0, 1.0);
+  }
+
+  /// Where happiness is heading, given how the port is being run right now.
+  ///
+  /// Four things, all of them consequences of decisions rather than of time
+  /// passing, and each worth naming on screen — see [happinessReasons].
+  double get happinessTarget {
+    var t = Balance.happinessNeutral;
+
+    // Fed well, or merely fed. This is what the herds buy.
+    t += 0.25 * mealQuality;
+
+    // Crowded. Full housing is not a crisis, but it is a reason to grumble.
+    final crowding = housingCapacity <= 0
+        ? 1.0
+        : (population / housingCapacity).clamp(0.0, 1.0);
+    t -= 0.15 * crowding;
+
+    // Paid. The sharpest of the four, because an unpaid crew is the one thing
+    // here that is unambiguously the harbourmaster's fault.
+    t += payrollAtRisk ? -0.25 : 0.10;
+
+    // And whether they are living in a smuggler's port. No coin path down,
+    // exactly as notoriety has none.
+    t -= 0.20 * (notoriety / 100).clamp(0.0, 1.0);
+
+    if (pet != null && petFed) t += Balance.petHappiness;
+
+    return t.clamp(0.0, 1.0);
+  }
+
+  /// Why it sits where it does, worst first. The codebase's own rule: if
+  /// something is holding the town back, say which thing.
+  List<String> get happinessReasons {
+    final out = <String>[];
+    if (payrollAtRisk) {
+      out.add('wages are not being met');
+    } else {
+      out.add('the crew is paid');
+    }
+    if (mealQuality < 0.1) {
+      out.add('nothing on the table but fish and grain');
+    } else if (mealQuality > 0.35) {
+      out.add('the table is well set');
+    }
+    if (housingCapacity > 0 && population >= housingCapacity) {
+      out.add('every roof is full');
+    }
+    if (notoriety > Balance.patrolFloor) {
+      out.add('the port has a reputation');
+    }
+    if (pet != null && petFed) out.add('${petDef!.name} is about the place');
+    return out;
+  }
+
+  /// How fast word gets round. 0.8 at the growth floor, 1.3 at a content
+  /// port — so the difference between a grim harbour and a happy one is about
+  /// sixty percent on how quickly it fills up.
+  double get happinessGrowthFactor => 0.5 + happiness;
+
+  /// What the town's mood does to a day's work.
+  double get happinessWorkFactor =>
+      1.0 + Balance.happinessWorkSwing * (happiness - Balance.happinessNeutral) * 2;
+
+  /// Nudge the mood toward where the port deserves it to be. Once a day.
+  void _settleMood() {
+    final target = happinessTarget;
+    final gap = target - happiness;
+    final step = gap.abs() < Balance.happinessDrift
+        ? gap
+        : Balance.happinessDrift * gap.sign;
+    happiness = (happiness + step).clamp(0.0, 1.0);
+
+    if (happiness < Balance.happinessExodusFloor && population > 1) {
+      population -= 1;
+      _clampAssignments();
+      log('A family had enough of this place and took a berth out.',
+          LogKind.bad);
+    }
+  }
+
+  /// The animal this port keeps, or null. One a run, and never a second.
+  PetKind? pet;
+
+  /// True once the ship with animals aboard has been dealt with, either way.
+  /// Declining is a real answer and must not be asked again.
+  bool petOfferSettled = false;
+
+  /// The day that ship puts in, rolled from the world seed so it cannot be
+  /// re-rolled by closing the app.
+  late int petOfferDay = Balance.petOfferFirstDay +
+      (worldSeed.abs() %
+          (Balance.petOfferLastDay - Balance.petOfferFirstDay + 1));
+
+  /// True while the offer is on the table.
+  bool get petOfferOpen =>
+      !petOfferSettled && pet == null && day >= petOfferDay;
+
+  /// False when there was no meat for it. The buff sleeps until there is.
+  ///
+  /// An underfed pet must never die. It works poorly until it is fed again —
+  /// recoverable, legible, and not a punishment loop. Losing one to a bad week
+  /// would be the wrong kind of pressure, and the ramp on a herd means a
+  /// shortage is rarely the player's fault alone.
+  bool petFed = true;
+
+  Pet? get petDef => pet == null ? null : petByKind(pet!);
+
+  /// What the pet does to one product's yield.
+  ///
+  /// Per PRODUCT, not per shed. "The dog improves the byre" would quietly
+  /// include the meat the byre makes, and a pet that raised meat would be
+  /// partly feeding itself.
+  double petYieldFactor(Resource r) {
+    final p = petDef;
+    if (p == null || !petFed) return 1.0;
+    if (p.raises == r) return 1.0 + kPetBuff;
+    if (p.lowers == r) return 1.0 - kPetDrag;
+    return 1.0;
+  }
+
+  /// Take the one on offer. Returns false, changing nothing, if it cannot.
+  bool takePet(PetKind kind) {
+    if (!petOfferOpen || coin < kPetPrice) return false;
+    coin -= kPetPrice;
+    pet = kind;
+    petOfferSettled = true;
+    final p = petByKind(kind);
+    log('${p.name} came ashore and stayed.', LogKind.good);
+    journal.mark(day, 'took on a ${p.name.toLowerCase()}',
+        code: RunCode.petMark(day, p.id));
+    return true;
+  }
+
+  /// Wave the ship on. The offer does not come round again.
+  void declinePet() {
+    if (!petOfferOpen) return;
+    petOfferSettled = true;
+    log('You let the animals sail on.', LogKind.info);
+  }
+
+  /// Feed it, once a day. Meat only — it is what a pet is for.
+  void _feedPet() {
+    if (pet == null) return;
+    final want = kPetAppetite;
+    if (stock[Resource.meat] >= want) {
+      stock.remove(Resource.meat, want);
+      if (!petFed) {
+        petFed = true;
+        log('${petDef!.name} is properly fed again.', LogKind.good);
+      }
+    } else if (petFed) {
+      petFed = false;
+      log('${petDef!.name} has gone hungry — no meat in the stores.',
+          LogKind.bad);
+    }
+  }
+
+  /// How far along the grange is, 0 to 1.
+  ///
+  /// Reads the building rather than a field on the port. Maturity moved onto
+  /// [Building] when a second thing started ripening — the old single scalar
+  /// could not describe a port holding a grange and a pasture at once.
+  double get grangeMaturity {
+    var best = 0.0;
+    for (final b in buildings) {
+      if (b.defId == 'grange' && b.maturity > best) best = b.maturity;
+    }
+    return best;
+  }
+
   /// What a grange currently adds to an extractor's yield, as a multiplier.
   ///
   /// 1.0 on the day it is built, rising to 1 + [Balance.grangeMaxYield] once
   /// it has been worked for [Balance.grangeRipenDays].
   double get grangeYieldBonus => 1.0 + Balance.grangeMaxYield * grangeMaturity;
 
-  /// Advance the ripening. Called once a tick while the port runs.
-  void _ripenGrange() {
-    if (!grangeWorked || grangeMaturity >= 1.0) return;
-    final perTick = 1.0 / (Balance.grangeRipenDays * Balance.ticksPerDay);
-    grangeMaturity = (grangeMaturity + perTick).clamp(0.0, 1.0);
+  /// Advance every ripening building that is being worked. Once a tick.
+  ///
+  /// Only worked sheds ripen, which is the rule the Grange set: a field nobody
+  /// tends does not come on, and a flock nobody keeps does not grow. It is also
+  /// what stops a player raising every ripening shed on day one and collecting
+  /// later for nothing.
+  void _ripen() {
+    for (final b in buildings) {
+      final days = b.def.ripenDays;
+      if (days <= 0 || b.workers == 0 || b.maturity >= 1.0) continue;
+      final perTick = reeveSpeed / (days * Balance.ticksPerDay);
+      b.maturity = (b.maturity + perTick).clamp(0.0, 1.0);
+    }
   }
+
+  /// How fast a reeve brings the fields and the herds on, if you keep one.
+  double get reeveSpeed => hiredOn(RetinueTrack.reeve)?.ripenSpeed ?? 1.0;
 
   /// A privateer captain's edge at the rail, if you retain one.
   double get privateerPrizeBonus =>
@@ -1787,6 +2211,18 @@ class GameState {
     darkEarned += deal.takeQty * market.priceOf(deal.take) -
         deal.giveQty * market.priceOf(deal.give);
     _addHeat(deal.giveQty * deal.give.heatWeight * Balance.heatPerBarterUnit);
+
+    // Recorded, because it was not. Spice exists to buy FINISHED GOODS, and
+    // whether a player ever spends it that way is the whole question about
+    // this route — a played run came back holding 50 spice with no way to tell
+    // whether a grain of it had been traded for the tools and rope the port
+    // was starving for.
+    journal.mark(
+        day,
+        'traded ${deal.giveQty.round()} ${deal.give.label.toLowerCase()} '
+            'for ${deal.takeQty.round()} ${deal.take.label.toLowerCase()}',
+        code: RunCode.barterMark(day, deal.give.name, deal.giveQty.round(),
+            deal.take.name, deal.takeQty.round()));
 
     log('Traded ${deal.giveQty.round()} ${deal.give.label.toLowerCase()} to the '
         '${ship.name} for ${deal.takeQty.round()} '
@@ -2020,7 +2456,14 @@ class GameState {
         'captainLevel': captainLevel,
         'merchantLevel': merchantLevel,
         'privateerLevel': privateerLevel,
+        'reeveLevel': reeveLevel,
         'grangeMaturity': grangeMaturity,
+        'bill': runBill.map((r, q) => MapEntry(r.name, q)),
+        if (pet != null) 'pet': pet!.name,
+        if (petOfferSettled) 'petSettled': true,
+        if (!petFed) 'petFed': false,
+        'petDay': petOfferDay,
+        'happiness': double.parse(happiness.toStringAsFixed(4)),
         'tick': tick,
         'stock': stock.toJson(),
         'coin': coin,
@@ -2077,8 +2520,54 @@ class GameState {
     // discarded on purpose. Carting is now automatic and free, so nothing is
     // lost — the officer's berth it used to occupy is simply freed.
     state.privateerLevel = (j['privateerLevel'] as num?)?.toInt() ?? 0;
-    state.grangeMaturity =
-        (j['grangeMaturity'] as num?)?.toDouble().clamp(0.0, 1.0) ?? 0;
+    state.reeveLevel = (j['reeveLevel'] as num?)?.toInt() ?? 0;
+    final rawBill = j['bill'];
+    if (rawBill is Map) {
+      final restored = <Resource, double>{};
+      rawBill.forEach((k, v) {
+        try {
+          restored[Resource.byId(k as String)] = (v as num).toDouble();
+        } on StateError {
+          // A requirement in a resource this build no longer has. Dropping it
+          // can only make the run easier, which is the safe direction.
+        }
+      });
+      if (restored.isNotEmpty) state.runBill = restored;
+    } else {
+      // Written before the bill was recorded, so it was written under the
+      // bill of the release before this one. Honour that.
+      state.runBill = Map.of(legacyBill);
+    }
+
+    final petName = j['pet'];
+    if (petName is String) {
+      for (final k in PetKind.values) {
+        if (k.name == petName) state.pet = k;
+      }
+    }
+    state.happiness = ((j['happiness'] as num?)?.toDouble() ??
+            Balance.happinessNeutral)
+        .clamp(0.0, 1.0);
+    state.petOfferSettled = j['petSettled'] as bool? ?? false;
+    state.petFed = j['petFed'] as bool? ?? true;
+    // Kept rather than re-derived: worldSeed gives the same answer, but a save
+    // written before the pet existed has no day at all and must not have one
+    // invented in the past, or the ship arrives the instant it is loaded.
+    final petDay = (j['petDay'] as num?)?.toInt();
+    if (petDay != null) state.petOfferDay = petDay;
+
+    // Maturity used to be one figure on the port and now lives on each
+    // building. A save written before that carries the old key and buildings
+    // with no ripeness of their own, so put it back where it now belongs —
+    // otherwise a run in progress silently loses every week its grange spent
+    // coming on, which is most of what a grange is.
+    final legacyRipe =
+        ((j['grangeMaturity'] as num?)?.toDouble() ?? 0).clamp(0.0, 1.0);
+    if (legacyRipe > 0) {
+      for (final b in state.buildings) {
+        if (b.defId == 'grange' && b.maturity <= 0) b.maturity = legacyRipe;
+      }
+    }
     state.voyages.addAll((j['voyages'] as List? ?? [])
         .map((v) => Voyage.fromJson(v as Map<String, dynamic>))
         .whereType<Voyage>());
@@ -2129,6 +2618,8 @@ class GameState {
           merchantLevel = 0;
         case RetinueTrack.privateer:
           privateerLevel = 0;
+        case RetinueTrack.reeve:
+          reeveLevel = 0;
       }
       if (who != null) {
         log('${who.name} was let go — the port keeps $officerCapacity '

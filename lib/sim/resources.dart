@@ -6,12 +6,84 @@ library;
 
 enum ResourceCategory { raw, good, food, contraband }
 
+/// What the town eats, and in what order.
+///
+/// Perishable first so nothing rots in the store while something durable is
+/// eaten, and the keeping stores last — which also means the goods the
+/// lighthouse wants are the last thing touched. A port that lets its larder
+/// run dry can still eat its own cheese; that is a consequence of running out,
+/// not a trap, and it is avoidable by keeping fish and grain in.
+/// Food a town is glad to see, as against food that merely feeds it.
+///
+/// Everything a port could eat before husbandry is a staple: fish and grain,
+/// every day, for eighty days. What the herds add is not calories — the meat
+/// is there to cancel the feed the animals take — it is VARIETY, and that is
+/// the half of happiness the honest route can actually buy.
+const Set<Resource> kGoodEating = {
+  Resource.meat,
+  Resource.milk,
+  Resource.eggs,
+  Resource.bread,
+};
+
+const List<Resource> kEatingOrder = [
+  Resource.fish,
+  Resource.milk,
+  Resource.grain,
+  Resource.eggs,
+  Resource.meat,
+  // Last, so the lighthouse's own stores are the final thing a hungry town
+  // reaches for.
+  Resource.bread,
+];
+
 enum Resource {
   timber('Timber', ResourceCategory.raw, 2.0, '🪵', 0.4),
   grain('Grain', ResourceCategory.food, 3.0, '🌾', 0.4),
   fish('Fish', ResourceCategory.food, 3.0, '🐟', 0.4),
   flax('Flax', ResourceCategory.raw, 4.0, '🌿', 0.4),
   ore('Ore', ResourceCategory.raw, 5.0, '⛏️', 0.4),
+
+  // ---- Husbandry ---------------------------------------------------------
+  //
+  // Wool is a raw like flax: something a shed refines rather than something
+  // worth much as it stands. Meat is food, and the ONLY food worth more than
+  // one person-day a unit — see [nutrition]. Both are priced under what their
+  // labour suggests on purpose: a herd that pays in coin is the mistake spice
+  // made, and coin has never been this game's constraint.
+  // 3, under flax's 4. A fleece is bulk, not a scarce fibre, and the price
+  // has to sit against how much of it an animal gives: at 6 a pasture out-
+  // earned every extractor in the game and made itself the obvious shed to
+  // staff, which is not what a slow bet is supposed to feel like.
+  wool('Wool', ResourceCategory.raw, 3.0, '🧶', 0.4),
+  meat('Meat', ResourceCategory.food, 9.0, '🥩', 0.5, nutrition: 3.0),
+  milk('Milk', ResourceCategory.food, 4.0, '🥛', 0.4, nutrition: 1.5),
+
+  eggs('Eggs', ResourceCategory.food, 5.0, '🥚', 0.4, nutrition: 1.5),
+
+  /// Grain that has been made to go further, and to keep.
+  ///
+  /// Food AND a line on the lighthouse bill, which means the town can eat the
+  /// bill if you let the larder run dry. That is deliberate: it is avoidable by
+  /// keeping fish and grain in store, and the eating order puts bread last. An
+  /// earlier draft split this into an edible loaf and an inedible ship's
+  /// biscuit so it could not happen; one good is simpler and the failure is the
+  /// player's own.
+  bread('Bread', ResourceCategory.food, 14.0, '🍞', 0.5, nutrition: 3.0),
+
+  /// Milk that keeps. The reason cheese exists at all is that a lighthouse is
+  /// manned and isolated: you do not finish one by building the tower, you
+  /// finish it by victualling it so somebody can live out there through a
+  /// winter. Milk cannot make that crossing and cheese can.
+  ///
+  /// CHEAP ON PURPOSE, AT 7. It used to be 24, made in a dairy of its own —
+  /// but six new sheds did not fit a port that stops expanding around 25
+  /// buildings, so the dairy was folded back into the byre. Coming off an
+  /// extractor, a 24-coin good would have made the byre the best-earning shed
+  /// in the game. A low price is also the right shape: cheese is worth having
+  /// because the lighthouse wants it, not because it sells, and a herd that
+  /// pays in coin is the mistake spice made.
+  cheese('Cheese', ResourceCategory.good, 7.0, '🧀', 0.5),
   planks('Planks', ResourceCategory.good, 7.0, '🪚', 0.6),
   rope('Rope', ResourceCategory.good, 12.0, '🪢', 0.8),
   barrels('Barrels', ResourceCategory.good, 20.0, '🛢️', 1.0),
@@ -47,7 +119,8 @@ enum Resource {
   spice('Spice', ResourceCategory.contraband, 95.0, '🌶️', 5.0);
 
   const Resource(
-      this.label, this.category, this.basePrice, this.icon, this.heatWeight);
+      this.label, this.category, this.basePrice, this.icon, this.heatWeight,
+      {this.nutrition = 1.0});
 
   final String label;
   final ResourceCategory category;
@@ -55,6 +128,19 @@ enum Resource {
   /// Coin per unit at a neutral market index of 1.0.
   final double basePrice;
   final String icon;
+
+  /// Person-days one unit feeds, for anything in [ResourceCategory.food].
+  ///
+  /// One, for everything that existed before livestock: a fish and a sack of
+  /// grain each fed a person for a day and [GameState.foodStock] simply counted
+  /// units. That stops working the moment animals are involved. A herd converts
+  /// feed into food at a heavy loss — which is the whole reason a herd is a
+  /// store of value rather than a way to make calories — so a pasture eating
+  /// 3.5 grain a day cannot hand back 3.5 units of anything. Weighted, it hands
+  /// back about 1.2 of meat and the books balance.
+  ///
+  /// Ignored entirely for non-food resources.
+  final double nutrition;
 
   /// How conspicuous a unit of this is when it moves through your quay.
   ///

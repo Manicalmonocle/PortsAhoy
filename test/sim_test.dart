@@ -15,6 +15,15 @@ void tickAndCollect(GameState g, [int ticks = 1]) {
   }
 }
 
+
+/// Maturity lives on the building now, not the port. Tests that used to set
+/// `g.grangeMaturity` reach through to the shed it actually belongs to.
+void ripenGrange(GameState g, double v) {
+  for (final b in g.buildings) {
+    if (b.defId == 'grange') b.maturity = v;
+  }
+}
+
 void main() {
   group('production', () {
     test('extractors produce without inputs', () {
@@ -564,18 +573,29 @@ void main() {
       }
     });
 
-    test('ropewalk and weaver genuinely contend for flax', () {
-      final ropewalk = defById('ropewalk');
+    test('rope is contested between the lighthouse and the sails', () {
+      // THE PORT'S OLDEST DECISION, MOVED DOWNSTREAM. Flax used to feed both
+      // the ropewalk and the weaver, and splitting one field between them was
+      // the choice the lighthouse's own comment calls the most interesting way
+      // to end the game. The weaver now takes wool and rope instead, which does
+      // not delete that choice — it relocates it onto rope, and sharpens it,
+      // because spending a finished good hurts more than spending a raw.
       final weaver = defById('weaver');
+      final ropewalk = defById('ropewalk');
 
-      // Weaver wins per worker; ropewalk wins per unit of flax. Neither
-      // dominates, so the right shed depends on the current bottleneck.
+      expect(weaver.inputs.containsKey(Resource.rope), isTrue,
+          reason: 'a sail is bolt-roped, and that is what makes rope contested');
+      expect(Balance.lighthouseCost.containsKey(Resource.rope), isTrue,
+          reason: 'the contest only exists because the light wants rope too');
+      expect(weaver.inputs.containsKey(Resource.flax), isFalse,
+          reason: 'flax feeds the ropewalk alone now');
+      expect(ropewalk.inputs.containsKey(Resource.flax), isTrue);
+
+      // And the weaver still rewards scarce labour, which is what made it
+      // worth choosing over simply selling the rope.
       expect(weaver.marginPerWorkerTick,
           greaterThan(ropewalk.marginPerWorkerTick),
-          reason: 'weaver should reward scarce labour');
-      expect(ropewalk.outputValuePerUnitOf(Resource.flax),
-          greaterThan(weaver.outputValuePerUnitOf(Resource.flax)),
-          reason: 'ropewalk should reward scarce flax');
+          reason: 'weaving must beat selling the coil it consumes');
     });
 
     test('every buildable has a reachable cost and sane worker cap', () {
@@ -738,6 +758,107 @@ void _grangeTests() {
     }
   }
 
+  group('the pasture', () {
+    /// A port with a grown pasture and grain to feed it.
+    GameState flockPort({int workers = 2, double ripe = 1.0}) {
+      final g = GameState.newGame(seed: 4242);
+      g.buildings.add(Building(defId: 'pasture', workers: workers));
+      g.buildings.last.maturity = ripe;
+      g.stock[Resource.grain] = 500;
+      g.placeAll();
+      return g;
+    }
+
+    test('a flock turns grain into wool and meat', () {
+      final g = flockPort();
+      final grainBefore = g.stock[Resource.grain];
+      play(g, 4);
+      expect(g.stock[Resource.wool], greaterThan(0));
+      expect(g.stock[Resource.meat], greaterThan(0));
+      expect(g.stock[Resource.grain], lessThan(grainBefore),
+          reason: 'the feed has to actually come out of the harvest');
+    });
+
+    // THE DESIGN TARGET, and the reason Resource.nutrition exists. The flock is
+    // not a food chain: the meat is there to hand back the food value the feed
+    // took out, so the herd never becomes a second town competing with the
+    // first for the harvest. What it earns, it earns in wool.
+    test('comes out roughly even on food', () {
+      final g = flockPort();
+      // Only the pasture: no farm or wharf topping the stores up, and nobody
+      // eating, so what moves is exactly what the flock did.
+      for (final b in g.buildings) {
+        if (b.defId != 'pasture') b.workers = 0;
+      }
+      g.population = 0;
+
+      final before = g.foodStock;
+      play(g, 20);
+      final after = g.foodStock;
+
+      // Within a fifth either way. Exact parity would be a coincidence, not a
+      // design; what matters is that twenty days of keeping a flock has not
+      // quietly drained or inflated the larder.
+      expect(after, closeTo(before, before * 0.2),
+          reason: 'fed $before person-days, left with $after — a flock must '
+              'neither starve the port nor feed it');
+    });
+
+    test('is worth little the week it is fenced', () {
+      final young = flockPort(ripe: 0.0);
+      final grown = flockPort(ripe: 1.0);
+      play(young, 3);
+      play(grown, 3);
+      expect(young.stock[Resource.wool], lessThan(grown.stock[Resource.wool]),
+          reason: 'stock is worth nothing the week you buy it');
+    });
+
+    test('a small flock eats less than a grown one', () {
+      // Feed tracks the herd, so the ramp is not a period of paying full price
+      // for almost nothing — which is what would make it a trap rather than a
+      // slow bet.
+      double grainEaten(double ripe) {
+        final g = flockPort(ripe: ripe);
+        for (final b in g.buildings) {
+          if (b.defId != 'pasture') b.workers = 0;
+        }
+        g.population = 0;
+        final before = g.stock[Resource.grain];
+        play(g, 5);
+        return before - g.stock[Resource.grain];
+      }
+
+      expect(grainEaten(0.0), lessThan(grainEaten(1.0)));
+    });
+
+    test('an unfed flock stalls rather than starving the town', () {
+      final g = flockPort();
+      g.stock[Resource.grain] = 0;
+      for (final b in g.buildings) {
+        if (b.defId != 'pasture') b.workers = 0;
+      }
+      // The town still has fish. Otherwise this measures a port with no food
+      // at all, which starves for reasons that have nothing to do with sheep.
+      g.stock[Resource.fish] = 500;
+      final popBefore = g.population;
+      play(g, 3);
+      expect(g.stock[Resource.grain], closeTo(0, 1e-6));
+      expect(g.population, greaterThanOrEqualTo(popBefore),
+          reason: 'no grain is a stalled pasture, not a dead town');
+    });
+
+    test('ripening survives a save', () {
+      final g = flockPort(ripe: 0.0);
+      play(g, 6);
+      final before = g.buildings.firstWhere((b) => b.defId == 'pasture').maturity;
+      expect(before, greaterThan(0));
+      final back = GameState.fromJson(
+          jsonDecode(jsonEncode(g.toJson())) as Map<String, dynamic>);
+      expect(back.buildings.firstWhere((b) => b.defId == 'pasture').maturity,
+          closeTo(before, 1e-3));
+    });
+  });
+
   group('the grange', () {
     // The third route's identity: it converts TIME into goods. Trade converts
     // labour and the dark trade converts risk, and both pay out the moment you
@@ -777,7 +898,7 @@ void _grangeTests() {
     test('a grown grange lifts extraction by the advertised amount', () {
       final without = husbandryPort(grange: false);
       final with_ = husbandryPort();
-      with_.grangeMaturity = 1.0;
+      ripenGrange(with_, 1.0);
       play(without, 8);
       play(with_, 8);
       // Derived from the constant rather than written out, so retuning the
@@ -800,7 +921,7 @@ void _grangeTests() {
     test('it lifts the finished goods too, not just the raws', () {
       final without = husbandryPort(grange: false);
       final with_ = husbandryPort();
-      with_.grangeMaturity = 1.0;
+      ripenGrange(with_, 1.0);
       play(without, 8);
       play(with_, 8);
       expect(with_.stock[Resource.rope],
@@ -819,14 +940,14 @@ void _grangeTests() {
 
     test('a second grange adds nothing — the bet is made once', () {
       final one = husbandryPort();
-      one.grangeMaturity = 1.0;
+      ripenGrange(one, 1.0);
       final two = husbandryPort();
       two.unlocked.add('grange');
       for (final r in Resource.values) {
         two.stock[r] = 600;
       }
       two.build(defById('grange'));
-      two.grangeMaturity = 1.0;
+      ripenGrange(two, 1.0);
       expect(two.grangeYieldBonus, one.grangeYieldBonus);
     });
 

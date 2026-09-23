@@ -390,4 +390,37 @@ void _lighthouseSectionTests() {
       expect(back.unattendedDays, 0);
     });
   });
+
+  group('mark codes', () {
+    // THE BUG THIS EXISTS FOR. A pet mark was written with the prize prefix,
+    // so a played report came back claiming a 537,529-ton prize on day 145 of
+    // a 78-day run — "bird", read as base 36. A mark that decodes as a
+    // different KIND of event is worse than one that fails outright, because
+    // nothing about the result looks wrong.
+    test('no two kinds of mark share a leading letter', () {
+      final codes = <String>[
+        RunCode.buildMark(5, 'sawmill'),
+        RunCode.hireMark(5, 'captain', 1, 450),
+        RunCode.voyageMark(5, 100, 'ostmark', 3.0, 600),
+        RunCode.prizeMark(5, 40, 10),
+        RunCode.petMark(5, 'bird'),
+        RunCode.barterMark(5, 'spice', 20, 'tools', 40),
+        RunCode.winMark(5, 30),
+      ];
+      final leads = codes.map((c) => c[0]).toList();
+      expect(leads.toSet().length, leads.length,
+          reason: 'two mark kinds share a prefix: $leads');
+    });
+
+    test('every mark round-trips as the kind it was written as', () {
+      final g = GameState.newGame(seed: 3);
+      g.journal.mark(7, 'took on a bird', code: RunCode.petMark(7, 'bird'));
+      final back = RunCode.decode(RunCode.encode(g.journal,
+          version: 'test', seed: 1, difficulty: 0, charters: const [],
+          won: false));
+      final pet = back.marks.firstWhere((m) => m.kind == 'pet');
+      expect(pet.day, 7, reason: 'the day must survive, in base 36');
+      expect(pet.fields['animal'], 'bird');
+    });
+  });
 }

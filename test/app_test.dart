@@ -11,6 +11,7 @@ import 'package:ports_ahoy/sim/buildings.dart';
 import 'package:ports_ahoy/sim/charters.dart';
 import 'package:ports_ahoy/sim/events.dart';
 import 'package:ports_ahoy/sim/game_state.dart';
+import 'package:ports_ahoy/sim/pets.dart';
 import 'package:ports_ahoy/sim/resources.dart';
 import 'package:ports_ahoy/sim/retinue.dart';
 import 'package:ports_ahoy/ui/theme.dart';
@@ -69,6 +70,7 @@ Future<void> scrollTo(WidgetTester tester, Finder target) async {
 }
 
 void main() {
+  _runBillTests();
   group('the base is the screen', () {
     testWidgets('boots straight into the harbour, with no tabs', (tester) async {
       await pumpGame(tester);
@@ -906,14 +908,20 @@ void _lighthouseCardTests() {
     await tester.pumpAndSettle();
 
     // The card must not claim the coin requirement is met when it is not.
-    // fmt() renders 13500 as "13.5k" and 240 as "240".
-    expect(find.textContaining('13.5k'), findsWidgets,
-        reason: 'the card must print the scaled coin cost, not the base 9000');
-    expect(find.textContaining('/ 9000'), findsNothing,
-        reason: 'printing the base coin cost is what caused the report');
-    expect(find.textContaining('/ 240'), findsWidgets,
-        reason: 'planks must show the scaled 240, not the base 160');
-    expect(find.textContaining('/ 160'), findsNothing);
+    // Derived from Balance rather than written out: the first version of this
+    // hardcoded 13.5k and 240, and broke the day the bill was retuned — which
+    // is a test reporting on a number the game had stopped believing.
+    final scale = c.state.charters.lighthouseCost;
+    final scaledPlanks =
+        (Balance.lighthouseCost[Resource.planks]! * scale).round();
+    final basePlanks = Balance.lighthouseCost[Resource.planks]!.round();
+
+    expect(find.textContaining('/ $scaledPlanks'), findsWidgets,
+        reason: 'planks must show the scaled figure, not the base');
+    expect(find.textContaining('/ $basePlanks'), findsNothing,
+        reason: 'printing the unscaled cost is what caused the report');
+    expect(find.textContaining('/ ${Balance.lighthouseCoin}'), findsNothing,
+        reason: 'nor the unscaled coin cost');
 
     await closeGame(tester);
   });
@@ -1029,5 +1037,142 @@ void _lighthouseCardTests() {
         reason: 'the last row must be reachable on a short screen');
 
     await closeGame(tester);
+  });
+
+  testWidgets('the ship with animals aboard actually offers them',
+      (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final c = GameController(seedOverride: 20260815);
+    await c.load();
+    c.setSpeed(0);
+    addTearDown(c.dispose);
+
+    c.state.coin = 5000;
+    c.state.tick = c.state.petOfferDay * Balance.ticksPerDay;
+    expect(c.state.petOfferOpen, isTrue);
+
+    tester.view.physicalSize = const Size(420, 2200);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(PortsAhoyApp(controller: c));
+    await tester.pumpAndSettle();
+
+    // Every animal, with BOTH halves of its trade in figures before you pay.
+    // A cost you find out about afterwards is a trap, not a trade-off.
+    for (final p in kPets) {
+      expect(find.text(p.name), findsWidgets, reason: '${p.name} not offered');
+    }
+    expect(find.textContaining('+${(kPetBuff * 100).round()}%'), findsWidgets,
+        reason: 'the gain has to be a number, not a promise');
+    expect(find.textContaining('${(kPetDrag * 100).round()}%'), findsWidgets,
+        reason: 'and so does the cost');
+
+    await tester.tap(find.text('Turtle'));
+    await tester.pumpAndSettle();
+    expect(c.state.pet, PetKind.turtle);
+    expect(c.state.petOfferOpen, isFalse, reason: 'one a run, and only one');
+
+    await closeGame(tester);
+  });
+
+  testWidgets('a kept pet keeps saying what it does', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final c = GameController(seedOverride: 20260815);
+    await c.load();
+    c.setSpeed(0);
+    addTearDown(c.dispose);
+
+    // At 10% and 7% nobody will ever feel this by playing — five "feels like
+    // nothing" reports in this project were every one a visibility problem —
+    // so the figures have to stay on screen, not appear once at the offer.
+    c.state.pet = PetKind.monkey;
+    c.state.petOfferSettled = true;
+
+    tester.view.physicalSize = const Size(420, 2200);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(PortsAhoyApp(controller: c));
+    await tester.pump();
+    await openPanel(tester, 'Trade');
+    await tester.pumpAndSettle();
+
+    expect(find.text('Monkey'), findsWidgets);
+    expect(find.textContaining('timber'), findsWidgets,
+        reason: 'the product it helps must be named');
+    expect(find.textContaining('tools'), findsWidgets,
+        reason: 'and so must the one it costs');
+
+    await closeGame(tester);
+  });
+
+  testWidgets('a ripening shed says what it is climbing to', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final c = GameController(seedOverride: 20260815);
+    await c.load();
+    c.setSpeed(0);
+    addTearDown(c.dispose);
+
+    // The grange used to be the only card in the build tab with no number on
+    // it, because it produces nothing and the per-worker rate line never ran.
+    // Three more sheds ripen now, and the same silence would swallow all of
+    // them.
+    for (final def in kBuildingDefs.where((d) => d.ripens)) {
+      c.state.unlocked.add(def.id);
+    }
+
+    tester.view.physicalSize = const Size(420, 3000);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(PortsAhoyApp(controller: c));
+    await tester.pump();
+    await openPanel(tester, 'Build');
+    await tester.pumpAndSettle();
+
+    for (final def in kBuildingDefs.where((d) => d.ripens)) {
+      expect(find.textContaining('${def.ripenDays.round()} days'), findsWidgets,
+          reason: '${def.name} does not say how long it takes to come on');
+    }
+
+    await closeGame(tester);
+  });
+}
+
+void _runBillTests() {
+  group('a run keeps the bill it began under', () {
+    test('an old save is not handed a requirement it cannot meet', () {
+      // THE CASE THIS EXISTS FOR. A run at day 61 on the previous release,
+      // holding more than every requirement it was promised, would otherwise
+      // have been told it now needs 30 cheese — with neither the pasture nor
+      // the byre unlocked, a 28-day ramp behind them, and no way to buy cheese
+      // at any price, since the ware pool is raws and planks by design.
+      final g = GameState.newGame(seed: 9);
+      g.tick = 60 * Balance.ticksPerDay;
+      g.coin = 12000;
+      g.stock[Resource.planks] = 200;
+      g.stock[Resource.tools] = 90;
+      g.stock[Resource.rope] = 140;
+      g.stock[Resource.sailcloth] = 100;
+
+      final j = jsonDecode(jsonEncode(g.toJson())) as Map<String, dynamic>;
+      j.remove('bill'); // as a save from before this existed
+      final back = GameState.fromJson(j);
+
+      expect(back.lighthouseGoodsCost.containsKey(Resource.cheese), isFalse,
+          reason: 'a run cannot be asked for something it was never promised');
+      expect(back.canBuildLighthouse, isTrue,
+          reason: 'this run had earned its light before the update landed');
+    });
+
+    test('a new run gets the current bill', () {
+      final g = GameState.newGame(seed: 3);
+      expect(g.lighthouseGoodsCost.containsKey(Resource.cheese), isTrue);
+    });
+
+    test('the bill survives a save', () {
+      final g = GameState.newGame(seed: 5);
+      final back = GameState.fromJson(
+          jsonDecode(jsonEncode(g.toJson())) as Map<String, dynamic>);
+      expect(back.lighthouseGoodsCost, g.lighthouseGoodsCost);
+    });
   });
 }

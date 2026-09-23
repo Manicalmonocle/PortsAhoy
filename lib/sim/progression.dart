@@ -61,7 +61,10 @@ const List<UnlockRule> kUnlockRules = [
 
   // ---- The flax question -------------------------------------------------
   UnlockRule('ropewalk', text: 'Build a flax field', requires: ['flax_field']),
-  UnlockRule('weaver', text: 'Build a ropewalk', requires: ['ropewalk']),
+  // Behind the pasture now, not the ropewalk: a weaver with no wool is a shed
+  // full of idle hands, and sailcloth cannot arrive before the flock that
+  // supplies it.
+  UnlockRule('weaver', text: 'Build a pasture', requires: ['pasture']),
   UnlockRule('cooperage', text: 'Build a warehouse', requires: ['warehouse']),
 
   // ---- Metal -------------------------------------------------------------
@@ -76,6 +79,30 @@ const List<UnlockRule> kUnlockRules = [
   // idle hands. By the time you have one, the run is long enough for the ramp
   // to be a real question rather than an obvious no.
   UnlockRule('grange', text: 'Build a farm', requires: ['farm']),
+
+  // BEHIND THE FARM, NOT THE GRANGE, and that ordering is worth more than the
+  // tidy lesson it replaced.
+  //
+  // A pasture reads as the second half of the grange's bargain, so it was put
+  // behind one. But the weaver sits behind the pasture — no wool, no sailcloth
+  // — and burying the pasture two deep buried the weaver three. A played run
+  // came back with the whole opening spent on raws: "coin kept running
+  // low/empty until about day 20ish. rarely got any ships in the quay that
+  // wanted raw goods where that's all I had the sheds for". Their only refined
+  // good before day 45 was rope.
+  //
+  // Sailcloth is the port's first valuable thing to sell, and putting the
+  // flock in front of it took the early game's income with it.
+  UnlockRule('pasture', text: 'Build a farm', requires: ['farm']),
+
+  // Cattle after sheep: the byre is the same bargain again but slower and
+  // dearer, so meeting it second is meeting it in the right order.
+  UnlockRule('byre', text: 'Build a pasture', requires: ['pasture']),
+
+  // Hens off the grange like the rest, and the bakery behind the hens, since
+  // a bakery with no eggs is a shed full of idle hands.
+  UnlockRule('hen_house', text: 'Build a grange', requires: ['grange']),
+  UnlockRule('bakery', text: 'Build a hen house', requires: ['hen_house']),
 
   // ---- The dark trade, entirely optional ---------------------------------
   //
@@ -102,8 +129,21 @@ const List<UnlockRule> kUnlockRules = [
   UnlockRule('distillery', text: 'Reach day 25', minDay: 25),
   UnlockRule('bonded_cellar',
       text: 'Build a warehouse', requires: ['warehouse']),
-  UnlockRule('powder_mill', text: 'Build a smithy', requires: ['smithy']),
-  UnlockRule('privateer_berth', text: 'Build a smithy', requires: ['smithy']),
+  // OFF THE SMITHY, BOTH OF THEM — the third time this pair has had to be
+  // moved forward, and the reason is always the same shape.
+  //
+  // The smithy is where a port's ENDGAME starts: it is the only road to the 80
+  // tools the light wants. Hanging the dark trade's two entry buildings off it
+  // means the choice to go dark arrives at the same moment the finish does,
+  // and by then the hands are committed. Measured in a played run, the smithy
+  // landed on day 56 of 79.
+  //
+  // A powder mill converts ore, so it wants a mine — that is its honest
+  // dependency, and its 12 tools are a real but small cost a trader can also
+  // sell you. A berth wants rigging, so it wants a ropewalk.
+  UnlockRule('powder_mill', text: 'Build an iron mine', requires: ['mine']),
+  UnlockRule('privateer_berth',
+      text: 'Build a ropewalk', requires: ['ropewalk']),
 ];
 
 UnlockRule? unlockRuleFor(String buildingId) {

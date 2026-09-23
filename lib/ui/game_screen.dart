@@ -10,6 +10,7 @@ import 'hints.dart';
 import 'world_view.dart';
 import 'log_tab.dart';
 import 'market_tab.dart';
+import 'pet_panel.dart';
 import 'shed_list.dart';
 import 'theme.dart';
 import 'trade_panel.dart';
@@ -79,6 +80,33 @@ class _GameScreenState extends State<GameScreen> {
     });
   }
 
+  /// True only while the pet dialog is actually up.
+  bool _petOfferInFlight = false;
+
+  /// The ship with animals aboard, once, when she puts in.
+  ///
+  /// Guarded like the charter offer and for the same reason: recordVictory
+  /// there, takePet here, both notify listeners and neither may run during a
+  /// build. The flag is cleared rather than latched, so a player who dismisses
+  /// with the back button is asked again rather than losing the run's one
+  /// offer to a stray tap.
+  void _maybeOfferPet(BuildContext context) {
+    final c = widget.controller;
+    if (!c.state.petOfferOpen || _petOfferInFlight) return;
+    _petOfferInFlight = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) {
+        _petOfferInFlight = false;
+        return;
+      }
+      await showDialog<void>(
+        context: this.context,
+        builder: (_) => PetOfferDialog(controller: c),
+      );
+      _petOfferInFlight = false;
+    });
+  }
+
   void _open(_Panel p) => setState(() {
     _panel = p;
     _selected = null;
@@ -96,6 +124,7 @@ class _GameScreenState extends State<GameScreen> {
         // dock has to clear it, or the bottom of the game is unreachable.
         final safeBottom = MediaQuery.viewPaddingOf(context).bottom;
         _maybeOfferCharter(context);
+        _maybeOfferPet(context);
         final hint = nextHint(state, controller.dismissedHints);
         final omens = state.events.omens(state.tick).toList();
         final live = state.events.live(state.tick).toList();
@@ -1062,37 +1091,49 @@ class _BuildingBubble extends StatelessWidget {
               // A grange is a slow bet, so it has to show its progress. An
               // invisible ramp is indistinguishable from a bonus that does
               // nothing, which is the trap this game keeps falling into.
-              if (b.defId == 'grange') ...[
+              // Where a ripening shed stands, and what it is climbing to.
+              //
+              // An invisible ramp is indistinguishable from a bonus that does
+              // nothing, which is the trap this game keeps falling into — and
+              // "12% grown" alone is not enough either: the numbers that
+              // decide whether to stay the course are the ceiling and the
+              // wait, so both are named.
+              if (b.def.ripens) ...[
                 const SizedBox(height: 6),
-                Builder(
-                  builder: (_) {
-                    final s = controller.state;
-                    final pct = (s.grangeMaturity * 100).round();
-                    final gain = ((s.grangeYieldBonus - 1) * 100).round();
-                    // The ceiling and the wait, not just where it stands. "+4%
-                    // to every shed so far" gives a player no way to judge
-                    // whether staying the course is worth it — the number that
-                    // decides that is the one it is climbing towards.
-                    final cap = (Balance.grangeMaxYield * 100).round();
-                    final left =
-                        ((1 - s.grangeMaturity) * Balance.grangeRipenDays)
-                            .ceil();
-                    return Text(
-                      b.workers == 0
-                          ? 'Idle — the fields do not come on while nobody works '
-                                'them. $pct% grown, +$gain% to every shed.'
-                          : pct >= 100
-                          ? 'Fully grown. +$gain% to every shed.'
-                          : '$pct% grown — +$gain% to every shed now, '
-                                'rising to +$cap% in about $left days.',
-                      style: TextStyle(
+                Builder(builder: (_) {
+                  final s = controller.state;
+                  final pct = (b.maturity * 100).round();
+                  final left =
+                      ((1 - b.maturity) * b.def.ripenDays).ceil();
+                  final isGrange = b.defId == 'grange';
+                  final gain = ((s.grangeYieldBonus - 1) * 100).round();
+                  final cap = (Balance.grangeMaxYield * 100).round();
+
+                  final String text;
+                  if (b.workers == 0) {
+                    text = 'Idle — nothing comes on while nobody works it. '
+                        '$pct% grown.';
+                  } else if (pct >= 100) {
+                    text = isGrange
+                        ? 'Fully grown. +$gain% to every shed.'
+                        : 'Fully grown, and yielding its best.';
+                  } else if (isGrange) {
+                    text = '$pct% grown — +$gain% to every shed now, '
+                        'rising to +$cap% in about $left days.';
+                  } else {
+                    text = '$pct% grown — '
+                        '${(b.ripeness * 100).round()}% of its full yield, '
+                        'and full in about $left days.';
+                  }
+
+                  return Text(
+                    text,
+                    style: TextStyle(
                         fontSize: 11,
                         height: 1.35,
-                        color: b.workers == 0 ? Palette.lamp : Palette.moss,
-                      ),
-                    );
-                  },
-                ),
+                        color: b.workers == 0 ? Palette.lamp : Palette.moss),
+                  );
+                }),
               ],
               if (b.workers > 0 && b.lastEfficiency < 0.95)
                 Padding(

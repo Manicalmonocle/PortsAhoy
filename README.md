@@ -92,7 +92,7 @@ cd ~/ports_ahoy
 export PATH=$HOME/flutter/bin:$PATH
 
 flutter analyze                     # clean
-flutter test                        # 383 tests
+flutter test                        # 432 tests
 dart run tool/balance_probe.dart    # 8-seed headless pacing check
 dart run tool/balance_probe.dart --dark              # ...playing the dark trade
 dart run tool/balance_probe.dart --charters=poor_soil  # ...under a hardship
@@ -115,15 +115,16 @@ Workshops refine (Sawmill, Ropewalk, Cooperage, Weaver, Smithy). A building runs
 at the rate of its scarcest constraint — starved of input or out of storage
 space, it throttles rather than cheating.
 
-**The core tension is flax.** The Ropewalk and the Weaver both eat it, and
-neither dominates:
+**The core tension is rope.** Flax feeds the Ropewalk, and every coil that
+comes out either goes on the lighthouse or into a sail — the Weaver turns wool
+and rope into sailcloth, and the light wants both. So rope is the one thing you
+cannot make more of by staffing the shed that needs it.
 
-- **Weaver** pays more per *worker* (2.16c vs 1.40c per worker-hour)
-- **Ropewalk** pays more per *unit of flax* (9.6c vs 8.8c)
-
-So when hands are scarce you staff the Weaver, and when flax is scarce you staff
-the Ropewalk. A test (`ropewalk and weaver genuinely contend for flax`) stops a
-future balance pass collapsing it into a dominant choice.
+That decision used to live one step upstream, when flax fed the Ropewalk and
+the Weaver alike. Moving the Weaver onto wool did not delete it; it relocated
+it onto a finished good, where spending it hurts more. A test
+(`rope is contested between the lighthouse and the sails`) stops a future
+balance pass collapsing it into a dominant choice.
 
 ### The market
 
@@ -174,7 +175,7 @@ Guardrails, all tested:
 The **Grange** is the third route to the light, and the only one that converts
 *time* into goods. Trade converts labour and the dark trade converts risk, and
 both pay the moment you act. A grange pays nothing on the day you build it and
-grows to **+35% on every shed** over thirty-five days of being worked — a bet on
+grows to **+20% on every shed** over twenty-four days of being worked — a bet on
 the run being long, not an upgrade everyone takes. The clock only runs while it
 is staffed, so hands off it stop the growth, and a second grange adds nothing:
 the bet is made once.
@@ -194,6 +195,79 @@ lesson is the same one: the lighthouse asks for planks, tools, rope and
 sailcloth, so a route that does not move those does not move anything. Lifting
 every shed instead gives 96 days on a plain run and 106 under *A Grander Light*,
 against 100 and 116.
+
+**It was then overtuned, and a player caught that.** At +35% a port drowned:
+"my warehouse is filling quick and there's no pressure of being low on
+supplies". It compounds harder than the number suggests, because only outputs
+are scaled and inputs are not — an extractor makes 35% more raw *and* the
+workshop downstream turns the same raw into 35% more goods, so a two-stage
+chain lands near 1.8x while the raws it eats never rise. Cutting the ceiling to
+20% and the ramp to 24 days holds the pacing and gives the middle of the game
+its scarcity back.
+
+### Husbandry
+
+Three sheds keep animals, and all three ripen the way the Grange does — worth a
+quarter of themselves when built, full strength weeks later.
+
+| Shed | Animal | Gives | Ramp |
+| --- | --- | --- | --- |
+| **Pasture** | Sheep | Wool, meat | 30 days |
+| **Byre** | Cows | Milk, cheese, meat | 28 days |
+| **Hen House** | Chickens | Eggs, meat | 14 days |
+
+**They all eat grain**, which is what keeps them honest: the farm stops being a
+straight line to food and becomes a decision about what the harvest is *for*.
+
+**It is not a food chain.** Wool goes into sailcloth and cheese onto the bill —
+that is where the hands are repaid. The meat, milk and eggs exist to hand back
+the food value the feed took out, so the herds never become a second town
+competing with the first for the harvest. That target is sharp enough to test:
+*whatever the animals eat, they return in food value.*
+
+A **Bakery** turns grain and a little egg into bread worth three person-days a
+loaf. It is a grain multiplier rather than a food source — it makes the harvest
+stretch, which is what a port whose herds eat grain actually needs — and it is
+the one new shed with nothing on the bill, because its payoff is not coin.
+
+### The town's mood
+
+The port has an opinion. Happiness answers to four things — whether people are
+fed well or merely fed, crowded or not, paid or not, and whether they are living
+in a smuggler's port — and it has teeth: unhappy hands work worse, a grim
+harbour fills up about sixty percent slower than a content one, and a miserable
+one loses people.
+
+**There is no relief for sale.** That is the fourth row of the table at the top
+of this file. Notoriety set the shape and set it well — no bribe, no passive
+decay, but a way down through play — and happiness answers the same way, to
+feeding people properly, housing them, paying them and keeping the port steady.
+A test asserts a fortune cannot buy a mood a working port cannot earn.
+
+### Pets
+
+A ship puts in between days 40 and 50 with animals aboard and you buy **one**.
+It is the only pet the run will offer: the moment a second is possible the game
+stops being about which animal suits this run and starts being about collecting
+the set.
+
+| | Raises | Lowers |
+| --- | --- | --- |
+| **Dog** | Milk | Ore |
+| **Cat** | Grain | Milk |
+| **Bird** | Ore | Grain |
+| **Monkey** | Timber | Tools |
+| **Turtle** | Tools | Timber |
+
+Every product is raised by exactly one pet and lowered by exactly one, so
+nothing is strictly best and the pick is a read on which chains your run leans
+on. **No pet touches meat**, because meat is what pets eat — one that raised it
+would be partly feeding itself, and its upkeep would stop being a cost. Both
+properties are asserted by test, since they are what a carelessly added sixth
+animal would break without anyone noticing.
+
+Only the timing is random. *Whether* is guaranteed and *which* is your pick,
+which is what keeps it clear of a rare drop to chase.
 
 ### The dark trade
 
@@ -449,9 +523,15 @@ and build rather than a stopwatch to obey.
 
 ### Goal
 
-Raise the Saltwind Light: 9,000 coin + 160 planks + 80 tools + 120 rope +
-90 sailcloth. It deliberately demands one good from every chain rather than a
-pile of coin.
+Raise the Saltwind Light: 8,000 coin + 130 planks + 80 tools + 120 rope +
+70 sailcloth + 30 cheese. It deliberately demands one good from every chain
+rather than a pile of coin — and the cheese is there because a lighthouse is
+manned: you do not finish one by raising the tower, you finish it by
+victualling it so a keeper can live out there through a winter.
+
+**A run keeps the bill it began under.** Changing the requirement under a port
+that has already earned it would take someone's run away, so the bill is
+recorded when the run starts and honoured on every load after.
 
 ## Layout
 

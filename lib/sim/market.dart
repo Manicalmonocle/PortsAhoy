@@ -272,6 +272,8 @@ class Market {
     PortConditions conditions = PortConditions.calm,
     bool darkTradeOpen = false,
     double notoriety = 0.0,
+    Set<Resource> produces = const {},
+    Map<Resource, double> wants = const {},
   ]) {
     for (final r in Resource.values) {
       final cur = index[r] ?? 1.0;
@@ -291,10 +293,30 @@ class Market {
         ships.length < conditions.maxShips) {
       final free = darkTradeOpen && rng.next() < freeTraderShare;
       ships.add(free
-          ? _rollFreeTrader(tick, rng, notoriety)
-          : _rollShip(
-              tick, rng, conditions.demandScale, notoriety, darkTradeOpen));
+          ? _rollFreeTrader(tick, rng, notoriety, wants)
+          : _rollShip(tick, rng, conditions.demandScale, notoriety,
+              darkTradeOpen, produces));
     }
+  }
+
+  /// Draw from [pool], favouring whatever the port is shortest of.
+  ///
+  /// Still a draw, not a vending machine: the shortest good is likeliest, not
+  /// certain, so a trader is a stroke of luck rather than a catalogue.
+  static Resource _pickWanted(
+      List<Resource> pool, Map<Resource, double> wants, SeededRng rng) {
+    if (wants.isEmpty) return pool[rng.rangeInt(0, pool.length - 1)];
+    final weighted = <Resource>[];
+    for (final r in pool) {
+      weighted.add(r);
+      // One extra entry per third of a bill still owing, capped so a port that
+      // has made none of something does not crowd out everything else.
+      final short = ((wants[r] ?? 0) * 3).clamp(0.0, 3.0).round();
+      for (var i = 0; i < short; i++) {
+        weighted.add(r);
+      }
+    }
+    return weighted[rng.rangeInt(0, weighted.length - 1)];
   }
 
   /// A captain who asks no questions.
@@ -303,7 +325,8 @@ class Market {
   /// your contraband and want more of it per unit of cargo. There is
   /// deliberately no reputation level that is simply good — heat is a cost on
   /// every side, never a faucet.
-  Ship _rollFreeTrader(int tick, SeededRng rng, double notoriety) {
+  Ship _rollFreeTrader(int tick, SeededRng rng, double notoriety,
+      [Map<Resource, double> wants = const {}]) {
     final shade = (1.0 - notoriety * 0.0035).clamp(0.55, 1.0);
 
     final bids = Resource.contraband.map((r) {
@@ -344,7 +367,19 @@ class Market {
     for (var i = 0; i < swaps; i++) {
       final give = Resource.contraband[rng.rangeInt(0, Resource.contraband.length - 1)];
       final pool = give == Resource.spice ? spiceTakePool : takePool;
-      final take = pool[rng.rangeInt(0, pool.length - 1)];
+      // WHAT THE PORT IS ACTUALLY SHORT OF, weighted, not a flat draw.
+      //
+      // The whole design of spice is written on the resource itself: it is
+      // "swapped for FINISHED goods, so the dark trade becomes a way to
+      // convert risk into the exact thing that is scarce". The implementation
+      // never did that — it offered a random good — so a played run traded its
+      // spice for tools it had 63 spare of and finished on ONE rope. Risk
+      // converted into the wrong thing is not a route, it is a lottery.
+      //
+      // A free trader dealing with a smuggler knows what that quay is short
+      // of; weighting the offer is both truer and the only way this mechanic
+      // does the job it was added for.
+      final take = _pickWanted(pool, wants, rng);
       // Finished goods move in smaller lots than bulk raws — a hull does not
       // carry 160 tools — and the quantity is what sets how much of a run a
       // single swap can shorten.
@@ -385,7 +420,8 @@ class Market {
   Ship _rollShip(int tick, SeededRng rng,
       [double demandScale = 1.0,
       double notoriety = 0.0,
-      bool darkTradeOpen = false]) {
+      bool darkTradeOpen = false,
+      Set<Resource> produces = const {}]) {
     // Ships favour finished goods — that is the pull toward refining.
     // An honest captain will not touch contraband at any price.
     final legit =
@@ -394,6 +430,20 @@ class Market {
       ...legit.where((r) => r.category == ResourceCategory.good),
       ...legit.where((r) => r.category == ResourceCategory.good),
       ...legit.where((r) => r.category != ResourceCategory.good),
+      // AND AGAIN, FOR WHATEVER THIS PORT ACTUALLY MAKES.
+      //
+      // Traders go where the goods are, which is both true and a fix for
+      // something husbandry broke. This pool is built by listing resources, so
+      // its odds move whenever the list grows: five new foods took the chance
+      // a ship wants timber specifically from about 6.7% to 4.5%, a third off,
+      // and a young port making three or four raws felt the whole of that.
+      // Reported from a played run — "rarely got any ships in the quay that
+      // wanted raw goods where that's all I had the sheds for."
+      //
+      // Weighting what the port produces holds a young port's odds steady
+      // however many goods are added later, and costs a mature one nothing,
+      // since by then it makes most of the list anyway.
+      ...legit.where(produces.contains),
     ];
 
     final count = rng.rangeInt(2, 4);

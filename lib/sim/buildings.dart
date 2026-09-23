@@ -31,6 +31,7 @@ class BuildingDef {
     this.workSite = false,
     this.buildable = true,
     this.footprint = 2,
+    this.ripenDays = 0,
   });
 
   final String id;
@@ -82,6 +83,17 @@ class BuildingDef {
 
   /// Side length of the square this building occupies, in tiles.
   final int footprint;
+
+  /// Days of being worked before this reaches full strength. Zero for
+  /// everything that works the day it is raised.
+  ///
+  /// A shed that ripens is a bet on the run being long enough to collect: it
+  /// costs its hands and its upkeep from the first day and returns almost
+  /// nothing for weeks. That bargain is the whole of the Grange, and it is the
+  /// whole of a herd — stock is worth nothing the week you buy it.
+  final double ripenDays;
+
+  bool get ripens => ripenDays > 0;
 
   /// True when this building draws hands and does something with them.
   ///
@@ -163,7 +175,8 @@ const List<BuildingDef> kBuildingDefs = [
     id: 'flax_field',
     name: 'Flax Field',
     icon: '🌱',
-    blurb: 'Feeds both the ropewalk and the weaver. You will not have enough.',
+    blurb: 'The ropewalk eats every stalk, and everything needs rope. You '
+        'will not have enough.',
     maxWorkers: 4,
     coinCost: 90,
     cost: {},
@@ -218,11 +231,26 @@ const List<BuildingDef> kBuildingDefs = [
     id: 'weaver',
     name: 'Weaver',
     icon: '⛵',
-    blurb: 'Pays far more per worker than the ropewalk — and eats twice the flax.',
+    blurb: 'Wool into cloth, roped at the edges. Every coil you weave is one '
+        'the lighthouse does not get.',
     maxWorkers: 3,
     coinCost: 280,
     cost: {Resource.planks: 30},
-    inputs: {Resource.flax: 0.45},
+    // A SAIL IS WOOL CLOTH WITH ROPE SEWN ROUND IT, which is both how a sail is
+    // actually made — Norse and North Atlantic hulls carried wool sails for
+    // centuries, and every sail is bolt-roped along its edges or the cloth
+    // tears itself apart — and what keeps the port's oldest decision alive.
+    //
+    // Flax used to feed both this and the ropewalk, and splitting one field
+    // between them was the choice the lighthouse comment calls the most
+    // interesting way to end the game. Moving this shed off flax does not
+    // delete that choice, it moves it downstream: rope is now the contested
+    // good, and every coil either goes on the bill or into a sail.
+    // Rope is the EDGE of a sail, not the body of it — so the cloth is most
+    // of the recipe and the bolt-rope is trim. It still costs about two thirds
+    // of a ropewalk to run a weaver, which is the contest; taking a whole one
+    // would have made sailcloth and the lighthouse mutually exclusive.
+    inputs: {Resource.wool: 0.15, Resource.rope: 0.12},
     outputs: {Resource.sailcloth: 0.18},
   ),
   BuildingDef(
@@ -273,6 +301,92 @@ const List<BuildingDef> kBuildingDefs = [
     coinCost: 400,
     cost: {Resource.planks: 40, Resource.timber: 20},
     workSite: true,
+    // The ramp. Measured at 16 seeds against a ceiling of 0.20: 35 days left a
+    // worst case of 302 because the investment stranded on unlucky seeds,
+    // where 24 brings it back to 101 for three days of median. See
+    // Balance.grangeMaxYield for the full sweep.
+    ripenDays: 24,
+  ),
+
+  BuildingDef(
+    id: 'pasture',
+    name: 'Pasture',
+    icon: '🐑',
+    blurb: 'Sheep, and the wool off them. Eats grain from the day it is '
+        'fenced; worth having by shearing.',
+    maxWorkers: 2,
+    coinCost: 350,
+    cost: {Resource.planks: 35, Resource.timber: 20},
+    // Grain, as feed. Priced against a farm: a fully crewed one makes about
+    // 27 grain a day, so this takes roughly an eighth of one. Large enough
+    // that the flock is a claim on the harvest and not a rounding error,
+    // small enough that a single farm still feeds a town beside it.
+    upkeep: {Resource.grain: 0.073},
+    // Wool is the point. The meat is there to hand back the food value the
+    // feed took out — see Resource.nutrition — so the flock comes out roughly
+    // even on the supper table and earns its keep in the weaver instead.
+    // SIZED AGAINST THE WEAVER IT FEEDS, which the first pass was not: at
+    // 0.05 a pasture made 2.4 wool a day against a weaver able to eat 21.6, so
+    // the shed stood starved nine hours in ten and sailcloth took 62 days
+    // instead of 7. Measured, that alone took the median from 81 days to 205.
+    // One pasture now roughly keeps one weaver in cloth.
+    outputs: {Resource.wool: 0.230, Resource.meat: 0.024},
+    ripenDays: 30,
+  ),
+
+  BuildingDef(
+    id: 'byre',
+    name: 'Byre',
+    icon: '🐄',
+    blurb: 'Cattle, and the milk off them. The slowest thing you can build, '
+        'and the only road to cheese.',
+    maxWorkers: 2,
+    coinCost: 500,
+    cost: {Resource.planks: 45, Resource.timber: 30},
+    // Cattle eat more than sheep — about a fifth of a farm.
+    upkeep: {Resource.grain: 0.104},
+    // Milk, and cheese made from it on the spot. A separate dairy was more
+    // faithful and cost a shed and two hands the port could not spare — see
+    // the note on Resource.cheese.
+    outputs: {Resource.milk: 0.090, Resource.cheese: 0.045, Resource.meat: 0.024},
+    // 28, NOT 40. Cattle should be the slowest thing in the port, but the
+    // bill wants cheese and cheese is only behind this — so a herd that takes
+    // forty days to come on, built around day 30, has barely started when an
+    // 80-day run wants to finish. Measured at 40: 4 of 16 seeds never won at
+    // all, and the median was 127 against a baseline of 80.
+    ripenDays: 28,
+  ),
+  BuildingDef(
+    id: 'hen_house',
+    name: 'Hen House',
+    icon: '🐔',
+    blurb: 'Cheap, quick, and the only place eggs come from.',
+    // NOT "Coop": the run code derives three letters from an id, and coop and
+    // cooperage both give "coo". run_code_test asserts against exactly that.
+    maxWorkers: 1,
+    coinCost: 180,
+    cost: {Resource.planks: 20},
+    upkeep: {Resource.grain: 0.0625},
+    outputs: {Resource.eggs: 0.100, Resource.meat: 0.012},
+    // The short ramp, and the reason to build this first of the three: a
+    // flock of hens is worth something inside a fortnight.
+    ripenDays: 14,
+  ),
+  BuildingDef(
+    id: 'bakery',
+    name: 'Bakery',
+    icon: '🍞',
+    blurb: 'Makes the harvest go further. A loaf feeds a man three times as '
+        'far as the grain it was baked from.',
+    maxWorkers: 2,
+    coinCost: 300,
+    cost: {Resource.planks: 30},
+    // A GRAIN MULTIPLIER, not a food source. One grain and a little egg come
+    // out as one loaf worth three person-days, so the shed does not make food
+    // — it makes the grain the port already has stretch. Sized against the hen
+    // house: one keeps one in eggs.
+    inputs: {Resource.grain: 0.200, Resource.eggs: 0.050},
+    outputs: {Resource.bread: 0.200},
   ),
 
   // ---- The dark trade ---------------------------------------------------
@@ -298,7 +412,13 @@ const List<BuildingDef> kBuildingDefs = [
         'against raiders.',
     maxWorkers: 2,
     coinCost: 460,
-    cost: {Resource.planks: 45, Resource.tools: 12},
+    // TIMBER, NOT TOOLS. Moving this shed's unlock off the smithy achieved
+    // nothing while its price still wanted 12 tools, because tools come from a
+    // smithy and nowhere else — the gate simply moved from the unlock to the
+    // bill. Measured with the unlock moved and the cost left alone: 0 of 16
+    // dark seeds won, blocked on powder 124,602 times by a mill that could
+    // never be built. A gate you move has to be moved in both places.
+    cost: {Resource.planks: 55, Resource.timber: 30},
     inputs: {Resource.ore: 0.20, Resource.timber: 0.30},
     outputs: {Resource.powder: 0.055},
   ),
@@ -321,7 +441,31 @@ const List<BuildingDef> kBuildingDefs = [
         'beats raiders off the mole.',
     maxWorkers: 4,
     coinCost: 700,
-    cost: {Resource.planks: 60, Resource.rope: 40, Resource.sailcloth: 30},
+    // NO SAILCLOTH, and that is a correction rather than a discount.
+    //
+    // 30 sailcloth was a fair price when sailcloth was flax worked once. It is
+    // now wool off a ripening pasture woven with rope, so this quietly became
+    // "build the entire husbandry chain first" — and the berth, already behind
+    // the smithy, ended up the last thing in the game a player could reach. A
+    // played run had the smithy on day 56 of 79: "by the time you get your
+    // main things online for the lighthouse it's end game and hard to pivot".
+    //
+    // The rope goes up instead. Rope is what the light is actually short of,
+    // so the berth still costs something that hurts — it just costs it in a
+    // currency available from day 20 rather than day 56.
+    // BARRELS, NOT ROPE — and that is a principle, not a discount.
+    //
+    // A cost denominated in the lighthouse's own materials makes the dark
+    // trade a straight subtraction from winning: every coil spent here is a
+    // coil the light does not get, so the route is dominated before it starts.
+    // 55 rope was 46% of the bill's entire rope requirement, and a played run
+    // that took the berth finished on ONE rope spare.
+    //
+    // Barrels are a real cost — planks through a cooperage, and worth good
+    // coin unspent — without being anything the light asks for. The berth
+    // should cost you hands, time and a chain you built for it, not the win
+    // condition itself.
+    cost: {Resource.planks: 60, Resource.barrels: 35},
     // Stores, meaning FOOD — which is what the blurb above says and what a
     // standing crew actually eats. It used to draw rope and sailcloth, and at
     // four hands that was 3.4 rope a day: a berth held for 31 days consumed
@@ -403,6 +547,22 @@ class Building {
   /// warning in the UI, and it must keep meaning *scarcity* and nothing else.
   double lastEfficiency = 1.0;
 
+  /// How far this building has ripened, 0 to 1. Only meaningful when
+  /// [BuildingDef.ripens].
+  ///
+  /// Per building rather than per port. The Grange kept a single scalar on
+  /// GameState, which was fine while exactly one thing ripened and impossible
+  /// the moment a port could hold a pasture and a byre at once, each with its
+  /// own herd growing at its own pace.
+  double maturity = 0;
+
+  /// What this building is worth right now, as a share of its grown self.
+  ///
+  /// Never zero: a new pasture is a going concern with a small flock, not an
+  /// empty field. Starting at nothing would mean the first fortnight produced
+  /// literally no evidence the shed worked at all.
+  double get ripeness => def.ripens ? 0.25 + 0.75 * maturity : 1.0;
+
   /// Event throughput multiplier applied this tick. Transient, never saved.
   /// Kept separate from [lastEfficiency] so a gale does not make the
   /// "short on input" warning lie.
@@ -454,6 +614,7 @@ class Building {
           'hold': hold.map((k, v) =>
               MapEntry(k.name, double.parse(v.toStringAsFixed(3)))),
         if (def.imports) 'import': importResource.name,
+        if (def.ripens) 'ripe': double.parse(maturity.toStringAsFixed(4)),
       };
 
   static Building fromJson(Map<String, dynamic> j) {
@@ -475,6 +636,8 @@ class Building {
       col: (j['col'] as num?)?.toInt() ?? -1,
       row: (j['row'] as num?)?.toInt() ?? -1,
     );
+    b.maturity =
+        ((j['ripe'] as num?)?.toDouble() ?? 0).clamp(0.0, 1.0).toDouble();
     final held = j['hold'];
     if (held is Map<String, dynamic>) {
       held.forEach((k, v) {

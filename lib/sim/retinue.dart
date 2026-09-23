@@ -37,7 +37,7 @@
 /// have already committed to.
 library;
 
-enum RetinueTrack { captain, merchant, privateer }
+enum RetinueTrack { captain, merchant, privateer, reeve }
 
 /// How much of the carting the harbour does for you, without being asked.
 ///
@@ -94,6 +94,7 @@ class Retainer {
     this.requiresBuildings = 0,
     this.commission = 0.0,
     this.prizeBonus = 0.0,
+    this.ripenSpeed = 1.0,
     this.bootyBonus = 1.0,
     this.requiresBuilding,
   });
@@ -137,6 +138,19 @@ class Retainer {
   /// Added to the chance a boarding succeeds. A privateer captain's whole
   /// trade: better odds at the rail.
   final double prizeBonus;
+
+  /// How much faster this officer brings a ripening shed on.
+  ///
+  /// The reeve's whole effect, and deliberately something nothing else in the
+  /// game touches. A captain buys speed at sea and a merchant buys price; an
+  /// honest port running herds had neither of those to spend an officer's
+  /// berth on, and nobody to spend it with — reported from play as "on a good
+  /// run there's just merchant and captain to buy".
+  ///
+  /// Time is the husbandry route's whole currency, so an officer who buys time
+  /// is the one worth having. It also means a reeve hired early is worth far
+  /// more than one hired late, which is the same bet the sheds themselves are.
+  final double ripenSpeed;
 
   /// Multiplier on the tonnage a won prize lands — the booty. Above 1 means a
   /// fuller hold, spice included.
@@ -284,6 +298,48 @@ const List<Retainer> kRetinue = [
     prizeBonus: 0.22,
     bootyBonus: 1.55,
     requiresBuilding: 'privateer_berth',
+  ),
+
+  // ---- Reeves: time ------------------------------------------------------
+  //
+  // Behind a grange, because an officer for the herds with no herds to keep is
+  // a wage for nothing. The honest counterpart to the privateer captain: that
+  // track only appears once a berth stands, and this one only once a grange
+  // does, so a port sees the officers its own choices earned.
+  Retainer(
+    track: RetinueTrack.reeve,
+    level: 1,
+    name: 'Alderman Fitch',
+    title: 'Reeve',
+    blurb: 'Knows which field to rest and which ewe to keep. Everything that '
+        'ripens, ripens sooner.',
+    coinCost: 600,
+    dailyWage: 2,
+    ripenSpeed: 1.25,
+    requiresBuilding: 'grange',
+  ),
+  Retainer(
+    track: RetinueTrack.reeve,
+    level: 2,
+    name: 'Mother Aubrey',
+    title: 'Stockmaster',
+    blurb: 'Has not lost a lamb in eleven winters, and says so often.',
+    coinCost: 2600,
+    dailyWage: 4,
+    ripenSpeed: 1.5,
+    requiresBuilding: 'grange',
+  ),
+  Retainer(
+    track: RetinueTrack.reeve,
+    level: 3,
+    name: 'Havel Brandt',
+    title: 'Steward of the Fold',
+    blurb: 'Runs the land as an instrument. The herds come on as though the '
+        'season were longer here.',
+    coinCost: 5400,
+    dailyWage: 7,
+    ripenSpeed: 1.8,
+    requiresBuilding: 'grange',
   ),
 ];
 

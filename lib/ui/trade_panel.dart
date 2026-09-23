@@ -5,6 +5,7 @@ import '../sim/game_state.dart';
 import '../sim/resources.dart';
 import '../sim/retinue.dart';
 import '../sim/trade.dart';
+import 'pet_panel.dart';
 import 'theme.dart';
 
 /// Trade you start.
@@ -88,6 +89,12 @@ class _TradePanelState extends State<TradePanel> {
                 fontSize: 11, color: Palette.fog, height: 1.4),
           ),
         ),
+        // How the town feels, and why — named, because a meter you cannot
+        // read is the fault this project keeps having to fix. It moves slowly
+        // by design, so without the reasons beside it a player would have no
+        // way to tell a port that is recovering from one that is stuck.
+        _MoodLine(state: s),
+
         _RetinueCard(controller: controller, track: RetinueTrack.captain),
         _RetinueCard(controller: controller, track: RetinueTrack.merchant),
         // The privateer captain is only shown once a privateer berth stands —
@@ -95,6 +102,10 @@ class _TradePanelState extends State<TradePanel> {
         if (s.buildings.any((b) => b.defId == 'privateer_berth'))
           _RetinueCard(
               controller: controller, track: RetinueTrack.privateer),
+        // Like the privateer's card, only once the port has something for them
+        // to run. An honest port now has a third name to spend a berth on.
+        if (s.buildings.any((b) => b.defId == 'grange'))
+          _RetinueCard(controller: controller, track: RetinueTrack.reeve),
 
         // Carting used to be the quartermaster, and this is the shelf he stood
         // on. Making it automatic removed the card that said the job existed,
@@ -105,6 +116,10 @@ class _TradePanelState extends State<TradePanel> {
         // A player looking for an officer here deserves to be told the work is
         // being done and that there is nobody to buy.
         _CartingNote(state: s),
+
+        // The animal the port keeps, under "your people" because that is what
+        // it is. Renders nothing until there is one.
+        PetCard(controller: controller),
 
         // ---- At sea -------------------------------------------------------
         if (s.voyages.isNotEmpty) ...[
@@ -333,6 +348,71 @@ class _TradePanelState extends State<TradePanel> {
 ///
 /// The thresholds are the old quartermaster's building gates (5, 9, 13), so
 /// this reads as the same progression it always was — only free.
+class _MoodLine extends StatelessWidget {
+  const _MoodLine({required this.state});
+
+  final GameState state;
+
+  @override
+  Widget build(BuildContext context) {
+    final h = state.happiness;
+    final pct = (h * 100).round();
+    final (label, colour) = switch (h) {
+      < Balance.happinessExodusFloor => ('Wretched', Palette.rust),
+      < Balance.happinessGrowthFloor => ('Unhappy', Palette.rust),
+      < 0.45 => ('Restless', Palette.lamp),
+      < 0.65 => ('Settled', Palette.fog),
+      _ => ('Content', Palette.moss),
+    };
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 2, 20, 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Text('The town is $label',
+                  style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: colour)),
+              const SizedBox(width: 6),
+              Text('$pct%',
+                  style: const TextStyle(fontSize: 11, color: Palette.fog)),
+            ],
+          ),
+          const SizedBox(height: 3),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(3),
+            child: LinearProgressIndicator(
+              value: h,
+              minHeight: 4,
+              backgroundColor: Palette.deep,
+              valueColor: AlwaysStoppedAnimation(colour),
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            state.happinessReasons.join(' · '),
+            style: const TextStyle(
+                fontSize: 11, color: Palette.fog, height: 1.4),
+          ),
+          if (h < Balance.happinessGrowthFloor)
+            const Padding(
+              padding: EdgeInsets.only(top: 3),
+              child: Text(
+                'Nobody new will settle here until this turns round. There is '
+                'nothing to buy that fixes it.',
+                style: TextStyle(fontSize: 11, color: Palette.rust),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
 class _CartingNote extends StatelessWidget {
   const _CartingNote({required this.state});
 
@@ -403,6 +483,7 @@ class _RetinueCard extends StatelessWidget {
       RetinueTrack.captain => ('🧭', 'Captain'),
       RetinueTrack.merchant => ('⚖️', 'Merchant'),
       RetinueTrack.privateer => ('🏴‍☠️', 'Privateer Captain'),
+      RetinueTrack.reeve => ('🌾', 'Reeve'),
     };
 
     String effectOf(Retainer r) => switch (track) {
@@ -415,6 +496,9 @@ class _RetinueCard extends StatelessWidget {
           RetinueTrack.privateer =>
             'Boarding odds +${(r.prizeBonus * 100).round()}%, '
                 'booty +${((r.bootyBonus - 1) * 100).round()}%',
+          RetinueTrack.reeve =>
+            'Fields and herds come on '
+                '${((r.ripenSpeed - 1) * 100).round()}% faster',
         };
 
     final idle = switch (track) {
@@ -424,6 +508,8 @@ class _RetinueCard extends StatelessWidget {
         'Nobody. You take whatever price you are offered.',
       RetinueTrack.privateer =>
         'Nobody. Boardings go at the odds your crew and berth can manage.',
+      RetinueTrack.reeve =>
+        'Nobody. Everything that ripens takes exactly as long as it takes.',
     };
 
     return Card(

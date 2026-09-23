@@ -99,12 +99,19 @@ final List<HintDef> kHints = [
         'shed shows its rate on the Build tab.',
     when: (s) => s.day >= 6 && s.buildings.every((b) => !b.def.isWorkshop),
   ),
+  // THE SAME DECISION, ONE STEP DOWNSTREAM. This used to read "the ropewalk
+  // and the weaver both eat flax", which stopped being true the day the weaver
+  // moved to wool and rope — and a played run reported it still appearing:
+  // "the flax problem pop up still shows when only rope needs it now". A hint
+  // that describes a choice the game no longer offers is worse than no hint,
+  // because a player will go looking for the trade-off it names.
   HintDef(
-    id: 'flax',
-    title: 'The flax problem',
-    body: 'The ropewalk and the weaver both eat flax. The weaver pays more per '
-        'worker; the ropewalk gets more out of each stalk. Which one you staff '
-        'depends on whether hands or flax is your bottleneck today.',
+    id: 'rope_split',
+    title: 'The rope problem',
+    body: 'Every coil either goes on the lighthouse or into a sail. The weaver '
+        'turns wool and rope into sailcloth, and the light wants both rope and '
+        'sailcloth — so rope is the one thing you cannot simply make more of '
+        'by staffing the shed that needs it.',
     when: (s) =>
         s.buildings.any((b) => b.defId == 'ropewalk') &&
         s.buildings.any((b) => b.defId == 'weaver'),

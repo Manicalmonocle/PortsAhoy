@@ -461,11 +461,21 @@ class _BuildOption extends StatelessWidget {
                   //
                   // Read off Balance rather than written out, so it cannot
                   // drift from what the sim actually does.
-                  if (def.id == 'grange')
+                  // A shed that pays later has to say so on the card where
+                  // you decide to buy it. Written for every ripening building
+                  // rather than for the grange by name, which is how the
+                  // grange came to be the only card in the tab with no number
+                  // on it: it produces nothing, so the per-worker rate above
+                  // never ran, and the blurb alone is a mood rather than a
+                  // mechanic. Three more sheds ripen now.
+                  if (def.ripens)
                     Text(
-                      'Lifts every shed by '
-                      '+${(Balance.grangeMaxYield * 100).round()}% once grown '
-                      '— about ${Balance.grangeRipenDays.round()} days of work',
+                      def.id == 'grange'
+                          ? 'Lifts every shed by '
+                              '+${(Balance.grangeMaxYield * 100).round()}% once '
+                              'grown — about ${def.ripenDays.round()} days of work'
+                          : 'Comes on over about ${def.ripenDays.round()} days '
+                              'of work. Worth a quarter of this at first',
                       style: const TextStyle(
                           fontSize: 10, color: Palette.moss, height: 1.3),
                     ),
