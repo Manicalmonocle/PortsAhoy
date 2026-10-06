@@ -26,7 +26,9 @@ and click-free edges on the one-shots.
 """
 
 import array
+import math
 import os
+import random
 import subprocess
 import sys
 import wave
@@ -46,6 +48,27 @@ def render(graph, seconds):
     raw = subprocess.run(cmd, check=True, capture_output=True).stdout
     a = array.array('h')
     a.frombytes(raw)
+    return list(a)
+
+
+def render_over(layer, graph, seconds):
+    """Like render(), but with a layer built in Python fed in as input [0].
+
+    For sounds that are made of EVENTS rather than a continuous signal —
+    raindrops — which an ffmpeg expression cannot scatter at random times.
+    """
+    top = max(1e-9, max(abs(x) for x in layer))
+    raw = array.array('h', (int(x / top * 30000) for x in layer)).tobytes()
+    cmd = [
+        'ffmpeg', '-hide_banner', '-loglevel', 'error',
+        '-f', 's16le', '-ar', str(RATE), '-ac', '1', '-i', '-',
+        '-filter_complex', graph,
+        '-t', str(seconds), '-ac', '1', '-ar', str(RATE),
+        '-f', 's16le', '-',
+    ]
+    out = subprocess.run(cmd, input=raw, check=True, capture_output=True).stdout
+    a = array.array('h')
+    a.frombytes(out)
     return list(a)
 
 
@@ -134,11 +157,52 @@ def main():
         f':eval=frame', 14)
     write('wind', normalise(loop_seam(wind, 2), -12))
 
-    # Rain: dense, bright, steady.
-    rain = render(
-        f'anoisesrc=color=white:seed=41:r={RATE},highpass=f=1400,lowpass=f=8000,'
-        f'volume=\'0.8+0.2*sin(2*PI*t/2.3)\':eval=frame', 12)
-    write('rain', normalise(loop_seam(rain, 2), -14))
+    # Rain. THE FIRST DRAFT WAS STATIC: smooth band-passed white noise, with
+    # nothing in it happening at any particular moment. The report was fair —
+    # "doesn't sound bad, just off" — because what makes rain sound like rain
+    # is that it is thousands of separate drops, each one landing somewhere.
+    # So it is built from events now, in three layers:
+    #
+    #   - DROPS ON WATER: a short "plink" each, gliding slightly up in pitch as
+    #     the bubble under it collapses, at random times and loudnesses;
+    #   - PATTER: a dense scatter of tiny broadband ticks, which is the crackle
+    #     and fizz of rain on everything else;
+    #   - A WASH: soft, low noise underneath for the downpour further off —
+    #     the only part the first draft had, and now the quietest.
+    seconds = 12
+    n = RATE * seconds
+    rnd = random.Random(41)
+    layer = [0.0] * n
+    for _ in range(30 * seconds):  # drops on the water
+        t0 = rnd.randrange(n)
+        f = rnd.uniform(1300, 3600)
+        glide = rnd.uniform(0.15, 0.6)
+        amp = rnd.uniform(0.25, 1.0) ** 2
+        dur = int(RATE * rnd.uniform(0.010, 0.030))
+        for i in range(dur):
+            j = t0 + i
+            if j >= n:
+                break
+            tt = i / RATE
+            ph = 2 * math.pi * f * (tt + glide * tt * tt / (2 * dur / RATE))
+            layer[j] += 0.38 * amp * math.sin(ph) * math.exp(-tt * 180)
+    for _ in range(900 * seconds):  # patter
+        t0 = rnd.randrange(n)
+        amp = rnd.uniform(0.05, 1.0) ** 2.2
+        for i in range(rnd.randint(2, 9)):
+            j = t0 + i
+            if j >= n:
+                break
+            layer[j] += 0.85 * amp * rnd.uniform(-1, 1) * math.exp(-i / 2.5)
+    rain = render_over(
+        layer,
+        '[0:a]highpass=f=700,lowpass=f=9500[d];'
+        f'anoisesrc=color=pink:seed=41:r={RATE},bandpass=f=900:width_type=h:w=1100,'
+        'volume=0.22[w];'
+        "[d][w]amix=inputs=2:normalize=0,"
+        "volume='0.82+0.18*sin(2*PI*t/5.3)*sin(2*PI*t/2.9+0.7)':eval=frame",
+        seconds)
+    write('rain', normalise(loop_seam(rain, 2), -13))
 
     # ---- One-shots --------------------------------------------------------
 
