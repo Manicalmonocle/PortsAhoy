@@ -121,6 +121,11 @@ class _TradePanelState extends State<TradePanel> {
         // it is. Renders nothing until there is one.
         PetCard(controller: controller),
 
+        // And before that, the ship she came in on, if the player chose to
+        // keep it waiting rather than buy on the spot. Same slot, so the
+        // offer cannot be dismissed into nowhere.
+        PetOfferCard(controller: controller),
+
         // ---- At sea -------------------------------------------------------
         if (s.voyages.isNotEmpty) ...[
           const _Label('At sea'),

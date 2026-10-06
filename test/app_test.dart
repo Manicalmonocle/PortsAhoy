@@ -1075,6 +1075,66 @@ void _lighthouseCardTests() {
     await closeGame(tester);
   });
 
+  testWidgets('a pet you cannot afford can be kept waiting', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final c = GameController(seedOverride: 20260815);
+    await c.load();
+    c.setSpeed(0);
+    addTearDown(c.dispose);
+
+    // THE RUN THIS COST. The ship put in while the port was short of her
+    // price, and the dialog is raised from build() on an offer that never
+    // expires — so dismissing it brought it back on the next tick's rebuild.
+    // The player could neither pay nor trade, and wages ran the treasury
+    // down behind the modal: 221 coin on day 47, 115, 9, then nothing by day
+    // 50, with the light 8,000 short. "Can't minimize the popup to build the
+    // coin so I ran completely out of coin."
+    c.state.coin = 221;
+    c.state.tick = c.state.petOfferDay * Balance.ticksPerDay;
+    expect(c.state.petOfferOpen, isTrue);
+
+    tester.view.physicalSize = const Size(420, 2200);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(PortsAhoyApp(controller: c));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Keep her waiting'), findsOneWidget,
+        reason: 'a modal whose only exits are pay or forfeit is a trap');
+    await tester.tap(find.text('Keep her waiting'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('She is selling'), findsNothing);
+
+    // And it has to STAY shut through the rebuilds that used to re-raise it.
+    for (var i = 0; i < 3; i++) {
+      c.act((g) => g.coin += 100);
+      await tester.pumpAndSettle();
+    }
+    expect(find.textContaining('She is selling'), findsNothing,
+        reason: 'the offer must not raise itself again');
+
+    // Waiting costs nothing. The run's one pet is still there to buy.
+    expect(c.state.petOfferOpen, isTrue);
+    expect(c.state.pet, isNull);
+    expect(c.state.petOfferSettled, isFalse);
+
+    await openPanel(tester, 'Trade');
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Waiting at the quay'), findsOneWidget,
+        reason: 'an offer dismissed into thin air is a feature lost');
+
+    // And the card is the way back to her.
+    await tester.tap(find.textContaining('Waiting at the quay'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('She is selling'), findsOneWidget);
+    await tester.tap(find.text('Turtle'));
+    await tester.pumpAndSettle();
+    expect(c.state.pet, PetKind.turtle);
+    expect(c.state.petOfferOpen, isFalse);
+
+    await closeGame(tester);
+  });
+
   testWidgets('a kept pet keeps saying what it does', (tester) async {
     SharedPreferences.setMockInitialValues({});
     final c = GameController(seedOverride: 20260815);

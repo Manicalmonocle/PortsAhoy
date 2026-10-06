@@ -83,26 +83,47 @@ class _GameScreenState extends State<GameScreen> {
   /// True only while the pet dialog is actually up.
   bool _petOfferInFlight = false;
 
+  /// Set once the player has closed the offer without settling it.
+  ///
+  /// THE OFFER MUST NOT RE-RAISE ITSELF. [_maybeOfferPet] runs from build and
+  /// [GameState.petOfferOpen] has no deadline, so with only an in-flight guard
+  /// a dismissal came straight back on the next tick's rebuild — an
+  /// inescapable modal in a game that keeps charging wages behind it. A player
+  /// short of the price lost a run to it.
+  ///
+  /// Per-launch rather than saved, deliberately: reopening the app is a fair
+  /// place to be reminded she is still out there, and PetOfferCard keeps her
+  /// reachable in between.
+  bool _petOfferDeferred = false;
+
   /// The ship with animals aboard, once, when she puts in.
   ///
   /// Guarded like the charter offer and for the same reason: recordVictory
   /// there, takePet here, both notify listeners and neither may run during a
-  /// build. The flag is cleared rather than latched, so a player who dismisses
-  /// with the back button is asked again rather than losing the run's one
-  /// offer to a stray tap.
+  /// build.
+  ///
+  /// Raised at most once a launch. It used to be raised again on every
+  /// rebuild, so that a stray tap could not cost the run its only pet — but
+  /// the offer never expires, so the protection was unnecessary and the loop
+  /// it created was not: see [_petOfferDeferred].
   void _maybeOfferPet(BuildContext context) {
     final c = widget.controller;
-    if (!c.state.petOfferOpen || _petOfferInFlight) return;
+    if (!c.state.petOfferOpen || _petOfferInFlight || _petOfferDeferred) {
+      return;
+    }
     _petOfferInFlight = true;
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) {
         _petOfferInFlight = false;
         return;
       }
-      await showDialog<void>(
+      // false, or null from a barrier tap or the back button, both mean "not
+      // now" — and both are safe, because nothing is lost by waiting.
+      final settled = await showDialog<bool>(
         context: this.context,
         builder: (_) => PetOfferDialog(controller: c),
       );
+      if (settled != true) _petOfferDeferred = true;
       _petOfferInFlight = false;
     });
   }
