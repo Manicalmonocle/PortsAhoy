@@ -168,6 +168,11 @@ class GameController extends ChangeNotifier {
   /// It mirrors the conditions [_syncTimer] stops the clock on, and has to: a
   /// finished port whose windmills turned forever would look like it was
   /// still playing.
+  /// How far the sim is toward its next step, 0 to 1. The world view uses it
+  /// to place things that move with GAME time — a ship on a voyage — between
+  /// steps, which come only 0.7 times a second at normal speed.
+  double get tickFraction => _accumulator.clamp(0.0, 0.999);
+
   bool get isRunning =>
       ready && speed > 0 && !state.lighthouseBuilt && !_away;
 

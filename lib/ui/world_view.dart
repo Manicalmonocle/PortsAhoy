@@ -73,9 +73,15 @@ class WorldView extends StatefulWidget {
 /// [work] scales by the square root of game speed rather than the speed
 /// itself: at four times, hands that walked four times faster blurred into
 /// noise, and twice as fast still reads plainly as fast-forward.
+///
+/// [game] is different in kind: it is the sim's own tick, but continuous —
+/// for things that move with game time, like a ship on a voyage. It runs at
+/// the sim's rate and is pulled back onto the sim whenever the two drift, so
+/// it can never wander from what the port actually is.
 class _Clock extends ChangeNotifier {
   double sea = 0;
   double work = 0;
+  double game = 0;
   void frame() => notifyListeners();
 }
 
@@ -258,7 +264,16 @@ class _WorldViewState extends State<WorldView>
     _lastTick = elapsed;
     final c = widget.controller;
     _clock.sea += dt;
-    if (c.isRunning) _clock.work += dt * math.sqrt(c.speed);
+    if (c.isRunning) {
+      _clock.work += dt * math.sqrt(c.speed);
+      _clock.game += dt * GameController.baseTicksPerSecond * c.speed;
+    }
+    // The sim only steps a few times a second, and its fraction toward the
+    // next step only updates ten times a second; this runs at thirty. Track
+    // it smoothly, and snap back if it has wandered more than half a step —
+    // a load, a speed change, a long sleep.
+    final exact = c.state.tick + c.tickFraction;
+    if ((_clock.game - exact).abs() > 0.5) _clock.game = exact;
     _sinceFrame += dt;
     if (_sinceFrame >= _frameGap) {
       _sinceFrame = 0;
@@ -594,6 +609,9 @@ class _ScenePainter extends CustomPainter {
   late double _sea;
   late double _work;
 
+  /// This frame's game time, in ticks but continuous. See [_Clock.game].
+  late double _game;
+
   /// Where the wind is blowing TO, on the ground plane, and how hard (0-1).
   /// One wind for the whole port: smoke leans with it, windmills turn with it,
   /// pennants snap with it and the sea gets choppier under it.
@@ -669,6 +687,9 @@ class _ScenePainter extends CustomPainter {
         ? clock.sea
         : state.tick / GameController.baseTicksPerSecond;
     _work = WorldView.live ? clock.work : _sea;
+    _game = WorldView.live
+        ? math.max(clock.game, state.tick.toDouble())
+        : state.tick.toDouble();
     _settleWind();
     _p = Projector(camera, size);
     _queue.clear();
@@ -681,6 +702,7 @@ class _ScenePainter extends CustomPainter {
     _buildScatter();
     _buildBuildings();
     _buildShips();
+    _buildVoyages();
     _buildPeople();
     _buildDropHint();
 
@@ -1148,22 +1170,8 @@ class _ScenePainter extends CustomPainter {
   void _buildShips() {
     final ships = state.market.ships;
     if (ships.isEmpty) return;
-
-    // Mooring spots: a water tile just outside a shore, facing the land.
-    // Collected in a stable order so a given ship keeps its berth frame to
-    // frame rather than hopping around the coast.
-    final spots = <List<double>>[]; // [x, z, facingAngle]
-    for (var col = 0; col < Terrain.size && spots.length < 12; col++) {
-      for (var row = 0; row < Terrain.size && spots.length < 12; row++) {
-        if (!Terrain.isShore(col, row)) continue;
-        for (final d in const [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
-          if (Terrain.at(col + d[0], row + d[1]) != Tile.water) continue;
-          final c = tileCorner(col + 0.5 + d[0], row + 0.5 + d[1], 0);
-          spots.add([c.x, c.z, math.atan2(-d[1].toDouble(), -d[0].toDouble())]);
-          break;
-        }
-      }
-    }
+    // The first twelve, as it always was, so traders keep their berths.
+    final spots = _mooringSpots.take(12).toList();
     if (spots.isEmpty) return;
 
     final tick = _sea;
@@ -1176,14 +1184,154 @@ class _ScenePainter extends CustomPainter {
     }
   }
 
+  /// Places a ship can lie: a water tile just outside a shore, facing the
+  /// land, as [x, z, facingAngle]. Collected in a stable order so a given
+  /// ship keeps its berth frame to frame rather than hopping round the coast.
+  /// The terrain never changes, so this is worked out once.
+  static final List<List<double>> _mooringSpots = () {
+    final spots = <List<double>>[];
+    for (var col = 0; col < Terrain.size; col++) {
+      for (var row = 0; row < Terrain.size; row++) {
+        if (!Terrain.isShore(col, row)) continue;
+        for (final d in const [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+          if (Terrain.at(col + d[0], row + d[1]) != Tile.water) continue;
+          final c = tileCorner(col + 0.5 + d[0], row + 0.5 + d[1], 0);
+          spots.add(
+              [c.x, c.z, math.atan2(-d[1].toDouble(), -d[0].toDouble())]);
+          break;
+        }
+      }
+    }
+    // The moored traders used to stop at twelve. They still take the first
+    // twelve in this order; a voyage may cast off from any of them.
+    return spots;
+  }();
+
+  /// Which way each destination lies. Fixed, so a hull for Ostmark always
+  /// leaves by the same shore and a player learns the shape of the sea.
+  static double _bearingOf(String destinationId) => switch (destinationId) {
+        'ostmark' => 0.15,
+        'greyhaven' => 2.35,
+        'the_reaches' => 4.1,
+        _ => 1.2,
+      };
+
+  /// Consignments, under way.
+  ///
+  /// "Sent a hull to Ostmark" used to be a line in the log and a figure under
+  /// Trade. Now she is seen to go: she casts off from the shore that faces
+  /// her destination, stands out to sea under a full sail with a wake behind
+  /// her, and is over the edge of the world for the middle of the voyage —
+  /// then comes back the same way, so you see her coming before the coin
+  /// lands.
+  ///
+  /// Placed by continuous GAME time, not the animation clocks: a voyage is
+  /// part of the run, so at four times speed she goes four times as fast, and
+  /// when the port is paused she stops where she is.
+  void _buildVoyages() {
+    final spots = _mooringSpots;
+    if (spots.isEmpty) return;
+    // Over a quarter of the voyage in sight each way. The first version sailed
+    // her forty units out on a gentle curve, and the view on a phone shows
+    // only a few units of sea past the shore — so she was off the edge of the
+    // screen a third of the way through her leg, five seconds after casting
+    // off. Now she spends most of the leg working clear of the coast, slowly,
+    // where she can be seen, and only runs for the horizon at the end.
+    const leg = 0.28;
+    // Twelve units, dissolving into the water over the far part of it.
+    const reach = 12.0;
+
+    for (var i = 0; i < state.voyages.length; i++) {
+      final v = state.voyages[i];
+      final span = (v.returnTick - v.departTick).toDouble();
+      if (span <= 0) continue;
+      final p = ((_game - v.departTick) / span).clamp(0.0, 1.0);
+
+      final double out; // 0 at the quay, 1 at the horizon
+      final bool homeward;
+      if (p < leg) {
+        out = p / leg;
+        homeward = false;
+      } else if (p > 1 - leg) {
+        out = (1 - p) / leg;
+        homeward = true;
+      } else {
+        continue;
+      }
+
+      // A little fan per hull, so two sent to the same port do not sail
+      // through each other.
+      final bearing = _bearingOf(v.destinationId) + (i % 3 - 1) * 0.14;
+      final dx = math.cos(bearing), dz = math.sin(bearing);
+
+      // Cast off from the shore that faces the way she is going.
+      var best = spots.first;
+      var bestDot = double.negativeInfinity;
+      for (final s in spots) {
+        final d = s[0] * dx + s[1] * dz;
+        if (d > bestDot) {
+          bestDot = d;
+          best = s;
+        }
+      }
+      // Slow off the quay and gathering way once clear of it; homeward the
+      // same curve run backwards, so she slows as she comes in.
+      final dist = 0.8 + reach * out * out;
+      final t = ((out - 0.55) / 0.45).clamp(0.0, 1.0);
+      final fade = t * t * (3 - 2 * t);
+      if (fade >= 0.98) continue;
+      final x = best[0] + dx * dist;
+      final z = best[1] + dz * dist;
+      final y = heightOf(Tile.water) + _waveY(x, z, _sea) + 0.02;
+      // _ship points its bows at the angle it is given.
+      final ang = homeward ? bearing + math.pi : bearing;
+      _ship(x, z, y, ang, _sea + i * 2.3, false, fade: fade);
+
+      final hx = math.cos(ang), hz = math.sin(ang);
+      _wake(x, z, hx, hz, fade);
+
+      // An escort keeps station off her quarter.
+      if (v.escorted) {
+        final px = -hz, pz = hx;
+        final ex = x + px * 1.1 - hx * 0.7;
+        final ez = z + pz * 1.1 - hz * 0.7;
+        _ship(ex, ez, heightOf(Tile.water) + _waveY(ex, ez, _sea) + 0.02,
+            ang, _sea + i * 2.3 + 1.1, false, fade: fade, armed: true);
+        _wake(ex, ez, hx, hz, fade);
+      }
+    }
+  }
+
+  /// Spray off a stern, thinning behind her. ([hx], [hz]) is her heading.
+  void _wake(double x, double z, double hx, double hz, double fade) {
+    for (var k = 1; k <= 5; k++) {
+      final wx = x - hx * (0.5 + k * 0.32);
+      final wz = z - hz * (0.5 + k * 0.32);
+      _puff(Vector3(wx, heightOf(Tile.water) + 0.03, wz), 0.07 + k * 0.035,
+          const Color(0xFFEFF6F8)
+              .withValues(alpha: (0.5 - k * 0.08) * (1 - fade)));
+    }
+  }
+
   /// One boat: a hull that sits low, a mast, and a sail — bows toward [ang]
   /// (the shore). Foreign hulls fly a dark pennant instead of a pale sail.
-  void _ship(double x, double z, double y, double ang, double tick, bool foreign) {
+  ///
+  /// [fade] dissolves her into the sea's own colour, 0 to 1 — how a hull goes
+  /// over the horizon. Opaque faces cannot be made transparent without
+  /// showing their insides, so she is blended toward the water instead.
+  ///
+  /// [armed] is the port's own escort: a sloop with a red pennant. It used to
+  /// fly the black one, which in this game is the free trader's colour — the
+  /// ship guarding your cargo dressed as the kind it is guarding against.
+  void _ship(double x, double z, double y, double ang, double tick,
+      bool foreign, {double fade = 0, bool armed = false}) {
     final dx = math.cos(ang), dz = math.sin(ang); // along the hull, toward land
     final px = -dz, pz = dx; // across the beam
-    const hullC = Color(0xFF6B4A30);
-    const hullDk = Color(0xFF4E3522);
-    const deckC = Color(0xFF8A6A46);
+    Color f(Color c) =>
+        fade <= 0 ? c : Color.lerp(c, const Color(0xFF1B5F79), fade)!;
+    final hullC = f(const Color(0xFF6B4A30));
+    final hullDk = f(const Color(0xFF4E3522));
+    final deckC = f(const Color(0xFF8A6A46));
     final bob = math.sin(tick * 1.4) * (0.015 + 0.02 * _wind);
     final yy = y + bob;
 
@@ -1216,12 +1364,13 @@ class _ScenePainter extends CustomPainter {
     // Mast a touch forward of centre, a boom, and the sail.
     final mx = x + dx * 0.04, mz = z + dz * 0.04;
     _box(Vector3(mx - 0.03, yy + rim, mz - 0.03),
-        Vector3(mx + 0.03, yy + rim + 0.8, mz + 0.03), const Color(0xFF3A2C20));
-    if (foreign) {
+        Vector3(mx + 0.03, yy + rim + 0.8, mz + 0.03), f(const Color(0xFF3A2C20)));
+    if (foreign || armed) {
       final flap = math.sin(tick * (1.6 + 4 * _wind)) * (0.03 + 0.06 * _wind);
       _poly([Vector3(mx, yy + rim + 0.78, mz),
         Vector3(mx + px * 0.36, yy + rim + 0.64 + flap, mz + pz * 0.36),
-        Vector3(mx, yy + rim + 0.5, mz)], const Color(0xFF15120F),
+        Vector3(mx, yy + rim + 0.5, mz)],
+          f(armed ? const Color(0xFFB0412E) : const Color(0xFF15120F)),
           awayFrom: Vector3(x, yy, z - 1));
     } else {
       // A square sail bellying forward, filling most of the mast.
@@ -1229,7 +1378,7 @@ class _ScenePainter extends CustomPainter {
       final belly = 0.03 + 0.11 * _wind + math.sin(tick * 1.1) * 0.025;
       _poly([hp(0.02, -beam * 0.7, rim + 0.72), hp(0.02, beam * 0.7, rim + 0.72),
         hp(0.02 + belly, beam * 0.7, rim + 0.28), hp(0.02 + belly, -beam * 0.7, rim + 0.28)],
-          const Color(0xFFEBE1C8), awayFrom: ctr);
+          f(const Color(0xFFEBE1C8)), awayFrom: ctr);
     }
   }
 

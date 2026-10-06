@@ -16,6 +16,7 @@ import 'package:ports_ahoy/sim/buildings.dart';
 import 'package:ports_ahoy/sim/events.dart';
 import 'package:ports_ahoy/sim/market.dart';
 import 'package:ports_ahoy/sim/terrain.dart';
+import 'package:ports_ahoy/sim/trade.dart';
 import 'package:ports_ahoy/ui/world_view.dart';
 import 'package:vector_math/vector_math_64.dart' show Vector3;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -110,6 +111,22 @@ void main() {
           }
         }
       }
+    }
+
+    // A consignment under way: VISUAL_VOYAGE=destination:progress[:escort],
+    // progress 0-1 through the trip — so a hull can be looked at mid-leg.
+    final voyArg = Platform.environment['VISUAL_VOYAGE'];
+    if (voyArg != null) {
+      final parts = voyArg.split(':');
+      const span = 120;
+      final depart = g.tick - (double.parse(parts[1]) * span).round();
+      g.voyages.add(Voyage(
+          destinationId: parts[0],
+          cargo: const {},
+          departTick: depart,
+          returnTick: depart + span,
+          quotedCoin: 0,
+          escorted: parts.length > 2));
     }
 
     // Or close in on one kind of shed by id, wherever the lineup put it.
