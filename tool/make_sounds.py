@@ -157,50 +157,53 @@ def main():
         f':eval=frame', 14)
     write('wind', normalise(loop_seam(wind, 2), -12))
 
-    # Rain. THE FIRST DRAFT WAS STATIC: smooth band-passed white noise, with
-    # nothing in it happening at any particular moment. The report was fair —
-    # "doesn't sound bad, just off" — because what makes rain sound like rain
-    # is that it is thousands of separate drops, each one landing somewhere.
-    # So it is built from events now, in three layers:
+    # Rain, on the third attempt, and both earlier ones are worth knowing:
     #
-    #   - DROPS ON WATER: a short "plink" each, gliding slightly up in pitch as
-    #     the bubble under it collapses, at random times and loudnesses;
-    #   - PATTER: a dense scatter of tiny broadband ticks, which is the crackle
-    #     and fizz of rain on everything else;
-    #   - A WASH: soft, low noise underneath for the downpour further off —
-    #     the only part the first draft had, and now the quietest.
+    #   1. Smooth noise filtered to the treble. "Doesn't sound bad, just off":
+    #      nothing in it happened at any moment, and it was all hiss and no
+    #      body. That is static.
+    #   2. Built from events — a crackle of ticks with tonal "plinks" of drops
+    #      on water on top. "Now it just sounds like dripping water." The
+    #      plinks were tonal and sparse enough to pick out one by one, and
+    #      individual tonal drops ARE the sound of dripping.
+    #
+    # Heavy rain is between the two. There are so many drops that none can be
+    # told apart, so it blurs into a rush — but a textured rush, never smooth,
+    # with real weight in the low-mids. So:
+    #
+    #   - A RUSH for the body: pink noise down in the low-mids. This is the
+    #     roar of a downpour, and the first draft had none of it.
+    #   - FIZZ: thousands of tiny impacts a second, far too many to hear
+    #     singly, loudness skewed so most are faint — the grain on top.
+    #   - The odd TAP of a nearby drop on timber: toneless and soft, a pat,
+    #     never a plink. NO TONAL DROPS AT ALL.
     seconds = 12
     n = RATE * seconds
     rnd = random.Random(41)
-    layer = [0.0] * n
-    for _ in range(30 * seconds):  # drops on the water
+    fizz = [0.0] * n
+    for _ in range(6000 * seconds):
         t0 = rnd.randrange(n)
-        f = rnd.uniform(1300, 3600)
-        glide = rnd.uniform(0.15, 0.6)
-        amp = rnd.uniform(0.25, 1.0) ** 2
-        dur = int(RATE * rnd.uniform(0.010, 0.030))
-        for i in range(dur):
+        amp = rnd.random() ** 3  # most faint, a few not
+        for i in range(rnd.randint(1, 4)):
             j = t0 + i
             if j >= n:
                 break
-            tt = i / RATE
-            ph = 2 * math.pi * f * (tt + glide * tt * tt / (2 * dur / RATE))
-            layer[j] += 0.38 * amp * math.sin(ph) * math.exp(-tt * 180)
-    for _ in range(900 * seconds):  # patter
+            fizz[j] += amp * rnd.uniform(-1, 1) * math.exp(-i / 1.5)
+    for _ in range(9 * seconds):  # nearby taps
         t0 = rnd.randrange(n)
-        amp = rnd.uniform(0.05, 1.0) ** 2.2
-        for i in range(rnd.randint(2, 9)):
+        amp = rnd.uniform(0.6, 1.4)
+        for i in range(rnd.randint(25, 60)):
             j = t0 + i
             if j >= n:
                 break
-            layer[j] += 0.85 * amp * rnd.uniform(-1, 1) * math.exp(-i / 2.5)
+            fizz[j] += amp * rnd.uniform(-1, 1) * math.exp(-i / 9)
     rain = render_over(
-        layer,
-        '[0:a]highpass=f=700,lowpass=f=9500[d];'
-        f'anoisesrc=color=pink:seed=41:r={RATE},bandpass=f=900:width_type=h:w=1100,'
-        'volume=0.22[w];'
-        "[d][w]amix=inputs=2:normalize=0,"
-        "volume='0.82+0.18*sin(2*PI*t/5.3)*sin(2*PI*t/2.9+0.7)':eval=frame",
+        fizz,
+        '[0:a]highpass=f=1200,lowpass=f=9000,volume=0.55[f];'
+        f'anoisesrc=color=pink:seed=41:r={RATE},highpass=f=160,lowpass=f=2400,'
+        'volume=0.9[r];'
+        "[f][r]amix=inputs=2:normalize=0,"
+        "volume='0.84+0.16*sin(2*PI*t/5.3)*sin(2*PI*t/2.9+0.7)':eval=frame",
         seconds)
     write('rain', normalise(loop_seam(rain, 2), -13))
 
