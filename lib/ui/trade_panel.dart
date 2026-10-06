@@ -104,8 +104,10 @@ class _TradePanelState extends State<TradePanel> {
           _RetinueCard(
               controller: controller, track: RetinueTrack.privateer),
         // Like the privateer's card, only once the port has something for them
-        // to run. An honest port now has a third name to spend a berth on.
-        if (s.buildings.any((b) => b.defId == 'grange'))
+        // to run — the first shed that ripens, whichever it is. It waited for
+        // a grange, and a port that put its herds in first met the reeve after
+        // they had grown.
+        if (s.hasRipeningShed)
           _RetinueCard(controller: controller, track: RetinueTrack.reeve),
 
         // Carting used to be the quartermaster, and this is the shelf he stood

@@ -756,6 +756,34 @@ void retinueTests() {
       }
     });
 
+    test('the reeve comes with the first shed that ripens, whichever it is',
+        () {
+      // He waited for a grange, and a pasture needs only a farm. A 102-day
+      // run built its pasture on day 23 and its byre on day 32 — both grown
+      // by day 60 — and its grange on day 69, so the officer whose whole job
+      // is bringing herds on arrived after they had come on. Another run never
+      // built a grange and never saw him.
+      final reeve = retainerAt(RetinueTrack.reeve, 1)!;
+
+      final bare = stocked();
+      openBerths(bare, 1);
+      expect(bare.hasRipeningShed, isFalse);
+      expect(bare.canHire(reeve), isFalse,
+          reason: 'an officer for herds with no herds is a wage for nothing');
+
+      final ripening = kBuildingDefs.where((d) => d.ripens).toList();
+      expect(ripening.map((d) => d.id),
+          containsAll(['grange', 'pasture', 'byre', 'hen_house']));
+      for (final def in ripening) {
+        final g = stocked();
+        openBerths(g, 1);
+        g.buildings.add(Building(defId: def.id));
+        g.placeAll();
+        expect(g.canHire(reeve), isTrue,
+            reason: 'a ${def.name} alone should be enough to offer a reeve');
+      }
+    });
+
     test('the roster round-trips through a save', () {
       final g = stocked();
       g.coin = 100000;

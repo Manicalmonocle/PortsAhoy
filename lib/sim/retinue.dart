@@ -97,6 +97,7 @@ class Retainer {
     this.ripenSpeed = 1.0,
     this.bootyBonus = 1.0,
     this.requiresBuilding,
+    this.requiresRipeningShed = false,
   });
 
   final RetinueTrack track;
@@ -160,6 +161,18 @@ class Retainer {
   /// Keeps the privateer captain off the books of a port that has never built
   /// a privateer berth and has no use for them.
   final String? requiresBuilding;
+
+  /// Offered only once the port has a shed that ripens — any of them.
+  ///
+  /// The reeve's whole effect is bringing ripening sheds on sooner, so he
+  /// belongs to the first one, whichever it is. He used to wait for a grange,
+  /// but a pasture needs only a farm, and a port that put its herds in first
+  /// met him after they had grown: a 102-day run built its pasture on day 23
+  /// and its byre on day 32, both grown by day 60, and its grange on day 69.
+  /// Another never built a grange at all and never saw him. Keyed to "any
+  /// shed that ripens" rather than a list of names, so a ripening shed added
+  /// later counts without anyone remembering to add it here.
+  final bool requiresRipeningShed;
 }
 
 /// How many tracks you may have someone on at once.
@@ -302,10 +315,11 @@ const List<Retainer> kRetinue = [
 
   // ---- Reeves: time ------------------------------------------------------
   //
-  // Behind a grange, because an officer for the herds with no herds to keep is
-  // a wage for nothing. The honest counterpart to the privateer captain: that
-  // track only appears once a berth stands, and this one only once a grange
-  // does, so a port sees the officers its own choices earned.
+  // Behind the first shed that ripens, because an officer for the herds with
+  // no herds to keep is a wage for nothing. The honest counterpart to the
+  // privateer captain: that track only appears once a berth stands, and this
+  // one once something is growing, so a port sees the officers its own
+  // choices earned. See [Retainer.requiresRipeningShed].
   Retainer(
     track: RetinueTrack.reeve,
     level: 1,
@@ -316,7 +330,7 @@ const List<Retainer> kRetinue = [
     coinCost: 600,
     dailyWage: 2,
     ripenSpeed: 1.25,
-    requiresBuilding: 'grange',
+    requiresRipeningShed: true,
   ),
   Retainer(
     track: RetinueTrack.reeve,
@@ -327,7 +341,7 @@ const List<Retainer> kRetinue = [
     coinCost: 2600,
     dailyWage: 4,
     ripenSpeed: 1.5,
-    requiresBuilding: 'grange',
+    requiresRipeningShed: true,
   ),
   Retainer(
     track: RetinueTrack.reeve,
@@ -339,7 +353,7 @@ const List<Retainer> kRetinue = [
     coinCost: 5400,
     dailyWage: 7,
     ripenSpeed: 1.8,
-    requiresBuilding: 'grange',
+    requiresRipeningShed: true,
   ),
 ];
 

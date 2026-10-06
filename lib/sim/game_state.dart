@@ -1724,6 +1724,10 @@ class GameState {
   int get staffedSheds =>
       buildings.where((b) => b.workers > 0 && b.def.isProducer).length;
 
+  /// Whether anything in the port ripens — a grange, a pasture, a byre, a
+  /// hen house, or whatever ripens next. The reeve's gate.
+  bool get hasRipeningShed => buildings.any((b) => b.def.ripens);
+
   bool canHire(Retainer r) =>
       r.level == levelOn(r.track) + 1 &&
       coin >= r.coinCost &&
@@ -1732,6 +1736,7 @@ class GameState {
       // berth) is not offered until that shed stands.
       (r.requiresBuilding == null ||
           buildings.any((b) => b.defId == r.requiresBuilding)) &&
+      (!r.requiresRipeningShed || hasRipeningShed) &&
       // Taking on a track you have nobody on needs a berth free.
       (levelOn(r.track) > 0 || hasFreeOfficerBerth);
 
