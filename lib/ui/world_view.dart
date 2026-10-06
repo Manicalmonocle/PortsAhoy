@@ -7,6 +7,7 @@ import 'package:vector_math/vector_math_64.dart' show Matrix4, Vector3, Vector4;
 
 import '../game_controller.dart';
 import '../sim/buildings.dart';
+import '../sim/events.dart';
 import '../sim/game_state.dart';
 import '../sim/pets.dart';
 import '../sim/terrain.dart';
@@ -617,15 +618,38 @@ class _ScenePainter extends CustomPainter {
   /// pennants snap with it and the sea gets choppier under it.
   late double _windX, _windZ, _wind;
 
-  /// The wind this frame, including any weather that is coming or has come.
+  /// How much of each kind of weather is in the scene, 0 to 1. Each builds
+  /// through its event's omen and eases out at the end, like the wind.
+  late double _storm, _frost, _ice, _fair, _rot;
+
+  /// Events that put something in the world rather than change its light —
+  /// a fire, sails offshore, a wreck — with how far into being each is.
+  final List<(ActiveEvent, double)> _seen = [];
+
+  /// How present an event is this frame, 0 to 1.
   ///
   /// THE OMEN IS THE POINT. Every event is drawn some ticks before it starts,
-  /// and until now that warning lived only in the log. A gale now builds
-  /// through its omen — the smoke starting to lean before anything has
-  /// happened — which is the closest thing the game has to weather you can
-  /// see arriving. Weather also eases out over its last hours instead of
-  /// switching off.
-  void _settleWind() {
+  /// and until now that warning lived only in the log. Weather now builds
+  /// through its omen — smoke beginning to lean, frost beginning to whiten the
+  /// grass, ice making in the shallows — to two thirds of its strength, so the
+  /// real thing is still a step up when it lands. It eases out over its last
+  /// hours rather than switching off.
+  double _presence(ActiveEvent e, int now) {
+    if (e.isOmen(now)) {
+      final span = math.max(1, e.startTick - e.omenTick);
+      return (1 - (e.startTick - now) / span).clamp(0.0, 1.0) * 0.66;
+    }
+    if (e.isActive(now)) {
+      const ease = 12; // ticks to ease in and out
+      final inK = ((now - e.startTick + 1) / ease).clamp(0.0, 1.0);
+      final outK = ((e.endTick - now) / ease).clamp(0.0, 1.0);
+      return math.min(inK, outK);
+    }
+    return 0;
+  }
+
+  /// The wind and the weather this frame.
+  void _settleWeather() {
     final now = state.tick;
     // A light breeze that veers slowly, so smoke never leans quite the same
     // way twice in a session.
@@ -633,7 +657,6 @@ class _ScenePainter extends CustomPainter {
     var strength = 0.32 + math.sin(_sea * 0.047 + 1.3) * 0.08;
 
     void pull(double toDir, double toStrength, double k) {
-      if (k <= 0) return;
       // The short way round, so a veer never spins the long way.
       var d = toDir - dir;
       while (d > math.pi) {
@@ -646,31 +669,35 @@ class _ScenePainter extends CustomPainter {
       strength += (toStrength - strength) * k;
     }
 
+    _storm = _frost = _ice = _fair = _rot = 0;
+    _seen.clear();
     for (final e in state.events.active) {
-      final double k;
-      if (e.isOmen(now)) {
-        final span = math.max(1, e.startTick - e.omenTick);
-        // Builds through the warning, but only to two thirds: the real thing
-        // should still be a step up when it arrives.
-        k = (1 - (e.startTick - now) / span).clamp(0.0, 1.0) * 0.66;
-      } else if (e.isActive(now)) {
-        const ease = 12; // ticks to ease in and out
-        final inK = ((now - e.startTick + 1) / ease).clamp(0.0, 1.0);
-        final outK = ((e.endTick - now) / ease).clamp(0.0, 1.0);
-        k = math.min(inK, outK);
-      } else {
-        continue;
-      }
+      final k = _presence(e, now);
+      if (k <= 0) continue;
       switch (e.defId) {
-        // A gale out of the north-east: everything lies over the other way.
+        // A gale out of the north-east: everything lies over the other way,
+        // the light goes, and it rains.
         case 'north_easterly':
           pull(math.pi * 1.25, 1.0, k);
+          _storm = math.max(_storm, k);
         case 'fair_winds':
           pull(dir, 0.62, k);
+          _fair = math.max(_fair, k);
         // Cold air is still air. Smoke stands straight up in a frost.
         case 'cold_snap':
-        case 'the_sound_froze':
           pull(dir, 0.08, k);
+          _frost = math.max(_frost, k);
+        case 'the_sound_froze':
+          pull(dir, 0.05, k);
+          _ice = math.max(_ice, k);
+          _frost = math.max(_frost, k * 0.8);
+        case 'retting_rot':
+          _rot = math.max(_rot, k);
+        case 'shed_fire' ||
+              'privateer_scare' ||
+              'southern_convoy' ||
+              'wreck_on_the_skerries':
+          _seen.add((e, k));
       }
     }
     _windX = math.cos(dir);
@@ -690,7 +717,7 @@ class _ScenePainter extends CustomPainter {
     _game = WorldView.live
         ? math.max(clock.game, state.tick.toDouble())
         : state.tick.toDouble();
-    _settleWind();
+    _settleWeather();
     _p = Projector(camera, size);
     _queue.clear();
 
@@ -703,6 +730,7 @@ class _ScenePainter extends CustomPainter {
     _buildBuildings();
     _buildShips();
     _buildVoyages();
+    _buildWeather();
     _buildPeople();
     _buildDropHint();
 
@@ -741,6 +769,7 @@ class _ScenePainter extends CustomPainter {
       }
     }
 
+    _paintWeather(canvas, size);
     _paintOverlays(canvas);
   }
 
@@ -824,22 +853,76 @@ class _ScenePainter extends CustomPainter {
     };
   }
 
+  /// Tiles from the nearest land, for every tile in the grid: 0 on land, 1 in
+  /// the water touching it, and so on. The terrain never changes, so this is
+  /// worked out once.
+  static final List<List<int>> _landDistance = () {
+    const n = Terrain.size;
+    final d = List.generate(n, (_) => List<int>.filled(n, 1 << 20));
+    final queue = <List<int>>[];
+    for (var c = 0; c < n; c++) {
+      for (var r = 0; r < n; r++) {
+        if (Terrain.at(c, r) != Tile.water) {
+          d[c][r] = 0;
+          queue.add([c, r]);
+        }
+      }
+    }
+    // Eight ways, so ice spreads in rounded bays rather than in diamonds.
+    for (var i = 0; i < queue.length; i++) {
+      final c = queue[i][0], r = queue[i][1];
+      for (var dc = -1; dc <= 1; dc++) {
+        for (var dr = -1; dr <= 1; dr++) {
+          final nc = c + dc, nr = r + dr;
+          if (nc < 0 || nr < 0 || nc >= n || nr >= n) continue;
+          if (d[nc][nr] > d[c][r] + 1) {
+            d[nc][nr] = d[c][r] + 1;
+            queue.add([nc, nr]);
+          }
+        }
+      }
+    }
+    return d;
+  }();
+
+  /// How frozen a water tile is, 0 to 1. Ice makes in the shallows first and
+  /// reaches out as the freeze deepens — the omen line for this event is
+  /// literally "ice is making in the shallows".
+  double _iceAt(int col, int row) {
+    if (_ice <= 0) return 0;
+    const n = Terrain.size;
+    if (col < 0 || row < 0 || col >= n || row >= n) return 0;
+    final dist = _landDistance[col][row];
+    // A rim, three or four tiles out at the hardest — not the whole grid. The
+    // first version froze every water tile in it, and the ice ended in a hard
+    // square where the island's grid meets the open ocean: a white slab, not
+    // a sound icing over.
+    final reach = (_ice * 3.4 - dist + 1).clamp(0.0, 1.0);
+    // And it thins out toward the edge of the grid, so there is no line.
+    final edge = math.min(math.min(col, row), math.min(n - 1 - col, n - 1 - row));
+    return reach * (edge / 2.5).clamp(0.0, 1.0);
+  }
+
   /// The height at a grid VERTEX: the average of the four tiles meeting there.
   /// This is what rounds the coastline — a vertex where grass meets water sits
   /// halfway, so the beach slopes down into the sea instead of dropping off a
   /// cliff. Water gets its swell added on top.
   double _vertexHeight(int vc, int vr, double tick) {
-    var sum = 0.0, wave = 0.0, waterN = 0;
+    var sum = 0.0, wave = 0.0, waterN = 0, ice = 0.0;
     for (final d in const [[-1, -1], [0, -1], [-1, 0], [0, 0]]) {
       final tile = Terrain.at(vc + d[0], vr + d[1]);
       sum += heightOf(tile);
-      if (tile == Tile.water) waterN++;
+      if (tile == Tile.water) {
+        waterN++;
+        ice += _iceAt(vc + d[0], vr + d[1]);
+      }
     }
     final y = sum / 4;
     if (waterN > 0) {
       final wp = tileCorner(vc, vr, 0);
-      // Ripple only where there is actually water, easing out toward the shore.
-      wave = _waveY(wp.x, wp.z, tick) * (waterN / 4);
+      // Ripple only where there is actually water, easing out toward the
+      // shore — and not at all where it has frozen over.
+      wave = _waveY(wp.x, wp.z, tick) * (waterN / 4) * (1 - ice / waterN);
     }
     return y + wave;
   }
@@ -851,7 +934,14 @@ class _ScenePainter extends CustomPainter {
     var r = 0.0, g = 0.0, b = 0.0;
     for (final d in const [[-1, -1], [0, -1], [-1, 0], [0, 0]]) {
       final tile = Terrain.at(vc + d[0], vr + d[1]);
-      final c = _tileColour(tile, vc + d[0], vr + d[1]);
+      var c = _tileColour(tile, vc + d[0], vr + d[1]);
+      if (tile == Tile.water) {
+        final ice = _iceAt(vc + d[0], vr + d[1]);
+        if (ice > 0) c = Color.lerp(c, const Color(0xFFCFE2EA), ice * 0.85)!;
+      } else if (_frost > 0) {
+        // Rime on everything that is not water.
+        c = Color.lerp(c, const Color(0xFFDCE6EA), _frost * 0.55)!;
+      }
       r += c.r;
       g += c.g;
       b += c.b;
@@ -1313,6 +1403,207 @@ class _ScenePainter extends CustomPainter {
     }
   }
 
+  /// Weather and events that put something IN the world.
+  void _buildWeather() {
+    _skerries();
+    if (_storm > 0.05) _whitecaps();
+    final now = state.tick;
+    for (final (e, k) in _seen) {
+      switch (e.defId) {
+        case 'shed_fire':
+          if (e.isActive(now)) _fire(e, k);
+        case 'privateer_scare':
+          _horizonSails(e, k, privateers: true);
+        case 'southern_convoy':
+          _horizonSails(e, k, privateers: false);
+        case 'wreck_on_the_skerries':
+          _wreck(e, k);
+      }
+    }
+  }
+
+  /// Where the skerries lie: a fixed bearing and distance off the island.
+  static const double _skerryAng = 3.35, _skerryR = 13.0;
+
+  /// A few low rocks offshore. Always there, so that when a hull goes onto
+  /// them the wreck is somewhere the player has already seen.
+  void _skerries() {
+    final x = math.cos(_skerryAng) * _skerryR;
+    final z = math.sin(_skerryAng) * _skerryR;
+    final y = heightOf(Tile.water) - 0.05;
+    const rock = Color(0xFF4B4F4A);
+    _box(Vector3(x - 0.5, y, z - 0.3), Vector3(x + 0.1, y + 0.22, z + 0.25), rock);
+    _box(Vector3(x + 0.2, y, z - 0.6), Vector3(x + 0.6, y + 0.15, z - 0.2), rock);
+    _box(Vector3(x - 0.2, y, z + 0.4), Vector3(x + 0.15, y + 0.12, z + 0.7), rock);
+  }
+
+  /// Spray breaking off the crests in a blow.
+  void _whitecaps() {
+    for (var i = 0; i < 48; i++) {
+      final ang = _hash(i, 3) * math.pi * 2;
+      final r = 6.0 + _hash(i, 4) * 13;
+      final x = math.cos(ang) * r, z = math.sin(ang) * r;
+      // Only on water: the inner part of the ring crosses the island.
+      final col = (x / kTile + Terrain.size / 2).floor();
+      final row = (z / kTile + Terrain.size / 2).floor();
+      if (Terrain.at(col, row) != Tile.water) continue;
+      if (_iceAt(col, row) > 0.5) continue;
+      final crest = math.sin(_sea * 1.3 + i * 7.1);
+      if (crest < 0.55) continue;
+      final a = (crest - 0.55) / 0.45 * 0.75 * _storm;
+      _puff(Vector3(x, heightOf(Tile.water) + _waveY(x, z, _sea) + 0.05, z),
+          0.13, const Color(0xFFF2F7F9).withValues(alpha: a));
+    }
+  }
+
+  /// Fire in the sheds: flames off a roof and black smoke above them.
+  ///
+  /// The event takes a quarter of the finished goods, which used to be a line
+  /// in the log and a number going down. It burns on a real building now —
+  /// a warehouse or a workshop, the places finished goods are kept — chosen
+  /// from when it started, so the same fire is always on the same roof.
+  void _fire(ActiveEvent e, double k) {
+    final candidates = [
+      for (final b in state.buildings)
+        if (b.isPlaced && (b.def.isWorkshop || b.defId == 'warehouse')) b,
+    ];
+    if (candidates.isEmpty) return;
+    final b = candidates[e.startTick % candidates.length];
+    final f = b.def.footprint;
+    final y = _groundUnder(b.col, b.row, f);
+    final c = tileCorner(b.col + f / 2, b.row + f / 2, y);
+    // At the ridge, not in the walls. A first version set them half a unit
+    // up, which is inside a gabled roof, and the roof hid every flame — the
+    // fire read as a building giving off smoke for no reason.
+    final top = y + 0.95;
+    // Flames, on the sea clock: they flicker even while the port is paused.
+    for (var i = 0; i < 12; i++) {
+      final a = (_sea * 1.4 + i / 12) % 1.0;
+      final jx = math.sin(i * 2.7 + _sea * 3.0) * 0.32;
+      final jz = math.cos(i * 1.9 + _sea * 2.6) * 0.32;
+      final col = a < 0.5
+          ? Color.lerp(const Color(0xFFFFE27A), const Color(0xFFF07A22), a * 2)!
+          : Color.lerp(
+              const Color(0xFFF07A22), const Color(0xFF9A2E14), (a - 0.5) * 2)!;
+      _puff(Vector3(c.x + jx, top + a * 0.7, c.z + jz),
+          (0.26 - a * 0.12) * (0.7 + 0.5 * k),
+          col.withValues(alpha: (1 - a) * 0.95 * k));
+    }
+    _smoke(c.x, top + 0.55, c.z, phase: 0.7, soot: true);
+    _smoke(c.x + 0.22, top + 0.5, c.z - 0.15, phase: 2.1, soot: true);
+  }
+
+  /// Sails offshore: privateers working the lanes, or a convoy standing in.
+  ///
+  /// Both have omens that were only ever words — "a collier came in shot
+  /// about", "a convoy is expected within the day". Now the hulls come in
+  /// from the horizon through the omen, so the player sees what the log
+  /// warned of before it arrives.
+  void _horizonSails(ActiveEvent e, double k, {required bool privateers}) {
+    final omen = e.isOmen(state.tick);
+    // How far in from the horizon: all the way through the omen, then on
+    // station for the event itself.
+    final approach = omen ? (k / 0.66).clamp(0.0, 1.0) : 1.0;
+    final count = privateers ? 2 : 5;
+    for (var j = 0; j < count; j++) {
+      final double ang, r, heading;
+      if (privateers) {
+        // Cruising across the lanes, never coming in.
+        ang = 3.9 + (j - 0.5) * 0.5 + math.sin(_sea * 0.04 + j * 2) * 0.2;
+        r = 30 - 14 * approach;
+        heading = ang + math.pi / 2 * (j.isEven ? 1 : -1);
+      } else {
+        // A convoy stands in, then lies in a line off the island.
+        ang = 1.55 + (j - (count - 1) / 2) * 0.16;
+        r = 32 - 18 * approach;
+        heading = ang + math.pi;
+      }
+      final x = math.cos(ang) * r, z = math.sin(ang) * r;
+      // Far hulls are hazed into the sea; privateers keep their distance.
+      final fade =
+          (((r - 13) / 18).clamp(0.0, 0.9) + (privateers ? 0.15 : 0.0))
+              .clamp(0.0, 0.92);
+      final y = heightOf(Tile.water) + _waveY(x, z, _sea) + 0.02;
+      _ship(x, z, y, heading, _sea + j * 1.3, privateers, fade: fade);
+      if (privateers || omen) {
+        _wake(x, z, math.cos(heading), math.sin(heading), fade);
+      }
+    }
+  }
+
+  /// The wreck on the skerries.
+  ///
+  /// Through the omen, a light on the rocks — "there were lights on the
+  /// skerries in the night, and then none" — which gutters out as the omen
+  /// runs on. Then the hull itself, low and canted onto the rocks, and the
+  /// barrels that are the whole point of the event drifting in toward the
+  /// shore: "what washes in is yours".
+  void _wreck(ActiveEvent e, double k) {
+    final now = state.tick;
+    final x = math.cos(_skerryAng) * _skerryR;
+    final z = math.sin(_skerryAng) * _skerryR;
+    final wy = heightOf(Tile.water);
+    if (e.isOmen(now)) {
+      // Lights, and then none: the lamp only shows through the first half of
+      // the warning.
+      if (k < 0.4 && math.sin(_sea * 2.2) > 0.1) {
+        _puff(Vector3(x, wy + 0.55, z), 0.14,
+            const Color(0xFFFFD27A).withValues(alpha: 0.85));
+      }
+      return;
+    }
+    _ship(x + 0.35, z + 0.1, wy - 0.12, _skerryAng + 0.9, 0, false,
+        fade: 0.2, bare: true);
+    final span = math.max(1, e.endTick - e.startTick);
+    final p = ((now - e.startTick) / span).clamp(0.0, 1.0);
+    for (var j = 0; j < 5; j++) {
+      final t = (p * 1.6 + j * 0.19) % 1.0;
+      final rr = _skerryR - 1 - t * 3.5;
+      final aa = _skerryAng + (j - 2) * 0.07;
+      final bx = math.cos(aa) * rr, bz = math.sin(aa) * rr;
+      _barrel(bx, bz, wy + _waveY(bx, bz, _sea) - 0.04,
+          const Color(0xFF8A6238).withValues(alpha: k));
+    }
+  }
+
+  /// Weather that changes the light rather than putting something in the
+  /// world: a storm's dark and its rain, a frost's chill, a fair day's warmth.
+  /// Drawn over the scene but under the shed badges, which stay readable in
+  /// any weather.
+  void _paintWeather(Canvas canvas, Size size) {
+    final rect = Offset.zero & size;
+    if (_fair > 0) {
+      canvas.drawRect(rect,
+          Paint()..color = const Color(0xFFFFE0A0).withValues(alpha: 0.07 * _fair));
+    }
+    if (_frost > 0) {
+      canvas.drawRect(rect,
+          Paint()..color = const Color(0xFFDCEBFA).withValues(alpha: 0.08 * _frost));
+    }
+    if (_storm <= 0) return;
+    canvas.drawRect(rect,
+        Paint()..color = const Color(0xFF0A1820).withValues(alpha: 0.3 * _storm));
+    // Rain, in screen space: it is weather in front of the lens, not a prop.
+    // On the sea clock, so it keeps falling while the port is paused.
+    final n = (120 * _storm).round();
+    final slant = 0.25 + 0.3 * _wind;
+    final len = 16.0 + 10 * _storm;
+    final paint = Paint()
+      ..color = const Color(0xFFDDE8EE).withValues(alpha: 0.3 * _storm)
+      ..strokeWidth = 1.1
+      ..strokeCap = StrokeCap.round;
+    for (var i = 0; i < n; i++) {
+      final speed = 520 + _hash(i, 12) * 260; // px a second
+      final y = (_sea * speed + _hash(i, 13) * size.height) %
+              (size.height + len) -
+          len;
+      final sx = _hash(i, 11) * (size.width + size.height * slant);
+      final x = sx - y * slant;
+      canvas.drawLine(
+          Offset(x, y), Offset(x - len * slant, y + len), paint);
+    }
+  }
+
   /// One boat: a hull that sits low, a mast, and a sail — bows toward [ang]
   /// (the shore). Foreign hulls fly a dark pennant instead of a pale sail.
   ///
@@ -1323,8 +1614,10 @@ class _ScenePainter extends CustomPainter {
   /// [armed] is the port's own escort: a sloop with a red pennant. It used to
   /// fly the black one, which in this game is the free trader's colour — the
   /// ship guarding your cargo dressed as the kind it is guarding against.
+  ///
+  /// [bare] strips her of sail and pennant: a wreck.
   void _ship(double x, double z, double y, double ang, double tick,
-      bool foreign, {double fade = 0, bool armed = false}) {
+      bool foreign, {double fade = 0, bool armed = false, bool bare = false}) {
     final dx = math.cos(ang), dz = math.sin(ang); // along the hull, toward land
     final px = -dz, pz = dx; // across the beam
     Color f(Color c) =>
@@ -1365,7 +1658,9 @@ class _ScenePainter extends CustomPainter {
     final mx = x + dx * 0.04, mz = z + dz * 0.04;
     _box(Vector3(mx - 0.03, yy + rim, mz - 0.03),
         Vector3(mx + 0.03, yy + rim + 0.8, mz + 0.03), f(const Color(0xFF3A2C20)));
-    if (foreign || armed) {
+    if (bare) {
+      // Nothing set. A wreck flies nothing.
+    } else if (foreign || armed) {
       final flap = math.sin(tick * (1.6 + 4 * _wind)) * (0.03 + 0.06 * _wind);
       _poly([Vector3(mx, yy + rim + 0.78, mz),
         Vector3(mx + px * 0.36, yy + rim + 0.64 + flap, mz + pz * 0.36),
@@ -1592,12 +1887,19 @@ class _ScenePainter extends CustomPainter {
   ///
   /// Runs on the work clock, so a paused port's smoke hangs where it is.
   /// [phase] staggers neighbouring chimneys so they do not puff in unison.
-  void _smoke(double x, double y0, double z, {double phase = 0}) {
+  ///
+  /// [soot] is a fire's smoke rather than a chimney's: black, heavier, longer,
+  /// and on the sea clock, because a fire does not stop burning because the
+  /// player paused.
+  void _smoke(double x, double y0, double z,
+      {double phase = 0, bool soot = false}) {
     const puffs = 8;
-    const life = 3.8; // seconds from the chimney to nothing
+    // Seconds from the chimney to nothing.
+    final life = soot ? 4.8 : 3.8;
+    final clock = soot ? _sea : _work;
     final w = _wind;
     for (var i = 0; i < puffs; i++) {
-      final a = ((_work + phase) / life + i / puffs) % 1.0; // age, 0..1
+      final a = ((clock + phase) / life + i / puffs) % 1.0; // age, 0..1
       // Rises, and lies over as the wind takes it.
       // ALL of the sideways carry is the wind's. A first version had a small
       // drift that did not depend on it, and a frost — still air — then
@@ -1611,13 +1913,15 @@ class _ScenePainter extends CustomPainter {
       final pz = z + _windZ * carry + _windX * curl;
       final py = y0 + rise;
       // Born small, swelling as it cools, and breathing a little as it goes.
-      final r =
-          (0.05 + a * 0.2) * (1 + 0.1 * math.sin(_work * 2.6 + i * 2.3));
+      final r = (0.05 + a * 0.2) *
+          (1 + 0.1 * math.sin(clock * 2.6 + i * 2.3)) *
+          (soot ? 1.4 : 1.0);
       // In fast, out slow.
       final alpha =
           (a < 0.08 ? a / 0.08 : math.pow(1 - a, 1.1).toDouble()) * 0.85;
-      final c =
-          Color.lerp(const Color(0xFFA9A9B2), const Color(0xFFEAEAEE), a)!;
+      final c = soot
+          ? Color.lerp(const Color(0xFF2B2725), const Color(0xFF6B6662), a)!
+          : Color.lerp(const Color(0xFFA9A9B2), const Color(0xFFEAEAEE), a)!;
       // Half again as large as the cube it replaced: the soft rim eats about a
       // third of the radius.
       _puff(Vector3(px, py, pz), r * 1.5, c.withValues(alpha: alpha));
@@ -1751,9 +2055,15 @@ class _ScenePainter extends CustomPainter {
         // Flax flowers blue. Rows and nothing else — it is a field.
         for (var i = 0; i < 6; i++) {
           final z0 = min.z + 0.03 + i * (d - 0.06) / 6;
-          final blue = i.isEven ? const Color(0xFF6F8FB0) : const Color(0xFF7FA0C0);
+          var blue = i.isEven ? const Color(0xFF6F8FB0) : const Color(0xFF7FA0C0);
+          var stem = const Color(0xFF5E7A3A);
+          // "The flax is going black in the water."
+          if (_rot > 0) {
+            blue = Color.lerp(blue, const Color(0xFF2F2B22), _rot * 0.8)!;
+            stem = Color.lerp(stem, const Color(0xFF3A3424), _rot * 0.7)!;
+          }
           _slab(min.x + 0.04, z0 + 0.02, max.x - 0.04, z0 + (d - 0.06) / 6 - 0.05,
-              y, 0.11, sh(const Color(0xFF5E7A3A)), top: sh(blue));
+              y, 0.11, sh(stem), top: sh(blue));
         }
 
       case 'forest_camp':
