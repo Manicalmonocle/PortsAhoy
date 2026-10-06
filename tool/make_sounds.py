@@ -1,0 +1,230 @@
+#!/usr/bin/env python3
+"""Build every sound in the game from nothing, with ffmpeg.
+
+    python3 tool/make_sounds.py
+
+Writes assets/sounds/*.wav — mono, 22,050 Hz, 16-bit.
+
+WHY SYNTHESIZED. Every sound here is made from noise and sine waves by the
+recipes below, so the game owns all of it outright: no licence to track, no
+attribution to keep, nothing that can be taken down. It also means none of it
+was chosen by ear — whoever wrote this could not hear the result. Treat each
+recipe as a first draft. ANY FILE CAN BE REPLACED by dropping a recorded sound
+of the same name into assets/sounds/; nothing in the game cares where it came
+from. Re-running this script overwrites them, so keep replacements somewhere
+else too.
+
+WHY WAV. It is the one format every target plays without argument — Android,
+Chrome, Firefox and Safari all decode it — and it loops without the silent
+padding MP3 encoders add. The cost is size: the three ambient loops are most
+of the total. They are kept short and at 22kHz for that reason.
+
+WHY FFMPEG. It was already on the machine, it generates noise and arbitrary
+waveforms (anoisesrc, aevalsrc) and filters them, and a recipe is one line.
+Python's standard library does the rest: peak levels, the seam on the loops,
+and click-free edges on the one-shots.
+"""
+
+import array
+import os
+import subprocess
+import sys
+import wave
+
+RATE = 22050
+OUT = os.path.join(os.path.dirname(__file__), '..', 'assets', 'sounds')
+
+
+def render(graph, seconds):
+    """Run an ffmpeg filtergraph and return its samples as a list of ints."""
+    cmd = [
+        'ffmpeg', '-hide_banner', '-loglevel', 'error',
+        '-f', 'lavfi', '-i', graph,
+        '-t', str(seconds), '-ac', '1', '-ar', str(RATE),
+        '-f', 's16le', '-',
+    ]
+    raw = subprocess.run(cmd, check=True, capture_output=True).stdout
+    a = array.array('h')
+    a.frombytes(raw)
+    return list(a)
+
+
+def normalise(samples, peak_db):
+    """Scale to a target peak, in dB below full scale."""
+    top = max(1, max(abs(s) for s in samples))
+    gain = (32767 * 10 ** (peak_db / 20)) / top
+    return [int(max(-32768, min(32767, s * gain))) for s in samples]
+
+
+def edges(samples, fade_in=0.004, fade_out=0.05):
+    """Ramp the very ends, so a one-shot never starts or stops on a click."""
+    n_in = int(RATE * fade_in)
+    n_out = int(RATE * fade_out)
+    out = samples[:]
+    for i in range(min(n_in, len(out))):
+        out[i] = int(out[i] * i / n_in)
+    for i in range(min(n_out, len(out))):
+        j = len(out) - 1 - i
+        out[j] = int(out[j] * i / n_out)
+    return out
+
+
+def loop_seam(samples, overlap):
+    """Fold the tail over the head, so the loop has no seam.
+
+    Render `overlap` seconds more than the loop wants; the extra is faded out
+    over the start of the loop while the start fades in. When the player wraps
+    from the end back to the beginning, it lands on audio that was already
+    blending into exactly what it had just been playing.
+    """
+    n = int(RATE * overlap)
+    body, tail = samples[:-n], samples[-n:]
+    out = body[:]
+    for i in range(n):
+        k = i / n
+        out[i] = int(body[i] * k + tail[i] * (1 - k))
+    return out
+
+
+def write(name, samples):
+    path = os.path.join(OUT, name + '.wav')
+    with wave.open(path, 'wb') as w:
+        w.setnchannels(1)
+        w.setsampwidth(2)
+        w.setframerate(RATE)
+        w.writeframes(array.array('h', samples).tobytes())
+    kb = os.path.getsize(path) // 1024
+    print(f'  {name + ".wav":14} {len(samples) / RATE:5.2f}s  {kb:4d} KB')
+
+
+def bell_partials(f0, start, decay, gain=1.0):
+    """A struck bell: inharmonic partials, the high ones dying first."""
+    ratios = [(1.0, 1.0), (2.0, 0.6), (2.42, 0.42), (3.0, 0.3),
+              (4.16, 0.22), (5.43, 0.12)]
+    t = f'(t-{start})'
+    terms = []
+    for r, a in ratios:
+        d = decay * (1 + (r - 1) * 0.55)
+        terms.append(f'{a * gain}*sin(2*PI*{f0 * r}*{t})*exp(-{d}*{t})')
+    return f'gte(t,{start})*(' + '+'.join(terms) + ')'
+
+
+def main():
+    os.makedirs(OUT, exist_ok=True)
+    print('Synthesizing into assets/sounds/')
+
+    # ---- Ambient loops ----------------------------------------------------
+
+    # The sea: a low wash that swells and falls about every eight seconds —
+    # the same period as the swell the world draws — with hiss on the break.
+    swell = 'volume=\'0.32+0.68*pow(sin(PI*t/8),2)\':eval=frame'
+    sea = render(
+        f'anoisesrc=color=brown:seed=7:r={RATE},lowpass=f=700,{swell}[a];'
+        f'anoisesrc=color=pink:seed=11:r={RATE},highpass=f=1800,'
+        f'lowpass=f=5200,volume=0.35,'
+        f'volume=\'pow(sin(PI*(t-0.6)/8),4)\':eval=frame[b];'
+        f'[a][b]amix=inputs=2:normalize=0', 18)
+    write('sea', normalise(loop_seam(sea, 2), -10))
+
+    # Wind: a band of noise with gusts on two unrelated periods, so it never
+    # repeats a shape inside the loop.
+    wind = render(
+        f'anoisesrc=color=pink:seed=23:r={RATE},bandpass=f=650:width_type=h:w=700,'
+        f'volume=\'0.35+0.65*pow(0.5+0.5*sin(2*PI*t/6.0)*sin(2*PI*t/3.7+1.1),1.5)\''
+        f':eval=frame', 14)
+    write('wind', normalise(loop_seam(wind, 2), -12))
+
+    # Rain: dense, bright, steady.
+    rain = render(
+        f'anoisesrc=color=white:seed=41:r={RATE},highpass=f=1400,lowpass=f=8000,'
+        f'volume=\'0.8+0.2*sin(2*PI*t/2.3)\':eval=frame', 12)
+    write('rain', normalise(loop_seam(rain, 2), -14))
+
+    # ---- One-shots --------------------------------------------------------
+
+    # A ship's bell, rung as a pair — the way the hours are struck aboard.
+    # For a hull coming in to the quay or home from a voyage.
+    bell = render('aevalsrc=\'' + bell_partials(680, 0, 2.2) + '+' +
+                  bell_partials(680, 0.42, 2.2, 0.85) +
+                  f'\':s={RATE}', 2.8)
+    write('bell', edges(normalise(bell, -4), fade_out=0.3))
+
+    # Coins: three bright clinks a moment apart. For a sale.
+    def clink(f, at, g):
+        return (f'gte(t,{at})*{g}*(sin(2*PI*{f}*(t-{at}))+0.6*sin(2*PI*{f*1.47}*(t-{at}))'
+                f'+0.4*sin(2*PI*{f*2.09}*(t-{at})))*exp(-38*(t-{at}))')
+    coins = render('aevalsrc=\'' + '+'.join([
+        clink(2900, 0.0, 1.0), clink(3400, 0.075, 0.8), clink(2650, 0.16, 0.7),
+    ]) + f'\':s={RATE}', 0.6)
+    write('coins', edges(normalise(coins, -6)))
+
+    # A mallet on timber, twice: a dull knock and the body of the board
+    # ringing under it. For a shed going up.
+    def knock(at):
+        return (f'gte(t,{at})*(0.9*sin(2*PI*170*(t-{at}))*exp(-22*(t-{at}))'
+                f'+0.5*sin(2*PI*410*(t-{at}))*exp(-40*(t-{at})))')
+    hammer = render(
+        'aevalsrc=\'' + knock(0) + '+' + knock(0.3) + f'\':s={RATE}[k];'
+        f'anoisesrc=color=pink:seed=5:r={RATE},lowpass=f=1600,'
+        f'volume=\'0.5*(exp(-60*t)+gte(t,0.3)*exp(-60*(t-0.3)))\':eval=frame[n];'
+        f'[k][n]amix=inputs=2:normalize=0', 0.8)
+    write('hammer', edges(normalise(hammer, -5)))
+
+    # A gun: a hard low boom, and the echo of it coming back off the water.
+    # For a prize taken.
+    cannon = render(
+        f'anoisesrc=color=brown:seed=3:r={RATE},lowpass=f=420,'
+        f'volume=\'min(1,t*400)*exp(-2.6*t)\':eval=frame[n];'
+        f'aevalsrc=\'1.2*sin(2*PI*52*t)*exp(-4*t)\':s={RATE}[s];'
+        f'[n][s]amix=inputs=2:normalize=0,aecho=0.8:0.6:240|520:0.35|0.18', 2.6)
+    write('cannon', edges(normalise(cannon, -3), fade_out=0.4))
+
+    # Thunder: a rumble that rolls and breaks up rather than a single crack.
+    thunder = render(
+        f'anoisesrc=color=brown:seed=17:r={RATE},lowpass=f=260,'
+        f'volume=\'min(1,t*3)*exp(-0.85*t)*(0.65+0.35*sin(2*PI*t*1.7)*sin(2*PI*t*0.9))\''
+        f':eval=frame,aecho=0.7:0.5:420|900:0.3|0.2', 4.5)
+    write('thunder', edges(normalise(thunder, -4), fade_out=0.6))
+
+    # A gull: three falling calls with a nasal edge. THE MOST LIKELY OF ALL
+    # OF THESE TO SOUND LIKE A SYNTHESIZER — a gull is a hard thing to fake
+    # with sines, and it is the first one worth replacing with a recording.
+    def call(at, f0, f1, dur, g):
+        k = (f1 - f0) / dur
+        ph = f'2*PI*({f0}*(t-{at})+0.5*{k}*pow(t-{at},2))'
+        env = f'sin(PI*(t-{at})/{dur})'
+        return (f'between(t,{at},{at + dur})*{g}*{env}*'
+                f'(sin({ph})+0.55*sin(2*{ph})+0.35*sin(3*{ph})+0.2*sin(4*{ph}))')
+    gull = render('aevalsrc=\'' + '+'.join([
+        call(0.0, 1550, 980, 0.34, 1.0),
+        call(0.42, 1500, 950, 0.30, 0.85),
+        call(0.8, 1420, 900, 0.36, 0.7),
+    ]) + f'\':s={RATE},highpass=f=600', 1.3)
+    write('gull', edges(normalise(gull, -9)))
+
+    # The light lit: four bells climbing a major chord.
+    chime = render('aevalsrc=\'' + '+'.join([
+        bell_partials(523.25, 0.0, 1.4, 0.8),
+        bell_partials(659.25, 0.2, 1.4, 0.75),
+        bell_partials(783.99, 0.4, 1.4, 0.7),
+        bell_partials(1046.5, 0.6, 1.1, 0.65),
+    ]) + f'\':s={RATE}', 4.0)
+    write('chime', edges(normalise(chime, -4), fade_out=0.5))
+
+    # The revenue cutter alongside: a bell rung fast and high. Urgent, not
+    # loud — it is a warning, not a punishment.
+    alarm = render('aevalsrc=\'' + '+'.join(
+        bell_partials(1040, 0.17 * i, 6.0, 1 - 0.1 * i) for i in range(4)
+    ) + f'\':s={RATE}', 1.6)
+    write('alarm', edges(normalise(alarm, -6), fade_out=0.3))
+
+    print('Done. Every one of these is a first draft by someone who could not')
+    print('hear it: replace any file in assets/sounds/ and the game uses yours.')
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except subprocess.CalledProcessError as e:
+        sys.stderr.write(e.stderr.decode() if e.stderr else str(e))
+        sys.exit(1)

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../audio/sound_board.dart';
 import '../game_controller.dart';
 import '../sim/game_state.dart';
 import '../sim/resources.dart';
@@ -318,6 +319,22 @@ class _TopHud extends StatelessWidget {
                         ),
                         const SizedBox(width: 6),
                         _SpeedPill(controller: controller),
+                        const SizedBox(width: 6),
+                        // Sound on by default, one tap from silence wherever
+                        // the player is — a bus, a bed, a meeting — and
+                        // remembered. HERE, beside the other control over how
+                        // the game runs, and in a group that scales down to
+                        // fit: in the resource row below it squeezed the
+                        // chips until their counts were cut off mid-number.
+                        ValueListenableBuilder<bool>(
+                          valueListenable: SoundBoard.instance.muted,
+                          builder: (_, muted, _) => _MiniButton(
+                            icon: muted
+                                ? Icons.volume_off_outlined
+                                : Icons.volume_up_outlined,
+                            onTap: SoundBoard.instance.toggleMute,
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -341,6 +358,7 @@ class _TopHud extends StatelessWidget {
                   icon: Icons.inventory_2_outlined,
                   onTap: () => _showStores(context, controller),
                 ),
+
               ],
             ),
           ],

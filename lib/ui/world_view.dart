@@ -12,6 +12,7 @@ import '../sim/game_state.dart';
 import '../sim/pets.dart';
 import '../sim/terrain.dart';
 import 'theme.dart';
+import 'weather.dart';
 
 /// The port as a real 3D scene.
 ///
@@ -618,91 +619,25 @@ class _ScenePainter extends CustomPainter {
   /// pennants snap with it and the sea gets choppier under it.
   late double _windX, _windZ, _wind;
 
-  /// How much of each kind of weather is in the scene, 0 to 1. Each builds
-  /// through its event's omen and eases out at the end, like the wind.
+  /// How much of each kind of weather is in the scene, 0 to 1. See
+  /// [Weather], which owns the rules so the sound can share them.
   late double _storm, _frost, _ice, _fair, _rot;
 
-  /// Events that put something in the world rather than change its light —
-  /// a fire, sails offshore, a wreck — with how far into being each is.
-  final List<(ActiveEvent, double)> _seen = [];
-
-  /// How present an event is this frame, 0 to 1.
-  ///
-  /// THE OMEN IS THE POINT. Every event is drawn some ticks before it starts,
-  /// and until now that warning lived only in the log. Weather now builds
-  /// through its omen — smoke beginning to lean, frost beginning to whiten the
-  /// grass, ice making in the shallows — to two thirds of its strength, so the
-  /// real thing is still a step up when it lands. It eases out over its last
-  /// hours rather than switching off.
-  double _presence(ActiveEvent e, int now) {
-    if (e.isOmen(now)) {
-      final span = math.max(1, e.startTick - e.omenTick);
-      return (1 - (e.startTick - now) / span).clamp(0.0, 1.0) * 0.66;
-    }
-    if (e.isActive(now)) {
-      const ease = 12; // ticks to ease in and out
-      final inK = ((now - e.startTick + 1) / ease).clamp(0.0, 1.0);
-      final outK = ((e.endTick - now) / ease).clamp(0.0, 1.0);
-      return math.min(inK, outK);
-    }
-    return 0;
-  }
+  /// Events that put something in the world rather than change its light.
+  late List<(ActiveEvent, double)> _seen;
 
   /// The wind and the weather this frame.
   void _settleWeather() {
-    final now = state.tick;
-    // A light breeze that veers slowly, so smoke never leans quite the same
-    // way twice in a session.
-    var dir = 0.35 + math.sin(_sea * 0.021) * 0.35;
-    var strength = 0.32 + math.sin(_sea * 0.047 + 1.3) * 0.08;
-
-    void pull(double toDir, double toStrength, double k) {
-      // The short way round, so a veer never spins the long way.
-      var d = toDir - dir;
-      while (d > math.pi) {
-        d -= 2 * math.pi;
-      }
-      while (d < -math.pi) {
-        d += 2 * math.pi;
-      }
-      dir += d * k;
-      strength += (toStrength - strength) * k;
-    }
-
-    _storm = _frost = _ice = _fair = _rot = 0;
-    _seen.clear();
-    for (final e in state.events.active) {
-      final k = _presence(e, now);
-      if (k <= 0) continue;
-      switch (e.defId) {
-        // A gale out of the north-east: everything lies over the other way,
-        // the light goes, and it rains.
-        case 'north_easterly':
-          pull(math.pi * 1.25, 1.0, k);
-          _storm = math.max(_storm, k);
-        case 'fair_winds':
-          pull(dir, 0.62, k);
-          _fair = math.max(_fair, k);
-        // Cold air is still air. Smoke stands straight up in a frost.
-        case 'cold_snap':
-          pull(dir, 0.08, k);
-          _frost = math.max(_frost, k);
-        case 'the_sound_froze':
-          pull(dir, 0.05, k);
-          _ice = math.max(_ice, k);
-          _frost = math.max(_frost, k * 0.8);
-        case 'retting_rot':
-          _rot = math.max(_rot, k);
-        case 'shed_fire' ||
-              'privateer_scare' ||
-              'southern_convoy' ||
-              'wreck_on_the_skerries':
-          _seen.add((e, k));
-      }
-    }
-    _windX = math.cos(dir);
-    _windZ = math.sin(dir);
-    _wind = strength.clamp(0.0, 1.0);
+    final w = Weather.of(state, _sea);
+    _windX = w.windX;
+    _windZ = w.windZ;
+    _wind = w.wind;
+    _storm = w.storm;
+    _frost = w.frost;
+    _ice = w.ice;
+    _fair = w.fair;
+    _rot = w.rot;
+    _seen = w.seen;
   }
 
   @override

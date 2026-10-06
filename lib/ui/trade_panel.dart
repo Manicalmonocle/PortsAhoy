@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../audio/sound_board.dart';
 import '../game_controller.dart';
 import '../sim/game_state.dart';
 import '../sim/resources.dart';
@@ -1071,8 +1072,11 @@ class _ChandlerRow extends StatelessWidget {
                 padding: const EdgeInsets.only(left: 5),
                 child: OutlinedButton(
                   onPressed: most >= qty
-                      ? () =>
-                          controller.act((g) => g.buyFromChandler(resource, qty))
+                      ? () {
+                          controller
+                              .act((g) => g.buyFromChandler(resource, qty));
+                          SoundBoard.instance.play(Sfx.coins);
+                        }
                       : null,
                   style: OutlinedButton.styleFrom(
                     foregroundColor: Palette.brass,
