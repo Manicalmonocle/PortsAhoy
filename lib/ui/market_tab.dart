@@ -4,6 +4,7 @@ import '../game_controller.dart';
 import '../sim/market.dart';
 import '../sim/resources.dart';
 import '../sim/retinue.dart';
+import 'pet_panel.dart';
 import 'theme.dart';
 
 class MarketTab extends StatelessWidget {
@@ -20,6 +21,14 @@ class MarketTab extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: 24),
       children: [
         if (state.cutterOnStation) _CutterCard(controller: controller),
+        // SHE IS A SHIP, SO SHE BELONGS WHERE THE SHIPS ARE. The offer card
+        // was first put under Trade, beside the pet it would become, which is
+        // where the kept animal lives and NOT where anybody looks for a hull.
+        // A player kept her waiting and then could not find her again: "I
+        // clicked to make the ship wait but then I couldn't find it again once
+        // I got the coin." Pinned above the market, like the cutter, because
+        // neither of them is something you trade with.
+        PetOfferCard(controller: controller),
         const Padding(
           padding: EdgeInsets.fromLTRB(20, 14, 20, 4),
           child: Text(

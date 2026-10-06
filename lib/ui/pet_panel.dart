@@ -90,8 +90,15 @@ class PetCard extends StatelessWidget {
 /// The other half of the fix above: a deferred offer that left nothing on
 /// screen would be a feature the player had dismissed into thin air, and this
 /// project has had five "feels like nothing" reports that were every one of
-/// them a visibility problem. She sits where the kept pet would sit, so the
-/// slot means the same thing before and after.
+/// them a visibility problem.
+///
+/// SHOWN IN TWO PLACES, AND THE QUAY IS THE ONE THAT MATTERS. The first
+/// version put this under Trade only, beside the pet it would become — which
+/// is where a KEPT animal lives and not where anyone looks for a ship. The
+/// player who had just been given the waiting button went looking and could
+/// not find her: "I clicked to make the ship wait but then I couldn't find it
+/// again once I got the coin." She is a hull, so she is pinned at the top of
+/// the Quay like the revenue cutter, and the dock lights to say so.
 class PetOfferCard extends StatelessWidget {
   const PetOfferCard({super.key, required this.controller});
 
@@ -197,8 +204,8 @@ class PetOfferDialog extends StatelessWidget {
               padding: const EdgeInsets.only(top: 8),
               child: Text(
                 'You are ${kPetPrice - s.coin} coin short — so keep her '
-                'waiting. She will not leave, and you will find her under '
-                'Trade whenever the coin is there.',
+                'waiting. She will not leave, and she is at the Quay '
+                'whenever the coin is there.',
                 style: const TextStyle(fontSize: 11, color: Palette.rust),
               ),
             ),

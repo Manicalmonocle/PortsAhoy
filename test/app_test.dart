@@ -1118,6 +1118,13 @@ void _lighthouseCardTests() {
     expect(c.state.pet, isNull);
     expect(c.state.petOfferSettled, isFalse);
 
+    // SHE HAS TO BE WHERE SHIPS ARE. Under Trade only, the player who had
+    // just used the waiting button went looking and could not find her again.
+    await openPanel(tester, 'Quay');
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Waiting at the quay'), findsOneWidget,
+        reason: 'a hull belongs at the Quay, not under "your people"');
+
     await openPanel(tester, 'Trade');
     await tester.pumpAndSettle();
     expect(find.textContaining('Waiting at the quay'), findsOneWidget,

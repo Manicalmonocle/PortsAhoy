@@ -743,6 +743,7 @@ class _Dock extends StatelessWidget {
                 label: 'Quay',
                 badge: ships > 0 ? '$ships' : null,
                 alert: state.cutterOnStation,
+                notice: state.petOfferOpen,
                 onTap: () => onOpen(_Panel.quay),
               ),
               _DockButton(
@@ -785,13 +786,24 @@ class _DockButton extends StatelessWidget {
     required this.onTap,
     this.badge,
     this.alert = false,
+    this.notice = false,
   });
 
   final IconData icon;
   final String label;
   final VoidCallback onTap;
   final String? badge;
+
+  /// Something is wrong, or about to be. Rust — the revenue cutter's colour.
   final bool alert;
+
+  /// Something is WAITING, which is not the same thing. A pet offer kept
+  /// waiting had nothing in the dock to say so and a player lost it: "I
+  /// clicked to make the ship wait but then I couldn't find it again once I
+  /// got the coin." Lamp rather than rust, because an animal for sale is an
+  /// invitation and a cutter alongside is a threat, and a dock that says both
+  /// in the same colour teaches the player to read neither.
+  final bool notice;
 
   @override
   Widget build(BuildContext context) {
@@ -810,7 +822,9 @@ class _DockButton extends StatelessWidget {
                   Icon(
                     icon,
                     size: 22,
-                    color: alert ? Palette.rust : Palette.fog,
+                    color: alert
+                        ? Palette.rust
+                        : (notice ? Palette.lamp : Palette.fog),
                   ),
                   if (badge != null)
                     Positioned(
@@ -822,7 +836,9 @@ class _DockButton extends StatelessWidget {
                           vertical: 1,
                         ),
                         decoration: BoxDecoration(
-                          color: alert ? Palette.rust : Palette.brass,
+                          color: alert
+                              ? Palette.rust
+                              : (notice ? Palette.lamp : Palette.brass),
                           borderRadius: BorderRadius.circular(9),
                         ),
                         child: Text(
@@ -843,7 +859,9 @@ class _DockButton extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 10,
                   fontWeight: FontWeight.w600,
-                  color: alert ? Palette.rust : Palette.fog,
+                  color: alert
+                      ? Palette.rust
+                      : (notice ? Palette.lamp : Palette.fog),
                 ),
               ),
             ],
