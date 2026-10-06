@@ -3,11 +3,15 @@ import 'package:flutter/material.dart';
 import 'game_controller.dart';
 import 'ui/game_screen.dart';
 import 'ui/theme.dart';
+import 'ui/world_view.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final controller = GameController();
   await controller.load();
+  // The world moves on its own clock in the app, and on the tick in a test.
+  // Set here, and only here, so every test keeps a fixed frame.
+  WorldView.live = true;
   runApp(PortsAhoyApp(controller: controller));
 }
 
