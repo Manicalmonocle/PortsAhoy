@@ -37,26 +37,59 @@ at.
 
 ## Next
 
-**Decide the dark trade — keep it, or cut it.** It has been reworked three
-times and has never once been measured on a policy that could actually play it.
-1.14 fixed the last two things standing in the way: the berth is priced in
-barrels instead of rope, so entering the route no longer subtracts from the
-bill; and spice now buys what the port is *short of* rather than whatever a
-trader felt like offering. What is missing is a played run under those terms.
-If it still is not worth the hands when the payoff finally lands on the right
-goods, cutting it is the honest answer and the game loses nothing it needs.
+**~~Decide the dark trade~~ — it stays.** Settled on 2026-10-06 by a played
+run, `human-2026-10-06-dark-102d.pa1`, on build 1.14.1 with no charters: the
+light lit on **day 102** against 77-88 for the honest runs on record. The route
+costs real time, it is survivable, and the player's own verdict was that it
+"definitely made it a little difficult. Which is a good thing."
 
-**Teach the probe to trade spice, and stop it committing on day ten.** The
-blocker on the item above, and the longest-standing hole in this project's
-measurements. The probe has never taken a spice deal — 0 of 47,699 seen —
-because it never crews a bonded cellar, which scores zero on
-margin-per-worker-tick like every other shed whose output is not immediate. Its
-dark policy also builds a cooperage, a berth and a powder mill before its second
-sawmill, which no player would. Its dark median of 282 days against 77 honest is
-therefore not evidence of anything, and **no further dark-trade balance change
-should be made until it is.** This is the same error for the fourth time — the
-grange that never ripened, the berth that never got built, the cellar that never
-got crewed. The measurement keeps measuring the policy rather than the mechanic.
+The run is also the first that exercised the chain end to end, and the way it
+went wrong is the best argument for keeping it. Cooperage day 50, powder mill
+53, berth 75, three prizes on days 76, 80 and 83 carrying 12, then 24, then 41
+spice — and the **bonded cellar not until day 98**. So concealment was zero for
+every one of the twenty-two days the port held contraband, and all of it was
+taken: "wasn't able to trade any spice because I kept getting boarded. Really
+made the dark trade feel very piratey." Not one barter was recorded in a run
+that took three prizes.
+
+That is a mechanic teaching a lesson, and it is deliberately **not** being
+signposted. A standing "you are holding unhidden contraband" readout was
+offered and declined: "I think it's a good lesson. Need to have some aspects
+not a little hidden." The cutter card still warns when one is actually
+alongside, and the sheds panel still carries the Exposed/Hidden figures.
+
+Worth noting what the same run says about the honest side, because it may be
+the larger half of those 102 days: it finished holding **220 tools against a
+bill of 80, 257 sailcloth against 70, and 88 cheese against 30**, with coin the
+last thing it was waiting on. Three times the sailcloth the lighthouse asked
+for is a sawmill-and-smithy story, not a piracy one.
+
+**~~Teach the probe to trade spice~~ — abandoned, and the attempt is the
+finding.** It was tried on 2026-10-05 and rolled back whole; none of it is in
+the code. The spice-trading half turned out to be already done, and five
+iterations of fixing the dark policy found four more faults behind it:
+
+- the powder mill was never crewed (1.43 a worker-tick against a smithy's 2.9,
+  and both eat ore, so the loser also trips the input test) — every one of
+  47,269 blocked boardings read "Needs 4 powder";
+- nor was the cooperage, and that one generalises: **barrels are a building
+  material, so a margin ranking cannot see the shed that makes them**;
+- barrels that were made got sold the day they were coopered;
+- **only the first nineteen entries of any build order are ever built.**
+  Reactive roofs take the rest of the 25-shed cap, so everything past
+  'import_berth' in the honest order has never once executed — it builds one
+  mine and one smithy, not the two it lists.
+
+Each fix exposed the next binding constraint, and the best dark figure reached
+was still ~116 days with the cellar often unbuilt and 0-1 spice deals taken. A
+fixed list plus a hard shed cap plus reactive roofs cannot express a port that
+also runs a dark chain; making it would mean a needs-driven build queue, which
+would move the honest control as well — and the control is the only calibrated
+thing here.
+
+So the probe is not the instrument for this, and a played run answered in one
+sitting what it could not answer in five rewrites. Worth remembering before the
+next subsystem gets measured this way.
 
 **~~Diagnose the Grange outlier~~ — probably explained.** Under *A Grander
 Light*, one seed of eight blew out to 351 days against a baseline maximum of
@@ -98,45 +131,26 @@ Measured: *Poor Soil* carries weight 1 and costs about 46 days; *Bitter Seas*
 carries weight 2 and cost about −1. The weights were set by judgement and have
 never been re-derived from play.
 
-**Measure the dark trade end to end.** First played attempt is in —
-`human-2026-09-16-dark-prize-88d.pa1`, build 1.9.1+36, no charters, won on day
-88 against 78 and 80 for the two honest runs on record. But it is not the
-measurement this item wants:
+**~~Measure the dark trade end to end~~ — done, by playing it.** See the
+verdict under *Next*. Four played runs got it there, and the history is worth
+keeping because three of them each measured something different:
 
-- **One prize, in thirty-one days of owning a berth.** Built day 57, boarded
-  once on day 65 for 41 tons and 10 spice.
-- **No privateer captain was ever hired**, though the berth was up from day 57
-  and the retinue took a third captain on day 80 instead. So the +22% odds and
-  +55% booty never applied.
-- **No distillery and no bonded cellar**, so the contraband-production half of
-  the route was never built at all.
-- A five-day famine on days 73-77 cost five people and muddies the day count.
+- `human-2026-09-16-dark-prize-88d.pa1` — one prize in thirty-one days of
+  owning a berth, no privateer captain ever hired, no distillery and no cellar.
+  The cause turned out to be powder: with the berth standing, **13,661 blocked
+  boardings were every one of them for want of a charge.** Powder cost went
+  from 8 to 4.
+- `human-2026-09-17-dark-77d.pa1` — 77 days against 78 and 80 honest, the
+  fastest trace on record at the time. Three prizes in thirteen days and the
+  first privateer captain ever hired.
+- `human-2026-09-18-dark-early-88d.pa1` — committing early, and the run that
+  produced "by the time you get your main things online for the lighthouse it's
+  end game and hard to pivot". The berth stopped costing rope and sailcloth
+  because of it.
+- `human-2026-10-06-dark-102d.pa1` — the whole chain, and the verdict.
 
-That one boarding per month turned out to be reproducible, and the cause is now
-known. With the berth actually standing, **13,661 blocked boardings were every
-one of them for want of powder** — no other reason appeared. Powder cost is down
-from 8 to 4, and the berth no longer eats rope and sailcloth, which it consumed
-faster than the lighthouse asks for.
-
-**A played run has now beaten the honest path with it** —
-`human-2026-09-17-dark-77d.pa1`, 77 days against 78 and 80, the fastest trace on
-record. Three prizes in thirteen days of holding a berth, where the same player
-on the previous build got one in thirty-one, and the first privateer captain
-ever hired. One run and one seed, so not a verdict — but the powder change is
-doing what it was meant to.
-
-**The probe still says the route loses** — 102 against 80 when this was
-written, 282 against 77 at 1.14. And the measurement still has a hole in it big
-enough to invalidate the verdict:
-
-> **The probe has never taken a spice deal.** 0 taken, across every dark run
-> ever measured — 6,044 deals seen when this was written, 47,699 by 1.14.
-
-Spice exists because coin was never the constraint — it is the one thing that
-converts risk into *finished goods*, which is what the lighthouse actually
-wants. A dark run that never trades spice is measuring the chain with its payoff
-removed. **That work has moved to "Next" above, along with the decision it
-blocks.**
+The probe never contributed a valid figure to any of this. That is written up
+under *Next* as well, because it is the more useful lesson.
 
 **More life in the world.** Smoke that drifts on the wind, a ship that visibly
 leaves the quay when you send a consignment, weather you can see arriving. The
