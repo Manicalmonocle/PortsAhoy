@@ -98,7 +98,10 @@ class Camera3D {
 
   /// Framed from the island rather than a magic number, so growing the map
   /// does not silently push the far edge off screen.
-  static double get defaultDistance => Terrain.size * 0.92;
+  // Scaled to the island, which grew by 22%, rather than to the grid, which
+  // grew by 30% — a camera that kept up with the grid would have shrunk every
+  // shed on screen more than the island's growth asked for.
+  static double get defaultDistance => Terrain.size * 0.86;
 
   /// Point on the ground the camera orbits.
   Vector3 target;
@@ -1358,7 +1361,7 @@ class _ScenePainter extends CustomPainter {
   }
 
   /// Where the skerries lie: a fixed bearing and distance off the island.
-  static const double _skerryAng = 3.35, _skerryR = 13.0;
+  static const double _skerryAng = 3.35, _skerryR = 15.5;
 
   /// A few low rocks offshore. Always there, so that when a hull goes onto
   /// them the wreck is somewhere the player has already seen.
@@ -1376,7 +1379,7 @@ class _ScenePainter extends CustomPainter {
   void _whitecaps() {
     for (var i = 0; i < 48; i++) {
       final ang = _hash(i, 3) * math.pi * 2;
-      final r = 6.0 + _hash(i, 4) * 13;
+      final r = 7.0 + _hash(i, 4) * 16;
       final x = math.cos(ang) * r, z = math.sin(ang) * r;
       // Only on water: the inner part of the ring crosses the island.
       final col = (x / kTile + Terrain.size / 2).floor();
@@ -1445,18 +1448,18 @@ class _ScenePainter extends CustomPainter {
       if (privateers) {
         // Cruising across the lanes, never coming in.
         ang = 3.9 + (j - 0.5) * 0.5 + math.sin(_sea * 0.04 + j * 2) * 0.2;
-        r = 30 - 14 * approach;
+        r = 36 - 18 * approach;
         heading = ang + math.pi / 2 * (j.isEven ? 1 : -1);
       } else {
         // A convoy stands in, then lies in a line off the island.
         ang = 1.55 + (j - (count - 1) / 2) * 0.16;
-        r = 32 - 18 * approach;
+        r = 38 - 21 * approach;
         heading = ang + math.pi;
       }
       final x = math.cos(ang) * r, z = math.sin(ang) * r;
       // Far hulls are hazed into the sea; privateers keep their distance.
       final fade =
-          (((r - 13) / 18).clamp(0.0, 0.9) + (privateers ? 0.15 : 0.0))
+          (((r - 16) / 18).clamp(0.0, 0.9) + (privateers ? 0.15 : 0.0))
               .clamp(0.0, 0.92);
       final y = heightOf(Tile.water) + _waveY(x, z, _sea) + 0.02;
       _ship(x, z, y, heading, _sea + j * 1.3, privateers, fade: fade);

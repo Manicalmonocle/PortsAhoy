@@ -1439,6 +1439,30 @@ class GameState {
     return false;
   }
 
+  /// Move a save's buildings onto this grid, if it was written on another.
+  ///
+  /// The island grew from 20 tiles to 26 with the old one centred inside it,
+  /// trees and rocks and all, so shifting every building by the same amount
+  /// puts it on exactly the ground it stood on. The one thing that can differ
+  /// is the old beach: it is inland now, and inland tiles can grow trees. A
+  /// shed that finds itself on one is lifted and placed afresh rather than
+  /// left inside a tree.
+  void _migrateMap(int savedSize) {
+    final shift = Terrain.legacyShift(savedSize);
+    if (shift == 0) return;
+    for (final b in buildings) {
+      if (!b.isPlaced) continue;
+      b.col += shift;
+      b.row += shift;
+    }
+    for (final b in buildings) {
+      if (b.isPlaced && !canPlaceAt(b.def, b.col, b.row, ignore: b)) {
+        b.col = -1;
+        b.row = -1;
+      }
+    }
+  }
+
   /// Give every unplaced building a home. Runs on load, so a save written
   /// before the map existed lays itself out rather than arriving empty.
   void placeAll() {
@@ -2438,6 +2462,9 @@ class GameState {
 
   Map<String, dynamic> toJson() => {
         'version': 2,
+        // The grid the buildings' positions are on. Absent in every save
+        // written before the island grew, which means the old 20.
+        'map': Terrain.size,
         'events': events.toJson(),
         // Quantised on write and compared at no finer precision anywhere,
         // because band lookups gate an rng draw and a 1e-5 round-trip
@@ -2586,6 +2613,7 @@ class GameState {
         RunJournal.fromJson(j['journal'] as Map<String, dynamic>?);
     state.darkEarned = (j['darkEarned'] as num?)?.toDouble() ?? 0;
     state.darkLost = (j['darkLost'] as num?)?.toDouble() ?? 0;
+    state._migrateMap((j['map'] as num?)?.toInt() ?? Terrain.legacySize);
     state.placeAll();
     state.syncYards();
     state._clampRetinueToBerths();
