@@ -84,12 +84,15 @@ class SoundBoard {
   /// Loops that have actually started. Per loop, and only on success.
   ///
   /// IT USED TO BE ONE FLAG, set before anything had played. The loops were
-  /// started once, in order, sea first, on the first touch; a start that
-  /// failed was caught, logged and never tried again. So a single bad start
-  /// meant that loop stayed silent for the whole session while the others
-  /// played on — and a played run went forty days hearing rain and wind but
-  /// never a wave. Now a loop that has not started is tried again on the next
-  /// touch.
+  /// started once, in order, on the first touch; a start that failed was
+  /// caught, logged and never tried again, so a single bad start would have
+  /// left that loop silent for the whole session while the others played on.
+  /// Now a loop that has not started is tried again on the next touch.
+  ///
+  /// Found while chasing a run that "haven't really heard any waves" — and
+  /// NOT the cause of it: driven in a real browser, every loop started first
+  /// time. The sea was playing, and did not sound like the sea; see
+  /// tool/make_sounds.py. The gap was real all the same.
   final Set<Bed> _started = {};
   final Map<Sfx, int> _lastPlayed = {};
   final Map<Sfx, int> _lastVariant = {};

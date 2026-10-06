@@ -141,14 +141,25 @@ def main():
     # The sea: surf that swells and breaks about every eight seconds — the
     # same period as the swell the world draws.
     #
-    # BUILT FOR A PHONE SPEAKER, which the first version was not. It was brown
-    # noise under 700Hz with a little hiss, and 94% of its energy sat below
-    # 300Hz — the range a phone simply does not reproduce. On headphones it was
-    # a fine low wash; on a Pixel it was close to silent, and a played run went
-    # forty days without hearing a wave. The body of it is now the mid-range
-    # rush of water breaking, 250Hz-2.5kHz, which every speaker plays; the
-    # hiss of the break rides the crest; and a little rumble stays underneath
-    # for anyone listening on something that can carry it.
+    # A played run, on a PC with headphones, went forty days and "haven't
+    # really heard any waves". The first guess was the wrong one, and the
+    # measurement is worth keeping:
+    #
+    #   - It WAS playing. Driven in a real browser on the exact build, the sea
+    #     started on the first click and sat at a gain of 0.5 against the
+    #     wind's 0.18 — at -36 LUFS it was the loudest loop in the game, seven
+    #     above the wind.
+    #   - It did not sound like the sea. Brown noise under 700Hz with a little
+    #     hiss is a muffled rush swelling every eight seconds, which a listener
+    #     files under "wind". It was heard, and taken for something else.
+    #   - And on a phone or laptop speaker it would have been nearly gone: 94%
+    #     of its energy sat below 300Hz, where small speakers stop.
+    #
+    # So the body is now the bright rush of water breaking, 250Hz-2.5kHz, with
+    # the hiss of the break riding each crest and a little rumble underneath:
+    # -31 LUFS, centred near 1.6kHz instead of 770Hz. What should tell it from
+    # the wind is the rhythm — a swell that rises and breaks every eight
+    # seconds, where the wind gusts at random.
     swell = 'volume=\'0.25+0.75*pow(sin(PI*t/8),2)\':eval=frame'
     sea = render(
         f'anoisesrc=color=pink:seed=7:r={RATE},highpass=f=250,lowpass=f=2500,'
