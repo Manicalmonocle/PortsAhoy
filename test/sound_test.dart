@@ -20,6 +20,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 /// Writes down everything it is asked to do, and makes no noise.
 class Recorder implements SoundBackend {
+  /// Loops that should fail to start, for as many tries as given.
+  final Map<Bed, int> failStarts = {};
   final List<Sfx> played = [];
   final List<int> variants = [];
   final Map<Bed, double> beds = {};
@@ -31,7 +33,14 @@ class Recorder implements SoundBackend {
     variants.add(variant);
   }
   @override
-  Future<void> startBed(Bed bed, double volume) async => beds[bed] = volume;
+  Future<void> startBed(Bed bed, double volume) async {
+    final left = failStarts[bed] ?? 0;
+    if (left > 0) {
+      failStarts[bed] = left - 1;
+      throw StateError('$bed refused to start');
+    }
+    beds[bed] = volume;
+  }
   @override
   Future<void> setBed(Bed bed, double volume) async => beds[bed] = volume;
   @override
@@ -93,6 +102,23 @@ void main() {
       board.unlock();
       await pumpEventQueue();
       expect(rec.beds.keys.toSet(), Bed.values.toSet());
+    });
+
+    test('a loop that fails to start is tried again on the next touch',
+        () async {
+      // The sea was the first loop started and the only one never heard: a
+      // single failed start was swallowed and never retried, so it stayed
+      // silent for forty days while the rain and the wind played on.
+      rec.failStarts[Bed.sea] = 1;
+      await board.init(rec);
+      board.unlock();
+      await pumpEventQueue();
+      expect(rec.beds.keys, isNot(contains(Bed.sea)));
+      expect(rec.beds.keys, containsAll([Bed.wind, Bed.rain]),
+          reason: 'one bad start must not take the others with it');
+      board.unlock(); // the next touch
+      await pumpEventQueue();
+      expect(rec.beds.keys, contains(Bed.sea));
     });
 
     test('mute silences everything, and is remembered', () async {
@@ -167,6 +193,9 @@ void main() {
       c.setSpeed(0);
       await board.init(rec);
       board.unlock();
+      // Loops count as started only once they have, which is a moment after
+      // the touch — as it is on a real device.
+      await pumpEventQueue();
       d = SoundDirector(c);
     }
 

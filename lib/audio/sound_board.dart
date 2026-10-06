@@ -81,7 +81,16 @@ class SoundBoard {
   SoundBackend? _backend;
   bool _unlocked = false;
   bool _away = false;
-  bool _bedsStarted = false;
+  /// Loops that have actually started. Per loop, and only on success.
+  ///
+  /// IT USED TO BE ONE FLAG, set before anything had played. The loops were
+  /// started once, in order, sea first, on the first touch; a start that
+  /// failed was caught, logged and never tried again. So a single bad start
+  /// meant that loop stayed silent for the whole session while the others
+  /// played on — and a played run went forty days hearing rain and wind but
+  /// never a wave. Now a loop that has not started is tried again on the next
+  /// touch.
+  final Set<Bed> _started = {};
   final Map<Sfx, int> _lastPlayed = {};
   final Map<Sfx, int> _lastVariant = {};
   final math.Random _random = math.Random();
@@ -129,11 +138,29 @@ class SoundBoard {
     await _apply();
   }
 
-  /// The first touch. See the library note.
+  /// A touch. The first one unlocks sound — see the library note — and every
+  /// one after gives any loop that failed to start another chance.
   void unlock() {
-    if (_unlocked) return;
+    if (_unlocked) {
+      if (_started.length < Bed.values.length && audible) _startMissing();
+      return;
+    }
     _unlocked = true;
     _apply();
+  }
+
+  Future<void> _startMissing() async {
+    final b = _backend;
+    if (b == null) return;
+    for (final bed in Bed.values) {
+      if (_started.contains(bed)) continue;
+      try {
+        await b.startBed(bed, _beds[bed]!);
+        _started.add(bed);
+      } catch (e) {
+        debugPrint('sound: $bed would not start: $e');
+      }
+    }
   }
 
   /// The app has gone to the background, or come back. A game that kept
@@ -171,9 +198,9 @@ class SoundBoard {
   void setBeds(Map<Bed, double> levels) {
     _beds.addAll(levels);
     final b = _backend;
-    if (b == null || !audible || !_bedsStarted) return;
+    if (b == null || !audible) return;
     for (final e in levels.entries) {
-      _guard(b.setBed(e.key, e.value));
+      if (_started.contains(e.key)) _guard(b.setBed(e.key, e.value));
     }
   }
 
@@ -184,17 +211,13 @@ class SoundBoard {
       await _guard(b.pauseAll());
       return;
     }
-    if (!_bedsStarted) {
-      _bedsStarted = true;
-      for (final bed in Bed.values) {
-        await _guard(b.startBed(bed, _beds[bed]!));
-      }
-    } else {
+    if (_started.isNotEmpty) {
       await _guard(b.resumeAll());
       for (final e in _beds.entries) {
-        await _guard(b.setBed(e.key, e.value));
+        if (_started.contains(e.key)) await _guard(b.setBed(e.key, e.value));
       }
     }
+    await _startMissing();
   }
 
   /// Sound is never worth a crash. A device with no audio output, a browser
@@ -214,7 +237,7 @@ class SoundBoard {
     _backend = null;
     _unlocked = false;
     _away = false;
-    _bedsStarted = false;
+    _started.clear();
     _lastPlayed.clear();
     _lastVariant.clear();
     clock = _wallClock;

@@ -138,16 +138,28 @@ def main():
 
     # ---- Ambient loops ----------------------------------------------------
 
-    # The sea: a low wash that swells and falls about every eight seconds —
-    # the same period as the swell the world draws — with hiss on the break.
-    swell = 'volume=\'0.32+0.68*pow(sin(PI*t/8),2)\':eval=frame'
+    # The sea: surf that swells and breaks about every eight seconds — the
+    # same period as the swell the world draws.
+    #
+    # BUILT FOR A PHONE SPEAKER, which the first version was not. It was brown
+    # noise under 700Hz with a little hiss, and 94% of its energy sat below
+    # 300Hz — the range a phone simply does not reproduce. On headphones it was
+    # a fine low wash; on a Pixel it was close to silent, and a played run went
+    # forty days without hearing a wave. The body of it is now the mid-range
+    # rush of water breaking, 250Hz-2.5kHz, which every speaker plays; the
+    # hiss of the break rides the crest; and a little rumble stays underneath
+    # for anyone listening on something that can carry it.
+    swell = 'volume=\'0.25+0.75*pow(sin(PI*t/8),2)\':eval=frame'
     sea = render(
-        f'anoisesrc=color=brown:seed=7:r={RATE},lowpass=f=700,{swell}[a];'
+        f'anoisesrc=color=pink:seed=7:r={RATE},highpass=f=250,lowpass=f=2500,'
+        f'{swell}[a];'
         f'anoisesrc=color=pink:seed=11:r={RATE},highpass=f=1800,'
-        f'lowpass=f=5200,volume=0.35,'
-        f'volume=\'pow(sin(PI*(t-0.6)/8),4)\':eval=frame[b];'
-        f'[a][b]amix=inputs=2:normalize=0', 18)
-    write('sea', normalise(loop_seam(sea, 2), -10))
+        f'lowpass=f=5500,volume=0.45,'
+        f'volume=\'pow(max(sin(PI*(t-0.6)/8),0),4)\':eval=frame[b];'
+        f'anoisesrc=color=brown:seed=13:r={RATE},lowpass=f=220,volume=0.35,'
+        f'{swell}[c];'
+        f'[a][b][c]amix=inputs=3:normalize=0', 18)
+    write('sea', normalise(loop_seam(sea, 2), -9))
 
     # Wind: a band of noise with gusts on two unrelated periods, so it never
     # repeats a shape inside the loop.
