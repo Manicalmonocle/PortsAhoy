@@ -186,21 +186,78 @@ def main():
         f':eval=frame,aecho=0.7:0.5:420|900:0.3|0.2', 4.5)
     write('thunder', edges(normalise(thunder, -4), fade_out=0.6))
 
-    # A gull: three falling calls with a nasal edge. THE MOST LIKELY OF ALL
-    # OF THESE TO SOUND LIKE A SYNTHESIZER — a gull is a hard thing to fake
-    # with sines, and it is the first one worth replacing with a recording.
-    def call(at, f0, f1, dur, g):
-        k = (f1 - f0) / dur
-        ph = f'2*PI*({f0}*(t-{at})+0.5*{k}*pow(t-{at},2))'
-        env = f'sin(PI*(t-{at})/{dur})'
-        return (f'between(t,{at},{at + dur})*{g}*{env}*'
-                f'(sin({ph})+0.55*sin(2*{ph})+0.35*sin(3*{ph})+0.2*sin(4*{ph}))')
-    gull = render('aevalsrc=\'' + '+'.join([
-        call(0.0, 1550, 980, 0.34, 1.0),
-        call(0.42, 1500, 950, 0.30, 0.85),
-        call(0.8, 1420, 900, 0.36, 0.7),
-    ]) + f'\':s={RATE},highpass=f=600', 1.3)
-    write('gull', edges(normalise(gull, -9)))
+    # Gulls. THE FIRST DRAFT SOUNDED LIKE A SYNTHESIZER, and was reported as
+    # "birds sound a little odd": each call was a clean stack of harmonics
+    # sliding straight down, all three identical — a laser, not a bird. What
+    # a herring gull's "kyow" actually has, and this now tries for:
+    #
+    #   - an ARCHED pitch: up quickly, then a long fall, inside each note;
+    #   - a RASP: the voice is rough, so the tone is buzzed at ~70Hz and a
+    #     breath of band-limited noise rides along with it;
+    #   - a NASAL colour: the second harmonic is the loudest, not the first;
+    #   - DISTANCE: highs softened and an echo off the water, mixed low, so it
+    #     sits out over the sea rather than in the player's ear;
+    #   - VARIETY: three different calls, picked at random in the game, since
+    #     a sound that repeats exactly is the quickest way to give a fake away.
+    #
+    # Still the likeliest file in this folder to want replacing with a
+    # recording, which can go in as gull.wav, gull_2.wav and gull_3.wav.
+    def kyow(at, dur, base, rise, fall, g, rasp=70):
+        # Frequency fa + fb*sin(pi*u) + c*u over the note, u in 0..1; the
+        # phase is its closed-form integral, so the pitch glides cleanly.
+        tau = f'(t-{at})'
+        u = f'({tau}/{dur})'
+        ph = (f'2*PI*({base}*{tau}+{rise}*{dur}/PI*(1-cos(PI*{u}))'
+              f'+{fall}*pow({tau},2)/(2*{dur}))')
+        # max(...,0) BEFORE the root: outside its note the sine goes negative,
+        # the square root of that is NaN, and NaN times a zero gate is still
+        # NaN — one bad sample, and every filter downstream holds it forever.
+        # The first render of these was a flat drone for exactly that reason.
+        env = f'pow(max(sin(PI*{u}),0),0.5)'
+        buzz = f'(1+0.35*sin(2*PI*{rasp}*{tau}))'
+        tone = (f'(0.5*sin({ph})+1.0*sin(2*{ph})+0.75*sin(3*{ph})'
+                f'+0.45*sin(4*{ph})+0.25*sin(5*{ph})+0.15*sin(6*{ph}))')
+        return f'between(t,{at},{at + dur})*{g}*{env}*{buzz}*{tone}'
+
+    def breath(calls):
+        # The same notes as a whisper of noise, for the grain in the voice.
+        gates = '+'.join(
+            f'between(t,{at},{at + dur})*{g}*pow(max(sin(PI*(t-{at})/{dur}),0),0.5)'
+            for at, dur, g in calls)
+        return gates
+
+    def gull(name, calls, seconds):
+        voice = '+'.join(kyow(*c) for c in calls)
+        gates = breath([(c[0], c[1], c[5]) for c in calls])
+        samples = render(
+            f"aevalsrc='{voice}':s={RATE}[v];"
+            f'anoisesrc=color=pink:seed={len(name) * 7}:r={RATE},'
+            f'bandpass=f=2600:width_type=h:w=1800,'
+            f"volume='0.22*({gates})':eval=frame[n];"
+            f'[v][n]amix=inputs=2:normalize=0,'
+            f'highpass=f=500,lowpass=f=4800,'
+            f'aecho=0.7:0.45:140|310:0.22|0.12', seconds)
+        write(name, edges(normalise(samples, -12), fade_out=0.25))
+
+    # (start, length, base Hz, rise Hz, fall Hz, gain)
+    gull('gull', [
+        (0.00, 0.34, 1050, 430, -520, 1.0),
+        (0.44, 0.30, 1000, 400, -480, 0.85),
+        (0.84, 0.36, 960, 380, -560, 0.7),
+    ], 1.6)
+    # The long call: one drawn-out cry, then laughter.
+    gull('gull_2', [
+        (0.00, 0.55, 980, 460, -600, 1.0),
+        (0.70, 0.13, 1250, 220, -300, 0.7),
+        (0.88, 0.13, 1230, 220, -300, 0.65),
+        (1.06, 0.13, 1200, 200, -300, 0.6),
+        (1.24, 0.14, 1170, 200, -320, 0.5),
+    ], 1.8)
+    # One gull, further off, answered once.
+    gull('gull_3', [
+        (0.00, 0.40, 1120, 420, -540, 0.9),
+        (0.62, 0.32, 1060, 380, -500, 0.5),
+    ], 1.4)
 
     # The light lit: four bells climbing a major chord.
     chime = render('aevalsrc=\'' + '+'.join([

@@ -14,6 +14,8 @@
 /// - MUTE IS REMEMBERED, and it silences everything, ambience included.
 library;
 
+import 'dart:math' as math;
+
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -24,11 +26,14 @@ enum Sfx {
   hammer(0.7, 200),
   cannon(0.85, 400),
   thunder(0.75, 3000),
-  gull(0.45, 4000),
+  // Three calls, and quieter than they were: the first gull was one call
+  // played every time, too loud and too clean — "birds sound a little odd".
+  // Out over the water, and never the same twice running.
+  gull(0.32, 4000, variants: 3),
   chime(0.9, 2000),
   alarm(0.7, 1500);
 
-  const Sfx(this.volume, this.minGapMs);
+  const Sfx(this.volume, this.minGapMs, {this.variants = 1});
 
   /// Where it sits in the mix, before anything else scales it.
   final double volume;
@@ -37,7 +42,15 @@ enum Sfx {
   /// should sound like trade, not a slot machine paying out.
   final int minGapMs;
 
-  String get asset => 'sounds/$name.wav';
+  /// How many different takes of this sound there are. A sound that repeats
+  /// exactly is the quickest way to give away that it is not real.
+  final int variants;
+
+  /// The file for take [i]: `gull.wav`, then `gull_2.wav`, `gull_3.wav`.
+  String assetFor(int i) =>
+      i == 0 ? 'sounds/$name.wav' : 'sounds/${name}_${i + 1}.wav';
+
+  String get asset => assetFor(0);
 }
 
 /// Sounds that loop for as long as they are wanted, at a varying level.
@@ -52,7 +65,7 @@ enum Bed {
 /// What actually makes the noise. One real one, in audioplayers_backend.dart;
 /// tests substitute one that writes down what it was asked to do.
 abstract class SoundBackend {
-  Future<void> play(Sfx sfx, double volume);
+  Future<void> play(Sfx sfx, double volume, {int variant = 0});
   Future<void> startBed(Bed bed, double volume);
   Future<void> setBed(Bed bed, double volume);
   Future<void> pauseAll();
@@ -70,6 +83,8 @@ class SoundBoard {
   bool _away = false;
   bool _bedsStarted = false;
   final Map<Sfx, int> _lastPlayed = {};
+  final Map<Sfx, int> _lastVariant = {};
+  final math.Random _random = math.Random();
 
   /// Milliseconds, for the rate limits. A test sets its own, so that two
   /// events it means to be minutes apart are not a millisecond apart.
@@ -138,7 +153,18 @@ class SoundBoard {
     final last = _lastPlayed[sfx];
     if (last != null && now - last < sfx.minGapMs) return;
     _lastPlayed[sfx] = now;
-    _guard(b.play(sfx, (sfx.volume * volume).clamp(0.0, 1.0)));
+    _guard(b.play(sfx, (sfx.volume * volume).clamp(0.0, 1.0),
+        variant: _pickVariant(sfx)));
+  }
+
+  /// A take of [sfx], never the one played last time if there is a choice.
+  int _pickVariant(Sfx sfx) {
+    if (sfx.variants <= 1) return 0;
+    final last = _lastVariant[sfx];
+    var v = _random.nextInt(sfx.variants);
+    if (v == last) v = (v + 1 + _random.nextInt(sfx.variants - 1)) % sfx.variants;
+    _lastVariant[sfx] = v;
+    return v;
   }
 
   /// Set how loud each ambient loop should be, 0 to 1.
@@ -190,6 +216,7 @@ class SoundBoard {
     _away = false;
     _bedsStarted = false;
     _lastPlayed.clear();
+    _lastVariant.clear();
     clock = _wallClock;
     for (final b in Bed.values) {
       _beds[b] = 0;

@@ -43,11 +43,11 @@ class AudioplayersBackend implements SoundBackend {
   final Map<Bed, AudioPlayer> _beds = {};
 
   @override
-  Future<void> play(Sfx sfx, double volume) async {
+  Future<void> play(Sfx sfx, double volume, {int variant = 0}) async {
     final p = _pool[_next];
     _next = (_next + 1) % _pool.length;
     await p.stop();
-    await p.play(AssetSource(sfx.asset), volume: volume);
+    await p.play(AssetSource(sfx.assetFor(variant)), volume: volume);
   }
 
   @override

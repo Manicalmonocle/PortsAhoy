@@ -21,11 +21,15 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// Writes down everything it is asked to do, and makes no noise.
 class Recorder implements SoundBackend {
   final List<Sfx> played = [];
+  final List<int> variants = [];
   final Map<Bed, double> beds = {};
   int pauses = 0;
 
   @override
-  Future<void> play(Sfx sfx, double volume) async => played.add(sfx);
+  Future<void> play(Sfx sfx, double volume, {int variant = 0}) async {
+    played.add(sfx);
+    variants.add(variant);
+  }
   @override
   Future<void> startBed(Bed bed, double volume) async => beds[bed] = volume;
   @override
@@ -50,8 +54,10 @@ void main() {
   group('the sound files', () {
     test('every sound the game asks for exists, and is bundled', () {
       for (final s in Sfx.values) {
-        expect(File('assets/${s.asset}').existsSync(), isTrue,
-            reason: '${s.asset} is played but missing');
+        for (var i = 0; i < s.variants; i++) {
+          expect(File('assets/${s.assetFor(i)}').existsSync(), isTrue,
+              reason: '${s.assetFor(i)} is played but missing');
+        }
       }
       for (final b in Bed.values) {
         expect(File('assets/${b.asset}').existsSync(), isTrue,
@@ -120,6 +126,23 @@ void main() {
       // A different sound is not held back by it.
       board.play(Sfx.bell, nowMs: 1001);
       expect(rec.played.last, Sfx.bell);
+    });
+
+    test('a gull is never the same call twice running', () async {
+      // The first gull was one recording played every time, and the
+      // repetition was half of why it sounded wrong.
+      await board.init(rec);
+      board.unlock();
+      var now = 0;
+      board.clock = () => now;
+      for (var i = 0; i < 40; i++) {
+        board.play(Sfx.gull);
+        now += Sfx.gull.minGapMs;
+      }
+      expect(rec.variants.toSet(), {0, 1, 2}, reason: 'all three get used');
+      for (var i = 1; i < rec.variants.length; i++) {
+        expect(rec.variants[i], isNot(rec.variants[i - 1]));
+      }
     });
 
     test('nothing plays while the app is in the background', () async {
