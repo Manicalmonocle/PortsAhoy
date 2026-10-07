@@ -329,9 +329,15 @@ win condition is absent from its stock list.
 
 | | Days | Risk | Pays well for |
 | --- | --- | --- | --- |
-| Ostmark | 3 | 3% | rope, sailcloth, timber |
-| Greyhaven | 5 | 7% | tools, barrels, powder |
-| The Reaches | 9 | 14% | tools, sailcloth, spirits |
+| Ostmark | 3 | 3% | rope, timber, wool, planks, flax |
+| Greyhaven | 5 | 7% | grain, fish, tools, barrels, meat, bread, cheese |
+| The Reaches | 9 | 14% | spirits, powder, sailcloth, tools, ore |
+
+Generated from `kDestinations` rather than typed: the table this replaced had
+drifted from the game before the livestock goods arrived — it listed sailcloth
+at Ostmark and powder at Greyhaven, which neither ever paid for. Milk, eggs and
+spice have no market abroad on purpose (they would not survive a crossing, and
+spice is for barter), and a test fails on any other good without one.
 
 You get a quote up front, so the payoff is known before you commit. The point
 is that a voyage **never touches your local price** — it is how you move volume
@@ -340,12 +346,15 @@ Ten powder buys an escort and halves that risk; a privateer scare doubles it.
 
 ### The retinue
 
-Three hiring tracks, three tiers each, hired in order. **Captains** cut crossing
+Four hiring tracks, three tiers each, hired in order. **Captains** cut crossing
 time (−15/−28/−40%) and risk; **merchants** raise prices at home and abroad
 (up to +20% at the quay, +26% on voyages); **privateer captains** lift the odds
 at the rail (+8/+15/+22%) and the booty a won boarding lands (×1.15/1.32/1.55),
 and are offered only once a Privateer Berth stands — an honest port never sees
-the card.
+the card; **reeves** bring every ripening shed on sooner (×1.25/1.5/1.8), and
+are offered once anything that ripens stands — a grange, a pasture, a byre or a
+hen house. They waited for a grange at first, and a port that put its herds in
+first met them after the herds had grown.
 
 **Carting is not hired.** It used to be a fourth officer, the quartermaster. A
 player pointed out that convenience should never compete for coin or a berth
@@ -784,9 +793,25 @@ secret scanning would revoke a leaked token anyway. That is precisely why the
 app opens a page the tester submits themselves rather than posting anywhere on
 their behalf.
 
+### Sound and motion
+
+The world draws on its own clock, separate from the game's: 60 frames a second
+by default, with **Low 30 / Medium 60 / High 90** in the Log panel, and a
+default that drops itself to 30 on a device that cannot keep up. Pausing stops
+the work — chimneys, windmills, people — and leaves the sea moving. Smoke leans
+on one wind for the whole port; consignments are seen to sail and come home;
+weather builds through its omen, so a gale, a frost or ice in the shallows can
+be seen coming.
+
+Every sound is synthesized from nothing by `tool/make_sounds.py`, so the game
+owns all of it. Sea, wind and rain loop; a bell, coins, a mallet, a gun,
+thunder, gulls and a chime mark what happens. Sound is on by default, mute is
+one tap in the HUD and remembered, nothing plays before the first touch, and
+any file in `assets/sounds/` can be replaced with a recording of the same name.
+
 ## What is not built yet
 
-- No sound, no animation beyond the harbour swell, emoji placeholder art
+- Emoji placeholder art for icons
 - No tech or upgrade progression beyond building more sheds
 - The archipelago/trade-route map (ships' origins, lanes, blockades) — only the
   harbour scene exists

@@ -36,6 +36,80 @@ void main() {
       }
     });
 
+    test('the old island sits inside the new one, unchanged', () {
+      // The island grew from 20 tiles to 26. A save from before it grew has to
+      // find the same ground under every shed, so every inland tile of the old
+      // island must be the same tile here, three across and three down — and
+      // the old beach must still be land.
+      final o = Terrain.legacyShift(Terrain.legacySize);
+      expect(o, 3);
+      var checked = 0;
+      for (var c = 0; c < Terrain.legacySize; c++) {
+        for (var r = 0; r < Terrain.legacySize; r++) {
+          final was = _legacyTile(c, r);
+          final now = Terrain.at(c + o, r + o);
+          if (was == Tile.water) continue;
+          checked++;
+          if (was == Tile.sand) {
+            expect(now, isNot(Tile.water), reason: 'old beach at $c,$r sank');
+          } else {
+            expect(now, was, reason: 'old tile $c,$r changed from $was');
+          }
+        }
+      }
+      expect(checked, greaterThan(150));
+    });
+
+    test('a full port fits, with room to spare', () {
+      // The old island held 31 sheds before placement ran out of room, and a
+      // played run reached 28. Past the ceiling a shed was built, worked, and
+      // never drawn.
+      final g = GameState.newGame();
+      g.buildings.clear();
+      for (var i = 0; i < 44; i++) {
+        final b = Building(defId: 'house');
+        g.buildings.add(b);
+        expect(g.autoPlace(b), isTrue, reason: 'shed ${i + 1} had nowhere');
+      }
+    });
+
+    test('a save from the smaller island keeps every shed where it stood', () {
+      final g = GameState.newGame();
+      g.buildings.clear();
+      // Lay sheds out on the OLD island, on old inland ground, as an old save
+      // would have them.
+      final old = <List<int>>[];
+      for (var r = 2; r < Terrain.legacySize - 2 && old.length < 12; r += 2) {
+        for (var c = 2; c < Terrain.legacySize - 2 && old.length < 12; c += 2) {
+          final inland = [
+            for (var dc = 0; dc < 2; dc++)
+              for (var dr = 0; dr < 2; dr++) _legacyTile(c + dc, r + dr)
+          ].every((t) => t == Tile.grass);
+          if (inland) old.add([c, r]);
+        }
+      }
+      expect(old.length, 12);
+      for (final p in old) {
+        g.buildings.add(Building(defId: 'house')
+          ..col = p[0]
+          ..row = p[1]);
+      }
+      final json = g.toJson()..remove('map'); // written before the island grew
+      final loaded = GameState.fromJson(json);
+      final o = Terrain.legacyShift(Terrain.legacySize);
+      for (var i = 0; i < old.length; i++) {
+        final b = loaded.buildings[i];
+        expect([b.col, b.row], [old[i][0] + o, old[i][1] + o],
+            reason: 'a shed moved relative to the island');
+      }
+      // And a save written now loads exactly as it was.
+      final again = GameState.fromJson(loaded.toJson());
+      for (var i = 0; i < old.length; i++) {
+        expect([again.buildings[i].col, again.buildings[i].row],
+            [loaded.buildings[i].col, loaded.buildings[i].row]);
+      }
+    });
+
     test('out of bounds is water, never a crash', () {
       expect(Terrain.at(-5, 3), Tile.water);
       expect(Terrain.at(3, 999), Tile.water);
@@ -290,4 +364,29 @@ void main() {
       await tester.pump();
     });
   });
+}
+
+
+/// The island exactly as it was generated before it grew: 20 tiles, the same
+/// formula, unscaled. Kept here so the migration can be checked against the
+/// ground old saves were actually written on.
+Tile _legacyTile(int col, int row) {
+  const size = 20;
+  if (col < 0 || row < 0 || col >= size || row >= size) return Tile.water;
+  const centre = (size - 1) / 2.0;
+  final dx = col - centre, dy = row - centre;
+  final d = math.sqrt(dx * dx + dy * dy);
+  final angle = math.atan2(dy, dx);
+  final radius =
+      7.8 + math.sin(angle * 3) * 0.85 + math.sin(angle * 5 + 1.4) * 0.55;
+  if (d > radius) return Tile.water;
+  if (d > radius - 1.15) return Tile.sand;
+  double hash(int n) {
+    final x = math.sin(n * 12.9898 + 4.1414) * 43758.5453;
+    return x - x.floorToDouble();
+  }
+  final h = hash(col * 131 + row * 17);
+  if (h > 0.935) return Tile.trees;
+  if (h > 0.905) return Tile.rock;
+  return Tile.grass;
 }

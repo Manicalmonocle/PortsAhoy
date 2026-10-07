@@ -2,14 +2,18 @@ import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:vector_math/vector_math_64.dart' show Matrix4, Vector3, Vector4;
 
 import '../game_controller.dart';
 import '../sim/buildings.dart';
+import '../sim/events.dart';
 import '../sim/game_state.dart';
 import '../sim/pets.dart';
 import '../sim/terrain.dart';
+import 'display_settings.dart';
 import 'theme.dart';
+import 'weather.dart';
 
 /// The port as a real 3D scene.
 ///
@@ -44,8 +48,51 @@ class WorldView extends StatefulWidget {
   final int? selected;
   final bool fullBleed;
 
+  /// Whether the world animates on its own clock.
+  ///
+  /// SWITCHED ON BY main() AND NOWHERE ELSE. Until this existed the scene only
+  /// redrew when the sim stepped — 0.7 times a second at normal speed — so
+  /// the sea, the smoke, the windmill and every walking figure moved in jumps
+  /// a second and a half apart. However good the shapes were, it was a
+  /// slideshow, and that is most of why the port did not feel alive.
+  ///
+  /// Off by default, and that matters as much as on: a widget test then
+  /// renders exactly the frame its tick describes. A ticker that never stops
+  /// would make every pumpAndSettle in the suite wait forever, and a golden
+  /// image would come out different every time it was taken.
+  static bool live = false;
+
   @override
   State<WorldView> createState() => _WorldViewState();
+}
+
+/// Animation time, kept apart from game time. Both in seconds.
+///
+/// [sea] always runs — water, wind and the boats riding on it. [work] runs only
+/// while the port does, so a paused port's chimneys, hands and windmills hold
+/// still while the sea keeps breathing. Paused should read as paused, not as
+/// crashed.
+///
+/// [work] scales by the square root of game speed rather than the speed
+/// itself: at four times, hands that walked four times faster blurred into
+/// noise, and twice as fast still reads plainly as fast-forward.
+///
+/// [game] is different in kind: it is the sim's own tick, but continuous —
+/// for things that move with game time, like a ship on a voyage. It runs at
+/// the sim's rate and is pulled back onto the sim whenever the two drift, so
+/// it can never wander from what the port actually is.
+class _Clock extends ChangeNotifier {
+  double sea = 0;
+  double work = 0;
+  double game = 0;
+  void frame() => notifyListeners();
+
+  /// How long a paint has been taking, in microseconds, smoothed over about a
+  /// second. Written by the painter, read by the throttle.
+  double paintMicros = 0;
+  void recordPaint(int micros) =>
+      paintMicros = paintMicros == 0 ? micros.toDouble()
+          : paintMicros * 0.97 + micros * 0.03;
 }
 
 /// Where the camera is and what it is looking at.
@@ -59,7 +106,10 @@ class Camera3D {
 
   /// Framed from the island rather than a magic number, so growing the map
   /// does not silently push the far edge off screen.
-  static double get defaultDistance => Terrain.size * 0.92;
+  // Scaled to the island, which grew by 22%, rather than to the grid, which
+  // grew by 30% — a camera that kept up with the grid would have shrunk every
+  // shed on screen more than the island's growth asked for.
+  static double get defaultDistance => Terrain.size * 0.86;
 
   /// Point on the ground the camera orbits.
   Vector3 target;
@@ -199,9 +249,70 @@ Vector3 tileCorner(num col, num row, double y) => Vector3(
       (row - Terrain.size / 2) * kTile,
     );
 
-class _WorldViewState extends State<WorldView> {
+class _WorldViewState extends State<WorldView>
+    with SingleTickerProviderStateMixin {
   late final Camera3D _camera =
       widget.initialCamera ?? Camera3D(target: Vector3.zero());
+
+  final _Clock _clock = _Clock();
+  Ticker? _ticker;
+  Duration _lastTick = Duration.zero;
+  final FrameGate _gate = FrameGate();
+
+  /// Whether a device left on the default has been judged too slow for it.
+  ///
+  /// The default is sixty frames a second — it was thirty, raised on request,
+  /// and a full port paints in about 3.5ms, comfortably inside a 16.7ms
+  /// frame on any recent phone. Not the screen's own rate: a Pixel 9 refreshes
+  /// at 120Hz, and painting at that would double the cost again for motion
+  /// few could tell apart. Left on the default, a device whose paint averages
+  /// over 9ms drops to thirty and comes back under six, so a slow one runs
+  /// cool rather than stuttering. A rate the player picks is kept exactly —
+  /// see [DisplaySettings.chosen].
+  bool _slow = false;
+
+  int get _fps {
+    final chosen = DisplaySettings.chosen.value;
+    if (chosen != null) return chosen.fps;
+    return _slow ? FrameRate.low.fps : FrameRate.medium.fps;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    if (WorldView.live) _ticker = createTicker(_advance)..start();
+  }
+
+  void _advance(Duration elapsed) {
+    // Clamped, so a phone that slept for an hour does not wake to a sea that
+    // jumps an hour of swell in one frame.
+    final dt = ((elapsed - _lastTick).inMicroseconds / 1e6).clamp(0.0, 0.1);
+    _lastTick = elapsed;
+    final c = widget.controller;
+    _clock.sea += dt;
+    if (c.isRunning) {
+      _clock.work += dt * math.sqrt(c.speed);
+      _clock.game += dt * GameController.baseTicksPerSecond * c.speed;
+    }
+    // The sim only steps a few times a second, and its fraction toward the
+    // next step only updates ten times a second; this runs at thirty. Track
+    // it smoothly, and snap back if it has wandered more than half a step —
+    // a load, a speed change, a long sleep.
+    final exact = c.state.tick + c.tickFraction;
+    if ((_clock.game - exact).abs() > 0.5) _clock.game = exact;
+    final cost = _clock.paintMicros;
+    if (!_slow && cost > 9000) _slow = true;
+    if (_slow && cost > 0 && cost < 6000) _slow = false;
+    // See FrameGate for why this is not "has a frame's gap passed".
+    if (_gate.due(dt, _fps)) _clock.frame();
+  }
+
+  @override
+  void dispose() {
+    _ticker?.dispose();
+    _clock.dispose();
+    super.dispose();
+  }
 
   int? _dragging;
   Point? _dropAt;
@@ -359,6 +470,7 @@ class _WorldViewState extends State<WorldView> {
                   onScaleUpdate: _onScaleUpdate,
                   child: CustomPaint(
                     painter: _ScenePainter(
+                      clock: _clock,
                       state: widget.controller.state,
                       camera: _camera,
                       dragging: _dragging,
@@ -477,23 +589,29 @@ class _MapButton extends StatelessWidget {
 
 /// One polygon queued for drawing, with the depth it sorts at.
 class _Face {
-  _Face(this.depth, this.points, this.colour, {this.stroke});
+  _Face(this.depth, this.points, this.colour, {this.stroke, this.blob});
   final double depth;
   final List<Offset> points;
   final Color colour;
   final Color? stroke;
+
+  /// Set for a soft round puff rather than a polygon, as its screen radius;
+  /// [points] then holds only the centre. See [_ScenePainter._puff].
+  final double? blob;
 }
 
 class _ScenePainter extends CustomPainter {
   _ScenePainter({
+    required this.clock,
     required this.state,
     required this.camera,
     required this.dragging,
     required this.dropAt,
     required this.dropValid,
     required this.selected,
-  });
+  }) : super(repaint: clock);
 
+  final _Clock clock;
   final GameState state;
   final Camera3D camera;
   final int? dragging;
@@ -513,8 +631,58 @@ class _ScenePainter extends CustomPainter {
   late Projector _p;
   final List<_Face> _queue = [];
 
+  /// This frame's animation time, in seconds. See [_Clock].
+  late double _sea;
+  late double _work;
+
+  /// This frame's game time, in ticks but continuous. See [_Clock.game].
+  late double _game;
+
+  /// Where the wind is blowing TO, on the ground plane, and how hard (0-1).
+  /// One wind for the whole port: smoke leans with it, windmills turn with it,
+  /// pennants snap with it and the sea gets choppier under it.
+  late double _windX, _windZ, _wind;
+
+  /// How much of each kind of weather is in the scene, 0 to 1. See
+  /// [Weather], which owns the rules so the sound can share them.
+  late double _storm, _frost, _ice, _fair, _rot;
+
+  /// Events that put something in the world rather than change its light.
+  late List<(ActiveEvent, double)> _seen;
+
+  /// The wind and the weather this frame.
+  void _settleWeather() {
+    final w = Weather.of(state, _sea);
+    _windX = w.windX;
+    _windZ = w.windZ;
+    _wind = w.wind;
+    _storm = w.storm;
+    _frost = w.frost;
+    _ice = w.ice;
+    _fair = w.fair;
+    _rot = w.rot;
+    _seen = w.seen;
+  }
+
   @override
   void paint(Canvas canvas, Size size) {
+    final timer = Stopwatch()..start();
+    _paintScene(canvas, size);
+    clock.recordPaint(timer.elapsedMicroseconds);
+  }
+
+  void _paintScene(Canvas canvas, Size size) {
+    // Off the live clock in the app; off the tick in a test, so a test's frame
+    // is fixed by its state. The tick is converted to the seconds it would
+    // have taken at normal speed, so both paths run the same animation.
+    _sea = WorldView.live
+        ? clock.sea
+        : state.tick / GameController.baseTicksPerSecond;
+    _work = WorldView.live ? clock.work : _sea;
+    _game = WorldView.live
+        ? math.max(clock.game, state.tick.toDouble())
+        : state.tick.toDouble();
+    _settleWeather();
     _p = Projector(camera, size);
     _queue.clear();
 
@@ -526,26 +694,51 @@ class _ScenePainter extends CustomPainter {
     _buildScatter();
     _buildBuildings();
     _buildShips();
+    _buildVoyages();
+    _buildWeather();
     _buildPeople();
     _buildDropHint();
 
     // Painter's algorithm: far polygons first.
     _queue.sort((a, b) => b.depth.compareTo(a.depth));
+    // One path and one paint, reset for every face, rather than a new pair of
+    // each for every one of the two and a half thousand faces on a full port —
+    // the largest single cost in a frame was this loop, and much of it was
+    // allocation. The canvas copies a path when it records it, so reusing it
+    // is safe.
+    final path = Path();
+    final fill = Paint();
+    final edge = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2;
     for (final f in _queue) {
-      if (f.points.length < 3) continue;
-      final path = Path()..addPolygon(f.points, true);
-      canvas.drawPath(path, Paint()..color = f.colour);
-      if (f.stroke != null) {
-        canvas.drawPath(
-          path,
+      if (f.blob != null) {
+        // Dense in the middle and gone at the rim, so overlapping puffs build
+        // into a plume instead of stacking up as discs.
+        final c = f.points.first;
+        final r = f.blob!;
+        final a = f.colour.a;
+        canvas.drawCircle(
+          c,
+          r,
           Paint()
-            ..color = f.stroke!
-            ..style = PaintingStyle.stroke
-            ..strokeWidth = 2,
+            ..shader = ui.Gradient.radial(c, r, [
+              f.colour,
+              f.colour.withValues(alpha: a * 0.7),
+              f.colour.withValues(alpha: 0),
+            ], const [0.0, 0.45, 1.0]),
         );
+        continue;
       }
+      if (f.points.length < 3) continue;
+      path
+        ..reset()
+        ..addPolygon(f.points, true);
+      canvas.drawPath(path, fill..color = f.colour);
+      if (f.stroke != null) canvas.drawPath(path, edge..color = f.stroke!);
     }
 
+    _paintWeather(canvas, size);
     _paintOverlays(canvas);
   }
 
@@ -600,11 +793,17 @@ class _ScenePainter extends CustomPainter {
 
   /// A gentle sum-of-sines swell at a world position, so the whole sea moves
   /// as one surface instead of a grid of flat diamonds.
-  double _waveY(double x, double z, int tick) {
-    final t = tick * 0.18;
-    return math.sin(x * 0.9 + t) * 0.045 +
-        math.sin(z * 0.7 - t * 0.8) * 0.045 +
-        math.sin((x + z) * 0.5 + t * 1.3) * 0.03;
+  ///
+  /// [t] is seconds. The main roll comes round about every eight seconds, and
+  /// the wind roughens it: a gale's sea stands up nearly twice as high as a
+  /// calm one.
+  double _waveY(double x, double z, double t) {
+    final w = t * 0.785;
+    final chop = 0.75 + 0.65 * _wind;
+    return (math.sin(x * 0.9 + w) * 0.045 +
+            math.sin(z * 0.7 - w * 0.8) * 0.045 +
+            math.sin((x + z) * 0.5 + w * 1.3) * 0.03) *
+        chop;
   }
 
   /// The base colour of a single tile, before blending. Kept narrow-range so
@@ -623,22 +822,76 @@ class _ScenePainter extends CustomPainter {
     };
   }
 
+  /// Tiles from the nearest land, for every tile in the grid: 0 on land, 1 in
+  /// the water touching it, and so on. The terrain never changes, so this is
+  /// worked out once.
+  static final List<List<int>> _landDistance = () {
+    const n = Terrain.size;
+    final d = List.generate(n, (_) => List<int>.filled(n, 1 << 20));
+    final queue = <List<int>>[];
+    for (var c = 0; c < n; c++) {
+      for (var r = 0; r < n; r++) {
+        if (Terrain.at(c, r) != Tile.water) {
+          d[c][r] = 0;
+          queue.add([c, r]);
+        }
+      }
+    }
+    // Eight ways, so ice spreads in rounded bays rather than in diamonds.
+    for (var i = 0; i < queue.length; i++) {
+      final c = queue[i][0], r = queue[i][1];
+      for (var dc = -1; dc <= 1; dc++) {
+        for (var dr = -1; dr <= 1; dr++) {
+          final nc = c + dc, nr = r + dr;
+          if (nc < 0 || nr < 0 || nc >= n || nr >= n) continue;
+          if (d[nc][nr] > d[c][r] + 1) {
+            d[nc][nr] = d[c][r] + 1;
+            queue.add([nc, nr]);
+          }
+        }
+      }
+    }
+    return d;
+  }();
+
+  /// How frozen a water tile is, 0 to 1. Ice makes in the shallows first and
+  /// reaches out as the freeze deepens — the omen line for this event is
+  /// literally "ice is making in the shallows".
+  double _iceAt(int col, int row) {
+    if (_ice <= 0) return 0;
+    const n = Terrain.size;
+    if (col < 0 || row < 0 || col >= n || row >= n) return 0;
+    final dist = _landDistance[col][row];
+    // A rim, three or four tiles out at the hardest — not the whole grid. The
+    // first version froze every water tile in it, and the ice ended in a hard
+    // square where the island's grid meets the open ocean: a white slab, not
+    // a sound icing over.
+    final reach = (_ice * 3.4 - dist + 1).clamp(0.0, 1.0);
+    // And it thins out toward the edge of the grid, so there is no line.
+    final edge = math.min(math.min(col, row), math.min(n - 1 - col, n - 1 - row));
+    return reach * (edge / 2.5).clamp(0.0, 1.0);
+  }
+
   /// The height at a grid VERTEX: the average of the four tiles meeting there.
   /// This is what rounds the coastline — a vertex where grass meets water sits
   /// halfway, so the beach slopes down into the sea instead of dropping off a
   /// cliff. Water gets its swell added on top.
-  double _vertexHeight(int vc, int vr, int tick) {
-    var sum = 0.0, wave = 0.0, waterN = 0;
+  double _vertexHeight(int vc, int vr, double tick) {
+    var sum = 0.0, wave = 0.0, waterN = 0, ice = 0.0;
     for (final d in const [[-1, -1], [0, -1], [-1, 0], [0, 0]]) {
       final tile = Terrain.at(vc + d[0], vr + d[1]);
       sum += heightOf(tile);
-      if (tile == Tile.water) waterN++;
+      if (tile == Tile.water) {
+        waterN++;
+        ice += _iceAt(vc + d[0], vr + d[1]);
+      }
     }
     final y = sum / 4;
     if (waterN > 0) {
       final wp = tileCorner(vc, vr, 0);
-      // Ripple only where there is actually water, easing out toward the shore.
-      wave = _waveY(wp.x, wp.z, tick) * (waterN / 4);
+      // Ripple only where there is actually water, easing out toward the
+      // shore — and not at all where it has frozen over.
+      wave = _waveY(wp.x, wp.z, tick) * (waterN / 4) * (1 - ice / waterN);
     }
     return y + wave;
   }
@@ -650,7 +903,14 @@ class _ScenePainter extends CustomPainter {
     var r = 0.0, g = 0.0, b = 0.0;
     for (final d in const [[-1, -1], [0, -1], [-1, 0], [0, 0]]) {
       final tile = Terrain.at(vc + d[0], vr + d[1]);
-      final c = _tileColour(tile, vc + d[0], vr + d[1]);
+      var c = _tileColour(tile, vc + d[0], vr + d[1]);
+      if (tile == Tile.water) {
+        final ice = _iceAt(vc + d[0], vr + d[1]);
+        if (ice > 0) c = Color.lerp(c, const Color(0xFFCFE2EA), ice * 0.85)!;
+      } else if (_frost > 0) {
+        // Rime on everything that is not water.
+        c = Color.lerp(c, const Color(0xFFDCE6EA), _frost * 0.55)!;
+      }
       r += c.r;
       g += c.g;
       b += c.b;
@@ -677,7 +937,7 @@ class _ScenePainter extends CustomPainter {
   /// riding the same swell, deep blue near the island and fading to the sky's
   /// own bottom colour at the rim — so there is no hard edge to see.
   void _paintOcean(Canvas canvas) {
-    final tick = state.tick;
+    final tick = _sea;
     const reach = 120.0; // far past the island in world units
     const n = 12; // enough cells for a smooth fade and gentle waves
     const step = (reach * 2) / n;
@@ -721,7 +981,7 @@ class _ScenePainter extends CustomPainter {
   }
 
   void _paintTerrainMesh(Canvas canvas) {
-    final tick = state.tick;
+    final tick = _sea;
     const n = Terrain.size;
 
     // Per-vertex world height, screen position and lit colour.
@@ -781,7 +1041,7 @@ class _ScenePainter extends CustomPainter {
   /// The smooth ground height at any world point, bilinearly sampled from the
   /// same vertex heightfield the terrain mesh uses — so a figure stands ON the
   /// ground the player sees, not on the old flat per-tile height.
-  double _groundAt(double x, double z, int tick) {
+  double _groundAt(double x, double z, double tick) {
     final fc = x / kTile + Terrain.size / 2;
     final fr = z / kTile + Terrain.size / 2;
     final c = fc.floor().clamp(0, Terrain.size);
@@ -807,15 +1067,17 @@ class _ScenePainter extends CustomPainter {
   /// A figure is four small boxes (legs, torso, head), lit like everything
   /// else, with a gentle walk bob. Kept deliberately cheap: there can be fifty
   /// of them and the scene rebuilds every frame.
-  void _person(double x, double z, int tick, int seed, Color coat,
+  void _person(double x, double z, double tick, int seed, Color coat,
       {bool walking = true}) {
     final phase = seed * 1.7;
-    final bob = walking ? (math.sin(tick * 0.5 + phase).abs() * 0.03) : 0.0;
-    final y = _groundAt(x, z, tick) + bob;
+    // A step about every 0.4s — the bob rides the absolute value, so it peaks
+    // twice a stride.
+    final bob = walking ? (math.sin(tick * 7.85 + phase).abs() * 0.03) : 0.0;
+    final y = _groundAt(x, z, _sea) + bob;
     const skin = Color(0xFFC9A17A);
     final legs = Color.lerp(coat, Colors.black, 0.35)!;
     // Legs: two little posts, swinging opposite ways when walking.
-    final swing = walking ? math.sin(tick * 0.5 + phase) * 0.02 : 0.0;
+    final swing = walking ? math.sin(tick * 7.85 + phase) * 0.02 : 0.0;
     _box(Vector3(x - 0.045, y, z - 0.02 + swing),
         Vector3(x - 0.005, y + 0.09, z + 0.02 + swing), legs);
     _box(Vector3(x + 0.005, y, z - 0.02 - swing),
@@ -840,7 +1102,7 @@ class _ScenePainter extends CustomPainter {
   /// between frames.
   void _buildPeople() {
     final s = state;
-    final tick = s.tick;
+    final tick = _work;
 
     final homes = <Vector3>[];
     for (final b in s.buildings) {
@@ -867,7 +1129,8 @@ class _ScenePainter extends CustomPainter {
         final reach = f / 2 + 0.35;
         // Pace in and out along the line from the shed centre: a short beat
         // that reads as working, not teleporting.
-        final t = math.sin(tick * 0.06 + seed) * 0.5 + 0.5;
+        // A beat about every five seconds.
+        final t = math.sin(tick * 1.25 + seed) * 0.5 + 0.5;
         final d = reach + (t - 0.5) * 0.3;
         _person(centre.x + math.cos(ang) * d, centre.z + math.sin(ang) * d,
             tick, seed, _coats[seed % _coats.length]);
@@ -885,8 +1148,8 @@ class _ScenePainter extends CustomPainter {
       final home = homes.isEmpty ? Vector3.zero() : homes[i % homes.length];
       final ox = (_hash(seed, 1) - 0.5) * 1.4;
       final oz = (_hash(seed, 2) - 0.5) * 1.4;
-      final wx = math.sin(tick * 0.05 + seed) * 0.18;
-      final wz = math.cos(tick * 0.037 + seed * 1.3) * 0.18;
+      final wx = math.sin(tick * 0.9 + seed) * 0.18;
+      final wz = math.cos(tick * 0.67 + seed * 1.3) * 0.18;
       _person(home.x + ox + wx, home.z + oz + wz, tick, seed,
           _coats[seed % _coats.length]);
     }
@@ -921,14 +1184,14 @@ class _ScenePainter extends CustomPainter {
     }
     home ??= tileCorner(Terrain.size / 2, Terrain.size / 2, 0);
 
-    final tick = state.tick;
+    final tick = _work;
     final fed = state.petFed;
     // A fed animal wanders; a hungry one stays put.
-    final wx = fed ? math.sin(tick * 0.08) * 0.7 : 0.0;
-    final wz = fed ? math.cos(tick * 0.055) * 0.7 : 0.0;
+    final wx = fed ? math.sin(tick * 0.6) * 0.7 : 0.0;
+    final wz = fed ? math.cos(tick * 0.42) * 0.7 : 0.0;
     final x = home.x + 0.6 + wx;
     final z = home.z + 0.6 + wz;
-    final y = _groundAt(x, z, tick);
+    final y = _groundAt(x, z, _sea);
 
     final hide = switch (pet.kind) {
       PetKind.dog => const Color(0xFF8A6238),
@@ -966,43 +1229,372 @@ class _ScenePainter extends CustomPainter {
   void _buildShips() {
     final ships = state.market.ships;
     if (ships.isEmpty) return;
-
-    // Mooring spots: a water tile just outside a shore, facing the land.
-    // Collected in a stable order so a given ship keeps its berth frame to
-    // frame rather than hopping around the coast.
-    final spots = <List<double>>[]; // [x, z, facingAngle]
-    for (var col = 0; col < Terrain.size && spots.length < 12; col++) {
-      for (var row = 0; row < Terrain.size && spots.length < 12; row++) {
-        if (!Terrain.isShore(col, row)) continue;
-        for (final d in const [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
-          if (Terrain.at(col + d[0], row + d[1]) != Tile.water) continue;
-          final c = tileCorner(col + 0.5 + d[0], row + 0.5 + d[1], 0);
-          spots.add([c.x, c.z, math.atan2(-d[1].toDouble(), -d[0].toDouble())]);
-          break;
-        }
-      }
-    }
+    // The first twelve, as it always was, so traders keep their berths.
+    final spots = _mooringSpots.take(12).toList();
     if (spots.isEmpty) return;
 
-    final tick = state.tick;
+    final tick = _sea;
     for (var i = 0; i < ships.length && i < spots.length; i++) {
       final s = spots[(i * 5) % spots.length];
       final x = s[0], z = s[1], ang = s[2];
       final y = heightOf(Tile.water) + _waveY(x, z, tick) + 0.02;
       final foreign = ships[i].foreign;
-      _ship(x, z, y, ang, tick + i * 6, foreign);
+      _ship(x, z, y, ang, tick + i * 1.7, foreign);
+    }
+  }
+
+  /// Places a ship can lie: a water tile just outside a shore, facing the
+  /// land, as [x, z, facingAngle]. Collected in a stable order so a given
+  /// ship keeps its berth frame to frame rather than hopping round the coast.
+  /// The terrain never changes, so this is worked out once.
+  static final List<List<double>> _mooringSpots = () {
+    final spots = <List<double>>[];
+    for (var col = 0; col < Terrain.size; col++) {
+      for (var row = 0; row < Terrain.size; row++) {
+        if (!Terrain.isShore(col, row)) continue;
+        for (final d in const [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+          if (Terrain.at(col + d[0], row + d[1]) != Tile.water) continue;
+          final c = tileCorner(col + 0.5 + d[0], row + 0.5 + d[1], 0);
+          spots.add(
+              [c.x, c.z, math.atan2(-d[1].toDouble(), -d[0].toDouble())]);
+          break;
+        }
+      }
+    }
+    // The moored traders used to stop at twelve. They still take the first
+    // twelve in this order; a voyage may cast off from any of them.
+    return spots;
+  }();
+
+  /// Which way each destination lies. Fixed, so a hull for Ostmark always
+  /// leaves by the same shore and a player learns the shape of the sea.
+  static double _bearingOf(String destinationId) => switch (destinationId) {
+        'ostmark' => 0.15,
+        'greyhaven' => 2.35,
+        'the_reaches' => 4.1,
+        _ => 1.2,
+      };
+
+  /// Consignments, under way.
+  ///
+  /// "Sent a hull to Ostmark" used to be a line in the log and a figure under
+  /// Trade. Now she is seen to go: she casts off from the shore that faces
+  /// her destination, stands out to sea under a full sail with a wake behind
+  /// her, and is over the edge of the world for the middle of the voyage —
+  /// then comes back the same way, so you see her coming before the coin
+  /// lands.
+  ///
+  /// Placed by continuous GAME time, not the animation clocks: a voyage is
+  /// part of the run, so at four times speed she goes four times as fast, and
+  /// when the port is paused she stops where she is.
+  void _buildVoyages() {
+    final spots = _mooringSpots;
+    if (spots.isEmpty) return;
+    // Over a quarter of the voyage in sight each way. The first version sailed
+    // her forty units out on a gentle curve, and the view on a phone shows
+    // only a few units of sea past the shore — so she was off the edge of the
+    // screen a third of the way through her leg, five seconds after casting
+    // off. Now she spends most of the leg working clear of the coast, slowly,
+    // where she can be seen, and only runs for the horizon at the end.
+    const leg = 0.28;
+    // Twelve units, dissolving into the water over the far part of it.
+    const reach = 12.0;
+
+    for (var i = 0; i < state.voyages.length; i++) {
+      final v = state.voyages[i];
+      final span = (v.returnTick - v.departTick).toDouble();
+      if (span <= 0) continue;
+      final p = ((_game - v.departTick) / span).clamp(0.0, 1.0);
+
+      final double out; // 0 at the quay, 1 at the horizon
+      final bool homeward;
+      if (p < leg) {
+        out = p / leg;
+        homeward = false;
+      } else if (p > 1 - leg) {
+        out = (1 - p) / leg;
+        homeward = true;
+      } else {
+        continue;
+      }
+
+      // A little fan per hull, so two sent to the same port do not sail
+      // through each other.
+      final bearing = _bearingOf(v.destinationId) + (i % 3 - 1) * 0.14;
+      final dx = math.cos(bearing), dz = math.sin(bearing);
+
+      // Cast off from the shore that faces the way she is going.
+      var best = spots.first;
+      var bestDot = double.negativeInfinity;
+      for (final s in spots) {
+        final d = s[0] * dx + s[1] * dz;
+        if (d > bestDot) {
+          bestDot = d;
+          best = s;
+        }
+      }
+      // Slow off the quay and gathering way once clear of it; homeward the
+      // same curve run backwards, so she slows as she comes in.
+      final dist = 0.8 + reach * out * out;
+      final t = ((out - 0.55) / 0.45).clamp(0.0, 1.0);
+      final fade = t * t * (3 - 2 * t);
+      if (fade >= 0.98) continue;
+      final x = best[0] + dx * dist;
+      final z = best[1] + dz * dist;
+      final y = heightOf(Tile.water) + _waveY(x, z, _sea) + 0.02;
+      // _ship points its bows at the angle it is given.
+      final ang = homeward ? bearing + math.pi : bearing;
+      _ship(x, z, y, ang, _sea + i * 2.3, false, fade: fade);
+
+      final hx = math.cos(ang), hz = math.sin(ang);
+      _wake(x, z, hx, hz, fade);
+
+      // An escort keeps station off her quarter.
+      if (v.escorted) {
+        final px = -hz, pz = hx;
+        final ex = x + px * 1.1 - hx * 0.7;
+        final ez = z + pz * 1.1 - hz * 0.7;
+        _ship(ex, ez, heightOf(Tile.water) + _waveY(ex, ez, _sea) + 0.02,
+            ang, _sea + i * 2.3 + 1.1, false, fade: fade, armed: true);
+        _wake(ex, ez, hx, hz, fade);
+      }
+    }
+  }
+
+  /// Spray off a stern, thinning behind her. ([hx], [hz]) is her heading.
+  void _wake(double x, double z, double hx, double hz, double fade) {
+    for (var k = 1; k <= 5; k++) {
+      final wx = x - hx * (0.5 + k * 0.32);
+      final wz = z - hz * (0.5 + k * 0.32);
+      _puff(Vector3(wx, heightOf(Tile.water) + 0.03, wz), 0.07 + k * 0.035,
+          const Color(0xFFEFF6F8)
+              .withValues(alpha: (0.5 - k * 0.08) * (1 - fade)));
+    }
+  }
+
+  /// Weather and events that put something IN the world.
+  void _buildWeather() {
+    _skerries();
+    if (_storm > 0.05) _whitecaps();
+    final now = state.tick;
+    for (final (e, k) in _seen) {
+      switch (e.defId) {
+        case 'shed_fire':
+          if (e.isActive(now)) _fire(e, k);
+        case 'privateer_scare':
+          _horizonSails(e, k, privateers: true);
+        case 'southern_convoy':
+          _horizonSails(e, k, privateers: false);
+        case 'wreck_on_the_skerries':
+          _wreck(e, k);
+      }
+    }
+  }
+
+  /// Where the skerries lie: a fixed bearing and distance off the island.
+  static const double _skerryAng = 3.35, _skerryR = 15.5;
+
+  /// A few low rocks offshore. Always there, so that when a hull goes onto
+  /// them the wreck is somewhere the player has already seen.
+  void _skerries() {
+    final x = math.cos(_skerryAng) * _skerryR;
+    final z = math.sin(_skerryAng) * _skerryR;
+    final y = heightOf(Tile.water) - 0.05;
+    const rock = Color(0xFF4B4F4A);
+    _box(Vector3(x - 0.5, y, z - 0.3), Vector3(x + 0.1, y + 0.22, z + 0.25), rock);
+    _box(Vector3(x + 0.2, y, z - 0.6), Vector3(x + 0.6, y + 0.15, z - 0.2), rock);
+    _box(Vector3(x - 0.2, y, z + 0.4), Vector3(x + 0.15, y + 0.12, z + 0.7), rock);
+  }
+
+  /// Spray breaking off the crests in a blow.
+  void _whitecaps() {
+    for (var i = 0; i < 48; i++) {
+      final ang = _hash(i, 3) * math.pi * 2;
+      final r = 7.0 + _hash(i, 4) * 16;
+      final x = math.cos(ang) * r, z = math.sin(ang) * r;
+      // Only on water: the inner part of the ring crosses the island.
+      final col = (x / kTile + Terrain.size / 2).floor();
+      final row = (z / kTile + Terrain.size / 2).floor();
+      if (Terrain.at(col, row) != Tile.water) continue;
+      if (_iceAt(col, row) > 0.5) continue;
+      final crest = math.sin(_sea * 1.3 + i * 7.1);
+      if (crest < 0.55) continue;
+      final a = (crest - 0.55) / 0.45 * 0.75 * _storm;
+      _puff(Vector3(x, heightOf(Tile.water) + _waveY(x, z, _sea) + 0.05, z),
+          0.13, const Color(0xFFF2F7F9).withValues(alpha: a));
+    }
+  }
+
+  /// Fire in the sheds: flames off a roof and black smoke above them.
+  ///
+  /// The event takes a quarter of the finished goods, which used to be a line
+  /// in the log and a number going down. It burns on a real building now —
+  /// a warehouse or a workshop, the places finished goods are kept — chosen
+  /// from when it started, so the same fire is always on the same roof.
+  void _fire(ActiveEvent e, double k) {
+    final candidates = [
+      for (final b in state.buildings)
+        if (b.isPlaced && (b.def.isWorkshop || b.defId == 'warehouse')) b,
+    ];
+    if (candidates.isEmpty) return;
+    final b = candidates[e.startTick % candidates.length];
+    final f = b.def.footprint;
+    final y = _groundUnder(b.col, b.row, f);
+    final c = tileCorner(b.col + f / 2, b.row + f / 2, y);
+    // At the ridge, not in the walls. A first version set them half a unit
+    // up, which is inside a gabled roof, and the roof hid every flame — the
+    // fire read as a building giving off smoke for no reason.
+    final top = y + 0.95;
+    // Flames, on the sea clock: they flicker even while the port is paused.
+    for (var i = 0; i < 12; i++) {
+      final a = (_sea * 1.4 + i / 12) % 1.0;
+      final jx = math.sin(i * 2.7 + _sea * 3.0) * 0.32;
+      final jz = math.cos(i * 1.9 + _sea * 2.6) * 0.32;
+      final col = a < 0.5
+          ? Color.lerp(const Color(0xFFFFE27A), const Color(0xFFF07A22), a * 2)!
+          : Color.lerp(
+              const Color(0xFFF07A22), const Color(0xFF9A2E14), (a - 0.5) * 2)!;
+      _puff(Vector3(c.x + jx, top + a * 0.7, c.z + jz),
+          (0.26 - a * 0.12) * (0.7 + 0.5 * k),
+          col.withValues(alpha: (1 - a) * 0.95 * k));
+    }
+    _smoke(c.x, top + 0.55, c.z, phase: 0.7, soot: true);
+    _smoke(c.x + 0.22, top + 0.5, c.z - 0.15, phase: 2.1, soot: true);
+  }
+
+  /// Sails offshore: privateers working the lanes, or a convoy standing in.
+  ///
+  /// Both have omens that were only ever words — "a collier came in shot
+  /// about", "a convoy is expected within the day". Now the hulls come in
+  /// from the horizon through the omen, so the player sees what the log
+  /// warned of before it arrives.
+  void _horizonSails(ActiveEvent e, double k, {required bool privateers}) {
+    final omen = e.isOmen(state.tick);
+    // How far in from the horizon: all the way through the omen, then on
+    // station for the event itself.
+    final approach = omen ? (k / 0.66).clamp(0.0, 1.0) : 1.0;
+    final count = privateers ? 2 : 5;
+    for (var j = 0; j < count; j++) {
+      final double ang, r, heading;
+      if (privateers) {
+        // Cruising across the lanes, never coming in.
+        ang = 3.9 + (j - 0.5) * 0.5 + math.sin(_sea * 0.04 + j * 2) * 0.2;
+        r = 36 - 18 * approach;
+        heading = ang + math.pi / 2 * (j.isEven ? 1 : -1);
+      } else {
+        // A convoy stands in, then lies in a line off the island.
+        ang = 1.55 + (j - (count - 1) / 2) * 0.16;
+        r = 38 - 21 * approach;
+        heading = ang + math.pi;
+      }
+      final x = math.cos(ang) * r, z = math.sin(ang) * r;
+      // Far hulls are hazed into the sea; privateers keep their distance.
+      final fade =
+          (((r - 16) / 18).clamp(0.0, 0.9) + (privateers ? 0.15 : 0.0))
+              .clamp(0.0, 0.92);
+      final y = heightOf(Tile.water) + _waveY(x, z, _sea) + 0.02;
+      _ship(x, z, y, heading, _sea + j * 1.3, privateers, fade: fade);
+      if (privateers || omen) {
+        _wake(x, z, math.cos(heading), math.sin(heading), fade);
+      }
+    }
+  }
+
+  /// The wreck on the skerries.
+  ///
+  /// Through the omen, a light on the rocks — "there were lights on the
+  /// skerries in the night, and then none" — which gutters out as the omen
+  /// runs on. Then the hull itself, low and canted onto the rocks, and the
+  /// barrels that are the whole point of the event drifting in toward the
+  /// shore: "what washes in is yours".
+  void _wreck(ActiveEvent e, double k) {
+    final now = state.tick;
+    final x = math.cos(_skerryAng) * _skerryR;
+    final z = math.sin(_skerryAng) * _skerryR;
+    final wy = heightOf(Tile.water);
+    if (e.isOmen(now)) {
+      // Lights, and then none: the lamp only shows through the first half of
+      // the warning.
+      if (k < 0.4 && math.sin(_sea * 2.2) > 0.1) {
+        _puff(Vector3(x, wy + 0.55, z), 0.14,
+            const Color(0xFFFFD27A).withValues(alpha: 0.85));
+      }
+      return;
+    }
+    _ship(x + 0.35, z + 0.1, wy - 0.12, _skerryAng + 0.9, 0, false,
+        fade: 0.2, bare: true);
+    final span = math.max(1, e.endTick - e.startTick);
+    final p = ((now - e.startTick) / span).clamp(0.0, 1.0);
+    for (var j = 0; j < 5; j++) {
+      final t = (p * 1.6 + j * 0.19) % 1.0;
+      final rr = _skerryR - 1 - t * 3.5;
+      final aa = _skerryAng + (j - 2) * 0.07;
+      final bx = math.cos(aa) * rr, bz = math.sin(aa) * rr;
+      _barrel(bx, bz, wy + _waveY(bx, bz, _sea) - 0.04,
+          const Color(0xFF8A6238).withValues(alpha: k));
+    }
+  }
+
+  /// Weather that changes the light rather than putting something in the
+  /// world: a storm's dark and its rain, a frost's chill, a fair day's warmth.
+  /// Drawn over the scene but under the shed badges, which stay readable in
+  /// any weather.
+  void _paintWeather(Canvas canvas, Size size) {
+    final rect = Offset.zero & size;
+    if (_fair > 0) {
+      canvas.drawRect(rect,
+          Paint()..color = const Color(0xFFFFE0A0).withValues(alpha: 0.07 * _fair));
+    }
+    if (_frost > 0) {
+      canvas.drawRect(rect,
+          Paint()..color = const Color(0xFFDCEBFA).withValues(alpha: 0.08 * _frost));
+    }
+    if (_storm <= 0) return;
+    canvas.drawRect(rect,
+        Paint()..color = const Color(0xFF0A1820).withValues(alpha: 0.3 * _storm));
+    // Rain, in screen space: it is weather in front of the lens, not a prop.
+    // On the sea clock, so it keeps falling while the port is paused.
+    final n = (120 * _storm).round();
+    final slant = 0.25 + 0.3 * _wind;
+    final len = 16.0 + 10 * _storm;
+    final paint = Paint()
+      ..color = const Color(0xFFDDE8EE).withValues(alpha: 0.3 * _storm)
+      ..strokeWidth = 1.1
+      ..strokeCap = StrokeCap.round;
+    for (var i = 0; i < n; i++) {
+      final speed = 520 + _hash(i, 12) * 260; // px a second
+      final y = (_sea * speed + _hash(i, 13) * size.height) %
+              (size.height + len) -
+          len;
+      final sx = _hash(i, 11) * (size.width + size.height * slant);
+      final x = sx - y * slant;
+      canvas.drawLine(
+          Offset(x, y), Offset(x - len * slant, y + len), paint);
     }
   }
 
   /// One boat: a hull that sits low, a mast, and a sail — bows toward [ang]
   /// (the shore). Foreign hulls fly a dark pennant instead of a pale sail.
-  void _ship(double x, double z, double y, double ang, int tick, bool foreign) {
+  ///
+  /// [fade] dissolves her into the sea's own colour, 0 to 1 — how a hull goes
+  /// over the horizon. Opaque faces cannot be made transparent without
+  /// showing their insides, so she is blended toward the water instead.
+  ///
+  /// [armed] is the port's own escort: a sloop with a red pennant. It used to
+  /// fly the black one, which in this game is the free trader's colour — the
+  /// ship guarding your cargo dressed as the kind it is guarding against.
+  ///
+  /// [bare] strips her of sail and pennant: a wreck.
+  void _ship(double x, double z, double y, double ang, double tick,
+      bool foreign, {double fade = 0, bool armed = false, bool bare = false}) {
     final dx = math.cos(ang), dz = math.sin(ang); // along the hull, toward land
     final px = -dz, pz = dx; // across the beam
-    const hullC = Color(0xFF6B4A30);
-    const hullDk = Color(0xFF4E3522);
-    const deckC = Color(0xFF8A6A46);
-    final bob = math.sin(tick * 0.3) * 0.02;
+    Color f(Color c) =>
+        fade <= 0 ? c : Color.lerp(c, const Color(0xFF1B5F79), fade)!;
+    final hullC = f(const Color(0xFF6B4A30));
+    final hullDk = f(const Color(0xFF4E3522));
+    final deckC = f(const Color(0xFF8A6A46));
+    final bob = math.sin(tick * 1.4) * (0.015 + 0.02 * _wind);
     final yy = y + bob;
 
     Vector3 hp(double along, double beam, double up) => Vector3(
@@ -1034,19 +1626,23 @@ class _ScenePainter extends CustomPainter {
     // Mast a touch forward of centre, a boom, and the sail.
     final mx = x + dx * 0.04, mz = z + dz * 0.04;
     _box(Vector3(mx - 0.03, yy + rim, mz - 0.03),
-        Vector3(mx + 0.03, yy + rim + 0.8, mz + 0.03), const Color(0xFF3A2C20));
-    if (foreign) {
-      final flap = math.sin(tick * 0.4) * 0.06;
+        Vector3(mx + 0.03, yy + rim + 0.8, mz + 0.03), f(const Color(0xFF3A2C20)));
+    if (bare) {
+      // Nothing set. A wreck flies nothing.
+    } else if (foreign || armed) {
+      final flap = math.sin(tick * (1.6 + 4 * _wind)) * (0.03 + 0.06 * _wind);
       _poly([Vector3(mx, yy + rim + 0.78, mz),
         Vector3(mx + px * 0.36, yy + rim + 0.64 + flap, mz + pz * 0.36),
-        Vector3(mx, yy + rim + 0.5, mz)], const Color(0xFF15120F),
+        Vector3(mx, yy + rim + 0.5, mz)],
+          f(armed ? const Color(0xFFB0412E) : const Color(0xFF15120F)),
           awayFrom: Vector3(x, yy, z - 1));
     } else {
       // A square sail bellying forward, filling most of the mast.
-      final belly = 0.08 + math.sin(tick * 0.25) * 0.03;
+      // Fuller in a stiff wind, nearly slack in a calm.
+      final belly = 0.03 + 0.11 * _wind + math.sin(tick * 1.1) * 0.025;
       _poly([hp(0.02, -beam * 0.7, rim + 0.72), hp(0.02, beam * 0.7, rim + 0.72),
         hp(0.02 + belly, beam * 0.7, rim + 0.28), hp(0.02 + belly, -beam * 0.7, rim + 0.28)],
-          const Color(0xFFEBE1C8), awayFrom: ctr);
+          f(const Color(0xFFEBE1C8)), awayFrom: ctr);
     }
   }
 
@@ -1092,6 +1688,28 @@ class _ScenePainter extends CustomPainter {
     _quad(c101, c001, c011, c111, _lit(base, Vector3(0, 0, 1)), cull: false);
     _quad(c100, c101, c111, c110, _lit(base, Vector3(1, 0, 0)), cull: false);
     _quad(c001, c000, c010, c011, _lit(base, Vector3(-1, 0, 0)), cull: false);
+  }
+
+  /// A soft round puff: smoke, steam, spray.
+  ///
+  /// SMOKE USED TO BE CUBES, drawn with every face translucent and culling
+  /// off — so each puff showed its back edges through its front ones and the
+  /// plume read as a stack of glass boxes. A puff is a circle with a radial
+  /// falloff instead, sized from the world radius so it is right at every
+  /// distance and zoom, and queued at its centre's depth so a roof still hides
+  /// the smoke behind it.
+  void _puff(Vector3 c, double r, Color colour) {
+    final pc = _p.project(c);
+    if (!pc.visible) return;
+    // Screen radius from the largest projected offset on any axis, so it does
+    // not collapse when the camera looks straight down one of them.
+    var rs = 0.0;
+    for (final d in [Vector3(r, 0, 0), Vector3(0, r, 0), Vector3(0, 0, r)]) {
+      final q = _p.project(c + d);
+      if (q.visible) rs = math.max(rs, (q.screen - pc.screen).distance);
+    }
+    if (rs < 0.5) return;
+    _queue.add(_Face(pc.depth, [pc.screen], colour, blob: rs));
   }
 
   /// A four-sided pyramid — used for roofs and treetops.
@@ -1224,21 +1842,58 @@ class _ScenePainter extends CustomPainter {
         Color.lerp(c, Colors.black, 0.45)!);
   }
 
-  /// Rising smoke: a few soft squares, offset and thinned by the tick so a
-  /// working chimney visibly works. Tick-driven, like the water, so a paused
-  /// port is genuinely still.
-  void _smoke(double x, double y0, double z, int tick) {
-    for (var i = 0; i < 4; i++) {
-      final t = ((tick * 0.15) + i * 0.25) % 1.0;
-      final y = y0 + t * 0.9;
-      final r = 0.06 + t * 0.09;
-      final drift = math.sin((tick + i * 7) * 0.2) * 0.05 + t * 0.12;
-      final a = (1 - t) * 0.5;
-      // A small cube rather than a screen-space blob: it lives in the world,
-      // so it is the right size at every distance and from every angle the
-      // camera can be turned to, and it depth-sorts with the chimney.
-      _box(Vector3(x + drift - r, y - r, z - r), Vector3(x + drift + r, y + r, z + r),
-          Color.fromRGBO(222, 222, 228, a));
+  /// Smoke that billows, and goes where the wind sends it.
+  ///
+  /// Seven puffs on a staggered cycle, each born small and dense at the
+  /// chimney and dying large and thin downwind. It used to be four on a short
+  /// vertical hop, stepped once every second and a half with the sim, which
+  /// read as a chimney blinking rather than one breathing.
+  ///
+  /// The plume's shape is the wind's: a calm stands it nearly upright, a frost
+  /// stands it dead straight, and a gale lays it over and tears it away along
+  /// the ground. Every chimney on the island leans the same way, which is
+  /// what makes it read as weather rather than decoration.
+  ///
+  /// Runs on the work clock, so a paused port's smoke hangs where it is.
+  /// [phase] staggers neighbouring chimneys so they do not puff in unison.
+  ///
+  /// [soot] is a fire's smoke rather than a chimney's: black, heavier, longer,
+  /// and on the sea clock, because a fire does not stop burning because the
+  /// player paused.
+  void _smoke(double x, double y0, double z,
+      {double phase = 0, bool soot = false}) {
+    const puffs = 8;
+    // Seconds from the chimney to nothing.
+    final life = soot ? 4.8 : 3.8;
+    final clock = soot ? _sea : _work;
+    final w = _wind;
+    for (var i = 0; i < puffs; i++) {
+      final a = ((clock + phase) / life + i / puffs) % 1.0; // age, 0..1
+      // Rises, and lies over as the wind takes it.
+      // ALL of the sideways carry is the wind's. A first version had a small
+      // drift that did not depend on it, and a frost — still air — then
+      // leaned just like an ordinary day. In a frost it should stand up dead
+      // straight, which is the whole reason anyone notices a frost.
+      final rise = a * (1.25 - 0.8 * w);
+      final carry = a * 0.6 * w + a * a * 1.4 * w;
+      // A slow curl across the wind, so the plume rolls instead of sliding.
+      final curl = math.sin(a * 5.0 + i * 1.9 + phase) * 0.07 * a;
+      final px = x + _windX * carry - _windZ * curl;
+      final pz = z + _windZ * carry + _windX * curl;
+      final py = y0 + rise;
+      // Born small, swelling as it cools, and breathing a little as it goes.
+      final r = (0.05 + a * 0.2) *
+          (1 + 0.1 * math.sin(clock * 2.6 + i * 2.3)) *
+          (soot ? 1.4 : 1.0);
+      // In fast, out slow.
+      final alpha =
+          (a < 0.08 ? a / 0.08 : math.pow(1 - a, 1.1).toDouble()) * 0.85;
+      final c = soot
+          ? Color.lerp(const Color(0xFF2B2725), const Color(0xFF6B6662), a)!
+          : Color.lerp(const Color(0xFFA9A9B2), const Color(0xFFEAEAEE), a)!;
+      // Half again as large as the cube it replaced: the soft rim eats about a
+      // third of the radius.
+      _puff(Vector3(px, py, pz), r * 1.5, c.withValues(alpha: alpha));
     }
   }
 
@@ -1316,7 +1971,7 @@ class _ScenePainter extends CustomPainter {
     final wall = sh(style.wall), roof = sh(style.roof);
     final cx = (min.x + max.x) / 2, cz = (min.z + max.z) / 2;
     final w = max.x - min.x, d = max.z - min.z;
-    final tick = state.tick;
+    final tick = _work;
     const timber = Color(0xFF6B4E2E);
     const dark = Color(0xFF2A2420);
     const leaf = Color(0xFF3F6B3A);
@@ -1369,9 +2024,15 @@ class _ScenePainter extends CustomPainter {
         // Flax flowers blue. Rows and nothing else — it is a field.
         for (var i = 0; i < 6; i++) {
           final z0 = min.z + 0.03 + i * (d - 0.06) / 6;
-          final blue = i.isEven ? const Color(0xFF6F8FB0) : const Color(0xFF7FA0C0);
+          var blue = i.isEven ? const Color(0xFF6F8FB0) : const Color(0xFF7FA0C0);
+          var stem = const Color(0xFF5E7A3A);
+          // "The flax is going black in the water."
+          if (_rot > 0) {
+            blue = Color.lerp(blue, const Color(0xFF2F2B22), _rot * 0.8)!;
+            stem = Color.lerp(stem, const Color(0xFF3A3424), _rot * 0.7)!;
+          }
           _slab(min.x + 0.04, z0 + 0.02, max.x - 0.04, z0 + (d - 0.06) / 6 - 0.05,
-              y, 0.11, sh(const Color(0xFF5E7A3A)), top: sh(blue));
+              y, 0.11, sh(stem), top: sh(blue));
         }
 
       case 'forest_camp':
@@ -1414,7 +2075,7 @@ class _ScenePainter extends CustomPainter {
       case 'sawmill':
         _gable(Vector3(min.x, y, min.z), Vector3(max.x - 0.55, y, max.z), 0.62, 0.42, wall, roof);
         // A wheel turning beside the wall when hands are on it.
-        final angle = staffed ? tick * 0.35 : 0.0;
+        final angle = staffed ? tick * 1.3 : 0.0;
         _blades(max.x - 0.32, y + 0.42, cz, 0.38, 0.045, sh(timber), angle);
         _pole(max.x - 0.32, cz - 0.42, y, 0.42, 0.03, sh(timber));
         _pole(max.x - 0.32, cz + 0.42, y, 0.42, 0.03, sh(timber));
@@ -1457,7 +2118,7 @@ class _ScenePainter extends CustomPainter {
       case 'smithy':
         _gable(min, max, 0.6, 0.4, wall, roof);
         _pole(max.x - 0.25, max.z - 0.28, y + 0.6, 0.62, 0.09, sh(const Color(0xFF3C3430)));
-        if (staffed) _smoke(max.x - 0.25, y + 1.24, max.z - 0.28, tick);
+        if (staffed) _smoke(max.x - 0.25, y + 1.24, max.z - 0.28);
         // An anvil on a stump by the door.
         _pole(min.x - 0.1, cz, y, 0.22, 0.09, sh(timber));
         _slab(min.x - 0.28, cz - 0.07, min.x + 0.08, cz + 0.07, y + 0.22, 0.09, dark);
@@ -1544,7 +2205,9 @@ class _ScenePainter extends CustomPainter {
         _gable(min, max, 0.52, 0.4, wall, roof);
         _slab(max.x - 0.34, min.z + 0.16, max.x - 0.14, min.z + 0.36,
             y + 0.5, 0.42, sh(const Color(0xFF8A6152)));
-        if (b.workers > 0) _smoke(max.x - 0.24, y + 0.92, min.z + 0.26, tick);
+        if (b.workers > 0) {
+          _smoke(max.x - 0.24, y + 0.92, min.z + 0.26, phase: 1.1);
+        }
         // Loaves cooling on a board by the door.
         for (var i = 0; i < 3; i++) {
           _slab(min.x + 0.2 + i * 0.16, max.z - 0.28, min.x + 0.32 + i * 0.16,
@@ -1558,7 +2221,7 @@ class _ScenePainter extends CustomPainter {
         _box(Vector3(max.x - 0.5, y, cz - 0.22), Vector3(max.x - 0.06, y + 0.42, cz + 0.22), copper);
         _cone(Vector3(max.x - 0.28, y + 0.42, cz), 0.24, 0.34, copper);
         _pole(max.x - 0.12, cz + 0.3, y + 0.3, 0.55, 0.025, sh(const Color(0xFF8A5A2A)));
-        if (staffed) _smoke(max.x - 0.12, y + 0.85, cz + 0.3, tick + 9);
+        if (staffed) _smoke(max.x - 0.12, y + 0.85, cz + 0.3, phase: 2.3);
         _barrel(max.x - 0.24, max.z - 0.14, y, sh(const Color(0xFF8A6238)));
 
       case 'powder_mill':
@@ -1567,7 +2230,9 @@ class _ScenePainter extends CustomPainter {
         _box(Vector3(cx - 0.32, y, cz - 0.32), Vector3(cx + 0.32, y + 0.55, cz + 0.32), tower);
         _box(Vector3(cx - 0.24, y + 0.55, cz - 0.24), Vector3(cx + 0.24, y + 1.05, cz + 0.24), tower);
         _cone(Vector3(cx, y + 1.05, cz), 0.3, 0.32, roof);
-        final angle = staffed ? tick * 0.3 : 0.6;
+        // Turns with the wind as well as the work: idle in a frost, racing
+        // in a gale.
+        final angle = staffed ? tick * (0.4 + 2.2 * _wind) : 0.6;
         _blades(cx, y + 1.0, cz - 0.3, 0.62, 0.08, sh(const Color(0xFFE2D6BC)), angle);
         _pole(cx, cz - 0.3, y + 0.96, 0.08, 0.05, dark);
 
@@ -1584,7 +2249,8 @@ class _ScenePainter extends CustomPainter {
         _slab(cx - 0.05, min.z + 0.8, cx + 0.6, max.z + 0.35, y + 0.02, 0.16,
             sh(const Color(0xFF3A2C22)), top: sh(const Color(0xFF7A604A)));
         _pole(cx + 0.28, cz + 0.4, y + 0.18, 1.1, 0.025, sh(timber));
-        final flap = math.sin(tick * 0.4) * 0.05;
+        final flap =
+            math.sin(_sea * (1.6 + 4 * _wind)) * (0.025 + 0.05 * _wind);
         _poly([Vector3(cx + 0.28, y + 1.26, cz + 0.4), Vector3(cx + 0.28 + 0.34, y + 1.16 + flap, cz + 0.4),
           Vector3(cx + 0.28, y + 1.06, cz + 0.4)], const Color(0xFF15120F), awayFrom: Vector3(cx, y, cz - 1));
 

@@ -61,12 +61,34 @@ class Destination {
       (r.basePrice * payFor(r) - charterPerUnit) / days;
 }
 
+/// Goods no port overseas pays extra for, ON PURPOSE.
+///
+/// Milk and eggs would not survive a crossing, so they are for the quay and
+/// the supper table. Spice exists to be bartered with free traders for
+/// finished goods; a port that paid well for it would turn it back into coin,
+/// which is the one thing it was made not to be.
+///
+/// Anything else with no market is a gap, not a choice, and trade_test fails
+/// on it. That is how this was found: the livestock update added six goods and
+/// gave none of them a market, so every one paid the same poor rate everywhere
+/// and the nearest port won by default — "nearly half the resources sell best
+/// at Ostmark".
+const Set<Resource> kNoMarketAbroad = {
+  Resource.milk,
+  Resource.eggs,
+  Resource.spice,
+};
+
 const List<Destination> kDestinations = [
   Destination(
     id: 'ostmark',
     name: 'Ostmark',
-    blurb: 'A day down the coast, and a shipyard that never has enough '
-        'timber, planks, rope or flax.',
+    // BLURBS ARE FLAVOUR, NOT A PRICE LIST. The voyage card prints what each
+    // port pays well for straight from `wants` below, which cannot go stale.
+    // The hand-written lists that used to sit here did, the moment the
+    // livestock goods arrived.
+    blurb: 'A day down the coast, and a shipyard and sail loft that are never '
+        'fully supplied.',
     days: 3,
     charterPerUnit: 0.9,
     risk: 0.03,
@@ -75,13 +97,17 @@ const List<Destination> kDestinations = [
       Resource.planks: 1.55,
       Resource.rope: 1.65,
       Resource.flax: 1.50,
+      // The sail loft. Wool is what the weaver turns into sailcloth, so selling
+      // it here is a real choice against the lighthouse's own bill.
+      Resource.wool: 1.60,
     },
   ),
   Destination(
     id: 'greyhaven',
     name: 'Greyhaven',
-    blurb: 'A garrison with more soldiers than farmland. It pays absurdly for '
-        'food, and nothing beats it for tools and barrels.',
+    blurb: 'A garrison with more soldiers than farmland. It pays well for '
+        'anything that feeds a soldier, and nothing beats it for tools and '
+        'barrels.',
     days: 5,
     charterPerUnit: 1.3,
     risk: 0.07,
@@ -90,6 +116,14 @@ const List<Destination> kDestinations = [
     wants: {
       Resource.grain: 2.80,
       Resource.fish: 2.80,
+      // Provisions that keep. Priced well under grain and fish because they
+      // start dear — the multiplier is on the price, and a loaf is already
+      // worth nearly five sacks of grain. Each pays roughly half as much again
+      // per day as the poor rate it fetched everywhere before, which is a
+      // market rather than a jackpot.
+      Resource.meat: 1.70,
+      Resource.bread: 1.60,
+      Resource.cheese: 1.60,
       Resource.barrels: 1.90,
       Resource.tools: 1.95,
     },
@@ -98,7 +132,7 @@ const List<Destination> kDestinations = [
     id: 'the_reaches',
     name: 'The Reaches',
     blurb: 'Weeks of open water, and nobody out there asks what is in the '
-        'hold. Spirits and powder fetch prices no lawful port will match.',
+        'hold. What it wants, it pays for like nowhere else.',
     days: 9,
     charterPerUnit: 2.1,
     risk: 0.14,

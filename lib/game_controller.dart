@@ -161,6 +161,21 @@ class GameController extends ChangeNotifier {
     _syncTimer();
   }
 
+  /// True while the sim is actually advancing.
+  ///
+  /// The world view's "work" animations key off this — chimneys, windmills,
+  /// walking hands — so a paused port holds still while the sea keeps moving.
+  /// It mirrors the conditions [_syncTimer] stops the clock on, and has to: a
+  /// finished port whose windmills turned forever would look like it was
+  /// still playing.
+  /// How far the sim is toward its next step, 0 to 1. The world view uses it
+  /// to place things that move with GAME time — a ship on a voyage — between
+  /// steps, which come only 0.7 times a second at normal speed.
+  double get tickFraction => _accumulator.clamp(0.0, 0.999);
+
+  bool get isRunning =>
+      ready && speed > 0 && !state.lighthouseBuilt && !_away;
+
   void _syncTimer() {
     if (!ready || speed == 0 || state.lighthouseBuilt || _away) {
       _timer?.cancel();

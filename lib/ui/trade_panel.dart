@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../audio/sound_board.dart';
 import '../game_controller.dart';
 import '../sim/game_state.dart';
 import '../sim/resources.dart';
@@ -103,8 +104,10 @@ class _TradePanelState extends State<TradePanel> {
           _RetinueCard(
               controller: controller, track: RetinueTrack.privateer),
         // Like the privateer's card, only once the port has something for them
-        // to run. An honest port now has a third name to spend a berth on.
-        if (s.buildings.any((b) => b.defId == 'grange'))
+        // to run — the first shed that ripens, whichever it is. It waited for
+        // a grange, and a port that put its herds in first met the reeve after
+        // they had grown.
+        if (s.hasRipeningShed)
           _RetinueCard(controller: controller, track: RetinueTrack.reeve),
 
         // Carting used to be the quartermaster, and this is the shelf he stood
@@ -228,6 +231,11 @@ class _TradePanelState extends State<TradePanel> {
         ..._loadable(s).map((r) {
           final best = kDestinations
               .reduce((a, b) => a.dailyRateFor(r) >= b.dailyRateFor(r) ? a : b);
+          // A good no port pays extra for has no "best" port: every one pays
+          // the same poor rate, so the nearest wins on arithmetic alone. The
+          // row used to name it anyway, and Ostmark came up as the place to
+          // sell half the stores.
+          final wanted = kDestinations.any((d) => d.wants.containsKey(r));
           return _CargoRow(
             resource: r,
             held: s.stock[r],
@@ -236,6 +244,7 @@ class _TradePanelState extends State<TradePanel> {
             hereRate: _dest.dailyRateFor(r),
             bestRate: best.dailyRateFor(r),
             bestPort: best.id == _destId ? null : best.name,
+            noMarket: !wanted,
             onChanged: (v) => _setCargo(r, v),
           );
         }),
@@ -894,6 +903,7 @@ class _CargoRow extends StatelessWidget {
     required this.pays,
     required this.hereRate,
     required this.bestRate,
+    this.noMarket = false,
     required this.bestPort,
     required this.onChanged,
   });
@@ -920,6 +930,9 @@ class _CargoRow extends StatelessWidget {
   /// reads as the game contradicting itself.
   final double hereRate;
   final double bestRate;
+
+  /// No port overseas pays extra for this, so naming one would mislead.
+  final bool noMarket;
 
   /// Set when somewhere else pays better per day for this cargo.
   final String? bestPort;
@@ -961,17 +974,22 @@ class _CargoRow extends StatelessWidget {
                     ],
                   ),
                   Text(
-                    bestPort == null
-                        ? 'hold ${fmt(held)} · ${hereRate.toStringAsFixed(1)}c '
-                            'a day — best'
-                        : 'hold ${fmt(held)} · ${hereRate.toStringAsFixed(1)}c '
-                            'a day · ${bestPort!} '
-                            '${bestRate.toStringAsFixed(1)}',
+                    noMarket
+                        ? 'hold ${fmt(held)} · no port pays extra — '
+                            'better sold at the quay'
+                        : bestPort == null
+                            ? 'hold ${fmt(held)} · '
+                                '${hereRate.toStringAsFixed(1)}c a day — best'
+                            : 'hold ${fmt(held)} · '
+                                '${hereRate.toStringAsFixed(1)}c a day · '
+                                '${bestPort!} ${bestRate.toStringAsFixed(1)}',
                     style: TextStyle(
                       fontSize: 10,
-                      color: bestPort == null
-                          ? Palette.moss
-                          : Palette.fog.withValues(alpha: 0.8),
+                      color: noMarket
+                          ? Palette.fog.withValues(alpha: 0.6)
+                          : bestPort == null
+                              ? Palette.moss
+                              : Palette.fog.withValues(alpha: 0.8),
                     ),
                   ),
                 ],
@@ -1071,8 +1089,11 @@ class _ChandlerRow extends StatelessWidget {
                 padding: const EdgeInsets.only(left: 5),
                 child: OutlinedButton(
                   onPressed: most >= qty
-                      ? () =>
-                          controller.act((g) => g.buyFromChandler(resource, qty))
+                      ? () {
+                          controller
+                              .act((g) => g.buyFromChandler(resource, qty));
+                          SoundBoard.instance.play(Sfx.coins);
+                        }
                       : null,
                   style: OutlinedButton.styleFrom(
                     foregroundColor: Palette.brass,

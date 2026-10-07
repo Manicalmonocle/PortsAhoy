@@ -13,8 +13,10 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:ports_ahoy/game_controller.dart';
 import 'package:ports_ahoy/sim/buildings.dart';
+import 'package:ports_ahoy/sim/events.dart';
 import 'package:ports_ahoy/sim/market.dart';
 import 'package:ports_ahoy/sim/terrain.dart';
+import 'package:ports_ahoy/sim/trade.dart';
 import 'package:ports_ahoy/ui/world_view.dart';
 import 'package:vector_math/vector_math_64.dart' show Vector3;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -79,6 +81,20 @@ void main() {
     g.population = 80;
     g.tick = 240; // mid-morning, so anything tick-driven is mid-motion
 
+    // Time and weather, for judging anything that moves. VISUAL_TICK picks the
+    // frame; VISUAL_EVENT drops a live event over it (a gale, a frost) so the
+    // wind's effect on smoke, sails and sea can be seen rather than imagined.
+    final tickArg = Platform.environment['VISUAL_TICK'];
+    if (tickArg != null) g.tick = int.parse(tickArg);
+    final eventArg = Platform.environment['VISUAL_EVENT'];
+    if (eventArg != null) {
+      g.events.active.add(ActiveEvent(
+          defId: eventArg,
+          omenTick: g.tick - 40,
+          startTick: g.tick - 20,
+          endTick: g.tick + 200));
+    }
+
     // Aim at the first moored ship, for judging boat geometry.
     List<double>? shipSpot;
     if (Platform.environment['VISUAL_SHIP'] != null) {
@@ -97,12 +113,41 @@ void main() {
       }
     }
 
+    // A consignment under way: VISUAL_VOYAGE=destination:progress[:escort],
+    // progress 0-1 through the trip — so a hull can be looked at mid-leg.
+    final voyArg = Platform.environment['VISUAL_VOYAGE'];
+    if (voyArg != null) {
+      final parts = voyArg.split(':');
+      const span = 120;
+      final depart = g.tick - (double.parse(parts[1]) * span).round();
+      g.voyages.add(Voyage(
+          destinationId: parts[0],
+          cargo: const {},
+          departTick: depart,
+          returnTick: depart + span,
+          quotedCoin: 0,
+          escorted: parts.length > 2));
+    }
+
+    // Or close in on one kind of shed by id, wherever the lineup put it.
+    final focus = Platform.environment['VISUAL_FOCUS'];
+    if (focus != null && shipSpot == null) {
+      final b = g.buildings.firstWhere((b) => b.defId == focus);
+      shipSpot = [
+        tileCorner(b.col + 1.0, b.row + 1.0, 0).x,
+        tileCorner(b.col + 1.0, b.row + 1.0, 0).z,
+      ];
+    }
+
     // Close in on the middle of the lineup, or nothing is big enough to judge.
     final zoom = Platform.environment['VISUAL_ZOOM'];
     final cam = shipSpot != null
         ? (Camera3D(
-            target: Vector3(shipSpot[0], 0, shipSpot[1]),
-            distance: 5, pitch: 0.6))
+            // Pulled back and aimed a little above the roof for a shed, so a
+            // plume of smoke fits in the frame; tight on the waterline for a
+            // ship.
+            target: Vector3(shipSpot[0], focus != null ? 0.9 : 0, shipSpot[1]),
+            distance: focus != null ? 8 : 5, pitch: 0.6))
         : zoom == null
         ? null
         : Camera3D(

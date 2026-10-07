@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../audio/sound_board.dart';
 import '../game_controller.dart';
 import '../sim/market.dart';
 import '../sim/resources.dart';
@@ -332,13 +333,19 @@ class _WareRow extends StatelessWidget {
           _SellButton(
             label: 'Buy 10',
             enabled: max >= 10,
-            onTap: () => controller.act((s) => s.buy(ship, ware, 10)),
+            onTap: () {
+              controller.act((s) => s.buy(ship, ware, 10));
+              SoundBoard.instance.play(Sfx.coins);
+            },
           ),
           const SizedBox(width: 6),
           _SellButton(
             label: 'Max',
             enabled: max >= 1,
-            onTap: () => controller.act((s) => s.buy(ship, ware, max)),
+            onTap: () {
+              controller.act((s) => s.buy(ship, ware, max));
+              SoundBoard.instance.play(Sfx.coins);
+            },
           ),
         ],
       ),
@@ -441,14 +448,20 @@ class _OfferRow extends StatelessWidget {
           _SellButton(
             label: '10',
             enabled: held >= 10 && offer.quantity >= 1,
-            onTap: () => controller.act((s) => s.sell(ship, offer, 10)),
+            onTap: () {
+              controller.act((s) => s.sell(ship, offer, 10));
+              SoundBoard.instance.play(Sfx.coins);
+            },
           ),
           const SizedBox(width: 6),
           _SellButton(
             label: 'All',
             primary: true,
             enabled: canSell,
-            onTap: () => controller.act((s) => s.sell(ship, offer, sellable)),
+            onTap: () {
+              controller.act((s) => s.sell(ship, offer, sellable));
+              SoundBoard.instance.play(Sfx.coins);
+            },
           ),
         ],
       ),

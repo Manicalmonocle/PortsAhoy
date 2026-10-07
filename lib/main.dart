@@ -1,13 +1,29 @@
 import 'package:flutter/material.dart';
 
+import 'audio/audioplayers_backend.dart';
+import 'audio/sound_board.dart';
+import 'audio/sound_director.dart';
 import 'game_controller.dart';
+import 'ui/display_settings.dart';
 import 'ui/game_screen.dart';
 import 'ui/theme.dart';
+import 'ui/world_view.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final controller = GameController();
   await controller.load();
+  // The world moves on its own clock in the app, and on the tick in a test.
+  // Set here, and only here, so every test keeps a fixed frame.
+  WorldView.live = true;
+  await DisplaySettings.load();
+  // Sound, likewise, only from here. A device or browser that cannot make a
+  // single player gets a silent game rather than no game.
+  try {
+    await SoundBoard.instance.init(await AudioplayersBackend.create());
+  } catch (e) {
+    debugPrint('sound unavailable: $e');
+  }
   runApp(PortsAhoyApp(controller: controller));
 }
 
@@ -56,14 +72,22 @@ class PortsAhoyApp extends StatefulWidget {
 
 class _PortsAhoyAppState extends State<PortsAhoyApp>
     with WidgetsBindingObserver {
+  /// Only when main() switched sound on: the director runs a timer, and a
+  /// widget test has no business owning one.
+  SoundDirector? _sound;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    if (SoundBoard.instance.enabled) {
+      _sound = SoundDirector(widget.controller);
+    }
   }
 
   @override
   void dispose() {
+    _sound?.dispose();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -86,8 +110,10 @@ class _PortsAhoyAppState extends State<PortsAhoyApp>
         // player left it rather than a few ticks further on.
         widget.controller.setAway(true);
         widget.controller.saveNow();
+        SoundBoard.instance.setAway(true);
       case AppLifecycleState.resumed:
         widget.controller.setAway(false);
+        SoundBoard.instance.setAway(false);
     }
   }
 
@@ -97,7 +123,14 @@ class _PortsAhoyAppState extends State<PortsAhoyApp>
       title: 'Ports Ahoy!',
       debugShowCheckedModeBanner: false,
       theme: buildTheme(),
-      home: _PhoneFrame(child: GameScreen(controller: widget.controller)),
+      // The first touch anywhere unlocks sound — a browser will not play a
+      // note before one. Listener rather than a gesture detector, so it sees
+      // the touch without competing for it.
+      home: Listener(
+        behavior: HitTestBehavior.translucent,
+        onPointerDown: (_) => SoundBoard.instance.unlock(),
+        child: _PhoneFrame(child: GameScreen(controller: widget.controller)),
+      ),
     );
   }
 }

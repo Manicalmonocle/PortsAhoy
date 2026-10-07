@@ -336,6 +336,42 @@ void main() {
       expect(ids.toSet().length, ids.length);
     });
 
+    test('every good has a market abroad, unless it is meant not to', () {
+      // The livestock update added six goods and gave none of them a market,
+      // so each paid the same poor rate at every port and the nearest won by
+      // default: "nearly half the resources sell best at Ostmark". A new good
+      // with no market fails here, and has to be given one or be put in
+      // kNoMarketAbroad with a reason.
+      for (final r in Resource.values) {
+        final wanted = kDestinations.any((d) => d.wants.containsKey(r));
+        expect(wanted || kNoMarketAbroad.contains(r), isTrue,
+            reason: '${r.label} has no port that wants it');
+        expect(wanted && kNoMarketAbroad.contains(r), isFalse,
+            reason: '${r.label} is wanted, so it should not be listed as '
+                'having no market');
+      }
+    });
+
+    test('no port is best for most things by being nearest', () {
+      // The symptom, checked directly: count where each good fetches most per
+      // day. No port should win a majority on proximity alone.
+      final wins = <String, int>{};
+      for (final r in Resource.values) {
+        if (kNoMarketAbroad.contains(r)) continue;
+        final best = kDestinations.reduce(
+            (a, b) => a.dailyRateFor(r) >= b.dailyRateFor(r) ? a : b);
+        expect(best.wants.containsKey(r), isTrue,
+            reason: '${r.label} is best at ${best.name}, which does not even '
+                'want it');
+        wins[best.id] = (wins[best.id] ?? 0) + 1;
+      }
+      final total = wins.values.fold(0, (a, b) => a + b);
+      for (final e in wins.entries) {
+        expect(e.value, lessThan(total / 2),
+            reason: '${e.key} is the best market for ${e.value} of $total');
+      }
+    });
+
     test('longer crossings pay better, or there would be no reason to sail',
         () {
       final sorted = [...kDestinations]..sort((a, b) => a.days.compareTo(b.days));
@@ -717,6 +753,34 @@ void retinueTests() {
             expect(upper.voyagePay, greaterThan(lower.voyagePay));
           }
         }
+      }
+    });
+
+    test('the reeve comes with the first shed that ripens, whichever it is',
+        () {
+      // He waited for a grange, and a pasture needs only a farm. A 102-day
+      // run built its pasture on day 23 and its byre on day 32 — both grown
+      // by day 60 — and its grange on day 69, so the officer whose whole job
+      // is bringing herds on arrived after they had come on. Another run never
+      // built a grange and never saw him.
+      final reeve = retainerAt(RetinueTrack.reeve, 1)!;
+
+      final bare = stocked();
+      openBerths(bare, 1);
+      expect(bare.hasRipeningShed, isFalse);
+      expect(bare.canHire(reeve), isFalse,
+          reason: 'an officer for herds with no herds is a wage for nothing');
+
+      final ripening = kBuildingDefs.where((d) => d.ripens).toList();
+      expect(ripening.map((d) => d.id),
+          containsAll(['grange', 'pasture', 'byre', 'hen_house']));
+      for (final def in ripening) {
+        final g = stocked();
+        openBerths(g, 1);
+        g.buildings.add(Building(defId: def.id));
+        g.placeAll();
+        expect(g.canHire(reeve), isTrue,
+            reason: 'a ${def.name} alone should be enough to offer a reeve');
       }
     });
 
