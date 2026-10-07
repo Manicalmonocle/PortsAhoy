@@ -7,6 +7,7 @@ import '../sim/game_state.dart';
 import '../sim/run_code.dart';
 import '../version.dart';
 import 'send_report_sheet.dart';
+import 'display_settings.dart';
 import 'theme.dart';
 
 class LogTab extends StatelessWidget {
@@ -187,6 +188,47 @@ class _ExportRow extends StatelessWidget {
             'and hulls at sea — plus every build, hire and consignment. Used '
             'to make the balance bot play the way people actually do.',
             style: TextStyle(fontSize: 10.5, color: Palette.fog, height: 1.35),
+          ),
+          const SizedBox(height: 10),
+          // The only setting the game has, so it lives with the other things
+          // that are about the game rather than the port.
+          const Text('Frame rate',
+              style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.white)),
+          const SizedBox(height: 6),
+          ValueListenableBuilder<FrameRate?>(
+            valueListenable: DisplaySettings.chosen,
+            builder: (_, chosen, _) => Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: [
+                for (final r in FrameRate.values)
+                  ChoiceChip(
+                    label: Text('${r.label} ${r.fps}',
+                        style: const TextStyle(fontSize: 11)),
+                    selected: (chosen ?? FrameRate.medium) == r,
+                    onSelected: (_) => DisplaySettings.choose(r),
+                    visualDensity: VisualDensity.compact,
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 6),
+          ValueListenableBuilder<FrameRate?>(
+            valueListenable: DisplaySettings.chosen,
+            builder: (_, chosen, _) => Text(
+              chosen == null
+                  ? 'Smoother costs more battery. Medium drops itself to Low '
+                      'on a device that cannot keep up; picking a rate keeps '
+                      'it exactly.'
+                  : 'Smoother costs more battery. High needs a screen that '
+                      'refreshes at 90Hz or faster — on others it runs at the '
+                      "screen's own rate.",
+              style: const TextStyle(
+                  fontSize: 10.5, color: Palette.fog, height: 1.35),
+            ),
           ),
           const Divider(height: 18, color: Palette.line),
         ],

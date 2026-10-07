@@ -4,6 +4,7 @@ import 'audio/audioplayers_backend.dart';
 import 'audio/sound_board.dart';
 import 'audio/sound_director.dart';
 import 'game_controller.dart';
+import 'ui/display_settings.dart';
 import 'ui/game_screen.dart';
 import 'ui/theme.dart';
 import 'ui/world_view.dart';
@@ -15,6 +16,7 @@ Future<void> main() async {
   // The world moves on its own clock in the app, and on the tick in a test.
   // Set here, and only here, so every test keeps a fixed frame.
   WorldView.live = true;
+  await DisplaySettings.load();
   // Sound, likewise, only from here. A device or browser that cannot make a
   // single player gets a silent game rather than no game.
   try {

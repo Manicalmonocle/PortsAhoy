@@ -11,6 +11,7 @@ import '../sim/events.dart';
 import '../sim/game_state.dart';
 import '../sim/pets.dart';
 import '../sim/terrain.dart';
+import 'display_settings.dart';
 import 'theme.dart';
 import 'weather.dart';
 
@@ -85,6 +86,13 @@ class _Clock extends ChangeNotifier {
   double work = 0;
   double game = 0;
   void frame() => notifyListeners();
+
+  /// How long a paint has been taking, in microseconds, smoothed over about a
+  /// second. Written by the painter, read by the throttle.
+  double paintMicros = 0;
+  void recordPaint(int micros) =>
+      paintMicros = paintMicros == 0 ? micros.toDouble()
+          : paintMicros * 0.97 + micros * 0.03;
 }
 
 /// Where the camera is and what it is looking at.
@@ -249,12 +257,25 @@ class _WorldViewState extends State<WorldView>
   final _Clock _clock = _Clock();
   Ticker? _ticker;
   Duration _lastTick = Duration.zero;
-  double _sinceFrame = 0;
+  final FrameGate _gate = FrameGate();
 
-  /// Thirty frames a second, not the screen's own rate. The scene is rebuilt
-  /// from scratch on every paint, and a Pixel 9 refreshes at 120Hz — painting
-  /// at that rate would quadruple the cost for motion nobody could tell apart.
-  static const double _frameGap = 1 / 30;
+  /// Whether a device left on the default has been judged too slow for it.
+  ///
+  /// The default is sixty frames a second — it was thirty, raised on request,
+  /// and a full port paints in about 3.5ms, comfortably inside a 16.7ms
+  /// frame on any recent phone. Not the screen's own rate: a Pixel 9 refreshes
+  /// at 120Hz, and painting at that would double the cost again for motion
+  /// few could tell apart. Left on the default, a device whose paint averages
+  /// over 9ms drops to thirty and comes back under six, so a slow one runs
+  /// cool rather than stuttering. A rate the player picks is kept exactly —
+  /// see [DisplaySettings.chosen].
+  bool _slow = false;
+
+  int get _fps {
+    final chosen = DisplaySettings.chosen.value;
+    if (chosen != null) return chosen.fps;
+    return _slow ? FrameRate.low.fps : FrameRate.medium.fps;
+  }
 
   @override
   void initState() {
@@ -279,11 +300,11 @@ class _WorldViewState extends State<WorldView>
     // a load, a speed change, a long sleep.
     final exact = c.state.tick + c.tickFraction;
     if ((_clock.game - exact).abs() > 0.5) _clock.game = exact;
-    _sinceFrame += dt;
-    if (_sinceFrame >= _frameGap) {
-      _sinceFrame = 0;
-      _clock.frame();
-    }
+    final cost = _clock.paintMicros;
+    if (!_slow && cost > 9000) _slow = true;
+    if (_slow && cost > 0 && cost < 6000) _slow = false;
+    // See FrameGate for why this is not "has a frame's gap passed".
+    if (_gate.due(dt, _fps)) _clock.frame();
   }
 
   @override
@@ -645,6 +666,12 @@ class _ScenePainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
+    final timer = Stopwatch()..start();
+    _paintScene(canvas, size);
+    clock.recordPaint(timer.elapsedMicroseconds);
+  }
+
+  void _paintScene(Canvas canvas, Size size) {
     // Off the live clock in the app; off the tick in a test, so a test's frame
     // is fixed by its state. The tick is converted to the seconds it would
     // have taken at normal speed, so both paths run the same animation.
@@ -674,6 +701,16 @@ class _ScenePainter extends CustomPainter {
 
     // Painter's algorithm: far polygons first.
     _queue.sort((a, b) => b.depth.compareTo(a.depth));
+    // One path and one paint, reset for every face, rather than a new pair of
+    // each for every one of the two and a half thousand faces on a full port —
+    // the largest single cost in a frame was this loop, and much of it was
+    // allocation. The canvas copies a path when it records it, so reusing it
+    // is safe.
+    final path = Path();
+    final fill = Paint();
+    final edge = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2;
     for (final f in _queue) {
       if (f.blob != null) {
         // Dense in the middle and gone at the rim, so overlapping puffs build
@@ -694,17 +731,11 @@ class _ScenePainter extends CustomPainter {
         continue;
       }
       if (f.points.length < 3) continue;
-      final path = Path()..addPolygon(f.points, true);
-      canvas.drawPath(path, Paint()..color = f.colour);
-      if (f.stroke != null) {
-        canvas.drawPath(
-          path,
-          Paint()
-            ..color = f.stroke!
-            ..style = PaintingStyle.stroke
-            ..strokeWidth = 2,
-        );
-      }
+      path
+        ..reset()
+        ..addPolygon(f.points, true);
+      canvas.drawPath(path, fill..color = f.colour);
+      if (f.stroke != null) canvas.drawPath(path, edge..color = f.stroke!);
     }
 
     _paintWeather(canvas, size);
