@@ -13,25 +13,25 @@ direction rather than a commitment. What the game already does is described in
 
 ---
 
-## Just shipped — 1.14, the livestock update
+## Just shipped — 1.15, a port that moves
 
-The three items that stood at the top of this file are built and live, and are
-described properly in [README.md](README.md). In a line each:
+Described properly in [README.md](README.md#sound-and-motion). In a line each:
 
-- **Animals and husbandry.** Pasture, byre, hen house and bakery, all of them
-  eating grain. Wool into sailcloth, cheese onto the bill, and a fourth retinue
-  track — the reeve — that ripens them faster.
-- **A happiness system.** The town has an opinion and it has teeth: growth runs
-  0.8x to 1.5x with it, a day's work swings ±15%, and below 0.30 nobody new
-  arrives at all. It answers to feeding, housing and paying people. Never to a
-  payment.
-- **Pets, with trade-offs.** One ship, day 40-50, five animals, +10%/-7%, and a
-  meat bill for as long as you keep one.
+- **More life in the world.** The scene draws on its own clock instead of the
+  game's tick, which it used to step with 0.7 times a second; smoke on one
+  wind, consignments seen to sail and return, weather visible through its omen.
+- **Sound**, synthesized from nothing, with mute in the HUD. Rain took three
+  attempts — static, then dripping, then rain — and the waves two.
+- **A frame-rate setting**, 30/60/90. The old throttle never delivered the 30
+  it aimed for: 23.5fps on a 60Hz screen, unevenly. Fixed, and the frame made
+  a third cheaper on the way.
+- **An island with room for 48 sheds**, up from 31. Saves carry over.
+- **Every good has a market**, and the reeve comes with the first shed that
+  ripens.
 
-Both plans are kept as they were written —
-[design/livestock.md](design/livestock.md) and [design/pets.md](design/pets.md)
-— including the numbers that were wrong the first time and what they measured
-at.
+1.14, the livestock update, shipped before it: herds and a bakery, happiness,
+and pets — see [design/livestock.md](design/livestock.md) and
+[design/pets.md](design/pets.md).
 
 ---
 
@@ -152,11 +152,6 @@ keeping because three of them each measured something different:
 The probe never contributed a valid figure to any of this. That is written up
 under *Next* as well, because it is the more useful lesson.
 
-**More life in the world.** Smoke that drifts on the wind, a ship that visibly
-leaves the quay when you send a consignment, weather you can see arriving. The
-world went from flat shapes to a populated port recently; this is the
-remainder of that work, and it is polish rather than mechanics.
-
 **The boot screen.** It is a blue field with the game's name on it, and it
 should carry the ManicalGaming name and logo. The web slot is already wired —
 drop a file in at `web/icons/manical-logo.png` and it appears — and the Android
@@ -189,9 +184,6 @@ touch gestures, a narrow layout — and a desktop build needs mouse and keyboard
 handling, a wider layout, and a Windows toolchain that does not exist on the
 development machine. Steam also wants $100 per app and about five weeks of
 waiting. Mobile first; this is a port, if it happens at all.
-
-**Sound.** There is none. It is a real gap and not a hard one, but it is the
-sort of thing that is easy to do badly.
 
 ---
 
