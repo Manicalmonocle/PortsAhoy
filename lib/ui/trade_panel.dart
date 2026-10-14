@@ -105,10 +105,9 @@ class _TradePanelState extends State<TradePanel> {
           _RetinueCard(
               controller: controller, track: RetinueTrack.privateer),
         // Like the privateer's card, only once the port has something for them
-        // to run — the first shed that ripens, whichever it is. It waited for
-        // a grange, and a port that put its herds in first met the reeve after
-        // they had grown.
-        if (s.hasRipeningShed)
+        // to run: a farm, where the grange used to unlock. His bonus reaches
+        // every shed now — he took over the grange's job.
+        if (s.buildings.any((b) => b.defId == 'farm'))
           _RetinueCard(controller: controller, track: RetinueTrack.reeve),
 
         // Carting used to be the quartermaster, and this is the shelf he stood
@@ -512,7 +511,8 @@ class _RetinueCard extends StatelessWidget {
             'Boarding odds +${(r.prizeBonus * 100).round()}%, '
                 'booty +${((r.bootyBonus - 1) * 100).round()}%',
           RetinueTrack.reeve =>
-            'Fields and herds come on '
+            'Every shed +${(r.yieldBonus * 100).round()}% once the land is in '
+                'order · herds come on '
                 '${((r.ripenSpeed - 1) * 100).round()}% faster',
         };
 
@@ -524,7 +524,8 @@ class _RetinueCard extends StatelessWidget {
       RetinueTrack.privateer =>
         'Nobody. Boardings go at the odds your crew and berth can manage.',
       RetinueTrack.reeve =>
-        'Nobody. Everything that ripens takes exactly as long as it takes.',
+        'Nobody. The land gets no better than you leave it, and everything '
+            'that ripens takes exactly as long as it takes.',
     };
 
     return Card(
@@ -571,9 +572,10 @@ class _RetinueCard extends StatelessWidget {
               // what is actually growing. Without it a reeve was a wage with
               // nothing on screen to show for it.
               if (track == RetinueTrack.reeve)
-                Text(reeveAtWorkLine(s, hired),
-                    style: const TextStyle(
-                        fontSize: 11, color: Palette.fog, height: 1.3)),
+                for (final line in reeveAtWorkLines(s, hired))
+                  Text(line,
+                      style: const TextStyle(
+                          fontSize: 11, color: Palette.fog, height: 1.3)),
               if (hired.commission > 0)
                 Text(
                     'Takes ${(hired.commission * 100).toStringAsFixed(1)}% of '

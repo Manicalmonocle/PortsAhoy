@@ -75,10 +75,8 @@ const List<UnlockRule> kUnlockRules = [
   UnlockRule('import_berth', text: 'Hold 1,200 coin', minCoin: 1200),
 
   // ---- Husbandry ---------------------------------------------------------
-  // Behind a farm, because a grange with nothing to husband is a shed full of
-  // idle hands. By the time you have one, the run is long enough for the ramp
-  // to be a real question rather than an obvious no.
-  UnlockRule('grange', text: 'Build a farm', requires: ['farm']),
+  // No grange: it was retired when the reeve took over its job, and a shed
+  // that can no longer be built should not be listed as waiting to unlock.
 
   // BEHIND THE FARM, NOT THE GRANGE, and that ordering is worth more than the
   // tidy lesson it replaced.
@@ -99,9 +97,10 @@ const List<UnlockRule> kUnlockRules = [
   // dearer, so meeting it second is meeting it in the right order.
   UnlockRule('byre', text: 'Build a pasture', requires: ['pasture']),
 
-  // Hens off the grange like the rest, and the bakery behind the hens, since
-  // a bakery with no eggs is a shed full of idle hands.
-  UnlockRule('hen_house', text: 'Build a grange', requires: ['grange']),
+  // Hens off the farm, where they waited on the grange until it was retired,
+  // and the bakery behind the hens, since a bakery with no eggs is a shed full
+  // of idle hands.
+  UnlockRule('hen_house', text: 'Build a farm', requires: ['farm']),
   UnlockRule('bakery', text: 'Build a hen house', requires: ['hen_house']),
 
   // ---- The dark trade, entirely optional ---------------------------------

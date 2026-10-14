@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'buildings.dart';
 import 'charters.dart';
 import 'journal.dart';
@@ -333,6 +335,20 @@ class Balance {
   /// that this change costs nothing, not that it fixes the feel.
   static const double grangeMaxYield = 0.20;
 
+  /// Days a reeve must serve to bring his whole bonus to bear. The bonus
+  /// climbs evenly over them and is lost if he is paid off, so taking him on
+  /// is the slow bet the grange was, and letting him go costs what he built.
+  ///
+  /// 16, NOT THE GRANGE'S 24. Measured on the honest probe, 16 seeds: with the
+  /// grange the median was 77; with the reeve in its place at 24 days, 81 —
+  /// he costs coin the grange did not, so he is hired around day 25 where the
+  /// grange went up earlier, and the bonus then took the same 24 days to come
+  /// in. At 16 days, 80 with the spread down from 23 to 20. With neither the
+  /// grange nor a reeve, 88: he is worth about a week to a port, which is
+  /// what an officer should be. Price and promotion barely moved it — 600 or
+  /// 400 to sign, first rank only or second, all landed on 81-82.
+  static const double reeveServiceDays = 16;
+
   static const double prizeBaseSuccess = 0.30;
   static const double prizeSuccessPerCrew = 0.11;
   static const double prizeCoveredBonus = 0.06;
@@ -541,6 +557,10 @@ class GameState {
   int merchantLevel = 0;
   int privateerLevel = 0;
   int reeveLevel = 0;
+
+  /// How far a reeve has got the land in order, 0 to 1. Climbs while one is
+  /// kept, survives a promotion, and goes back to nothing when he is paid off.
+  double reeveService = 0;
 
   /// How far the granges have come along, 0 to 1.
   ///
@@ -778,6 +798,7 @@ class GameState {
     _applyEventTransitions(events.advance(tick,
         pressure: _eventContext().pressure * charters.hazardSeverity));
     _ripen();
+    _serve();
     _landImports();
     _produce();
     _crewBerths();
@@ -1095,7 +1116,7 @@ class GameState {
         // planks, tools, rope and sailcloth; a route that does not move those
         // does not move anything. Boosting the whole port instead: 96 days on
         // a plain run and 106 under A Grander Light, against 100 and 116.
-        final husbandry = grangeYieldBonus;
+        final husbandry = husbandryBonus;
         // A ripening shed produces at its own maturity as well. 1.0 for
         // everything that does not ripen, so this is inert for the old port.
         final ripe = b.ripeness;
@@ -1724,10 +1745,6 @@ class GameState {
   int get staffedSheds =>
       buildings.where((b) => b.workers > 0 && b.def.isProducer).length;
 
-  /// Whether anything in the port ripens — a grange, a pasture, a byre, a
-  /// hen house, or whatever ripens next. The reeve's gate.
-  bool get hasRipeningShed => buildings.any((b) => b.def.ripens);
-
   bool canHire(Retainer r) =>
       r.level == levelOn(r.track) + 1 &&
       coin >= r.coinCost &&
@@ -1736,7 +1753,6 @@ class GameState {
       // berth) is not offered until that shed stands.
       (r.requiresBuilding == null ||
           buildings.any((b) => b.defId == r.requiresBuilding)) &&
-      (!r.requiresRipeningShed || hasRipeningShed) &&
       // Taking on a track you have nobody on needs a berth free.
       (levelOn(r.track) > 0 || hasFreeOfficerBerth);
 
@@ -1779,15 +1795,15 @@ class GameState {
         privateerLevel = 0;
       case RetinueTrack.reeve:
         reeveLevel = 0;
+        // His work goes with him. That is the whole reason he is worth
+        // keeping rather than hiring for the growing season and letting go.
+        reeveService = 0;
     }
     log('${who.name} was paid off and left the port.', LogKind.info);
   }
 
   double get voyageSpeedFactor => hiredOn(RetinueTrack.captain)?.voyageSpeed ?? 1.0;
 
-  /// True while at least one grange has hands in it.
-  bool get grangeWorked =>
-      buildings.any((b) => b.defId == 'grange' && b.workers > 0);
 
   /// How much of the light's bill is still owing, as a share of each line.
   ///
@@ -2011,6 +2027,25 @@ class GameState {
   /// 1.0 on the day it is built, rising to 1 + [Balance.grangeMaxYield] once
   /// it has been worked for [Balance.grangeRipenDays].
   double get grangeYieldBonus => 1.0 + Balance.grangeMaxYield * grangeMaturity;
+
+  /// What the reeve currently adds to every shed, as a multiplier.
+  double get reeveYieldBonus =>
+      1.0 + (hiredOn(RetinueTrack.reeve)?.yieldBonus ?? 0) * reeveService;
+
+  /// What husbandry adds to every shed: the reeve's bonus, or a grange's in a
+  /// run that built one before the grange was retired — whichever is larger,
+  /// never both. Granges can no longer be built, but a run keeps the terms it
+  /// began under, the same rule as the lighthouse bill; letting it stack with
+  /// a reeve would hand an old run a bonus no new one can reach.
+  double get husbandryBonus => math.max(grangeYieldBonus, reeveYieldBonus);
+
+  /// A reeve's service, advanced once a tick while one is kept.
+  void _serve() {
+    if (reeveLevel == 0) return;
+    reeveService = (reeveService +
+            1 / (Balance.reeveServiceDays * Balance.ticksPerDay))
+        .clamp(0.0, 1.0);
+  }
 
   /// Advance every ripening building that is being worked. Once a tick.
   ///
@@ -2512,6 +2547,7 @@ class GameState {
         'merchantLevel': merchantLevel,
         'privateerLevel': privateerLevel,
         'reeveLevel': reeveLevel,
+        'reeveService': double.parse(reeveService.toStringAsFixed(4)),
         'grangeMaturity': grangeMaturity,
         'bill': runBill.map((r, q) => MapEntry(r.name, q)),
         if (pet != null) 'pet': pet!.name,
@@ -2576,6 +2612,10 @@ class GameState {
     // lost — the officer's berth it used to occupy is simply freed.
     state.privateerLevel = (j['privateerLevel'] as num?)?.toInt() ?? 0;
     state.reeveLevel = (j['reeveLevel'] as num?)?.toInt() ?? 0;
+    // A reeve kept from before he took on the grange's job starts his service
+    // from the day this loads, not from the day he was hired.
+    state.reeveService =
+        ((j['reeveService'] as num?)?.toDouble() ?? 0).clamp(0.0, 1.0);
     final rawBill = j['bill'];
     if (rawBill is Map) {
       final restored = <Resource, double>{};
@@ -2645,6 +2685,7 @@ class GameState {
     state.placeAll();
     state.syncYards();
     state._clampRetinueToBerths();
+    if (state.reeveLevel == 0) state.reeveService = 0;
     return state;
   }
 

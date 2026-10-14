@@ -41,29 +41,50 @@ String? shedGrowthLine(GameState s, Building b) {
       'and full in about ${_days(left)}$reeve.';
 }
 
-/// What the reeve you keep is doing, right now, on his card.
-String reeveAtWorkLine(GameState s, Retainer hired) {
-  final growing = s.growingSheds.length;
-  if (growing == 0) {
-    return 'Nothing is growing, so he has nothing to bring on until you raise '
-        'another shed that ripens.';
+/// What the reeve you keep is doing, right now, on his card: how far he has
+/// the land in order, and what he is saving on anything still growing.
+List<String> reeveAtWorkLines(GameState s, Retainer hired) {
+  final full = (hired.yieldBonus * 100).round();
+  final now = ((s.reeveYieldBonus - 1) * 100).round();
+  final daysToFull =
+      ((1 - s.reeveService) * Balance.reeveServiceDays).ceil();
+  final lines = <String>[
+    s.reeveService >= 1
+        ? 'The land is in order: every shed +$full%.'
+        : 'Getting the land in order: every shed +$now% now, +$full% in '
+            'about ${_days(daysToFull)}. Pay him off and that goes with him.',
+  ];
+  // A run that built a grange before it was retired gets the better of the
+  // two, never both, and should be told which is in force.
+  final grange = ((s.grangeYieldBonus - 1) * 100).round();
+  if (grange >= now && grange > 0) {
+    lines.add('Your grange already gives +$grange%; he adds to that only once '
+        'his own bonus passes it.');
   }
-  final days = s.reeveSavingDays(hired.ripenSpeed).round();
-  return 'Saving about ${_days(days)} across '
-      '${growing == 1 ? "the shed" : "the $growing sheds"} growing now.';
+  final growing = s.growingSheds.length;
+  if (growing > 0) {
+    final days = s.reeveSavingDays(hired.ripenSpeed).round();
+    lines.add('Saving about ${_days(days)} across '
+        '${growing == 1 ? "the shed" : "the $growing sheds"} growing now.');
+  }
+  return lines;
 }
 
-/// What the next reeve would do for what is growing now, before you pay.
-/// That is the number the hire turns on, and it is worth a lot more early.
+/// What the next reeve would do, before you pay: the bonus he works up to,
+/// and what he would save on anything growing now — the numbers the hire
+/// turns on.
 String reeveOfferLine(GameState s, Retainer next) {
-  final now = s.reeveSpeed;
-  final more = s.reeveSavingDays(next.ripenSpeed) - s.reeveSavingDays(now);
-  if (s.growingSheds.isEmpty) {
-    return 'Nothing is growing now, so he would only help sheds you raise from '
-        'here on.';
-  }
-  final days = more.round();
-  return now > 1
-      ? 'Would save about ${_days(days)} more on what is growing now.'
-      : 'Would save about ${_days(days)} on what is growing now.';
+  final current = s.hiredOn(RetinueTrack.reeve);
+  final bonus = (next.yieldBonus * 100).round();
+  final head = current == null
+      ? 'Every shed +$bonus% over ${Balance.reeveServiceDays.round()} days '
+          'of service'
+      : 'Raises every shed to +$bonus%, keeping the order he has made';
+  if (s.growingSheds.isEmpty) return '$head.';
+  final more = (s.reeveSavingDays(next.ripenSpeed) -
+          s.reeveSavingDays(s.reeveSpeed))
+      .round();
+  return more >= 1
+      ? '$head, and about ${_days(more)} off what is growing now.'
+      : '$head.';
 }

@@ -170,45 +170,38 @@ Guardrails, all tested:
   the deck, so days 91–120 of every year are a stretch you can see coming thirty
   days out and stockpile against
 
-### Husbandry
+### Time into yield: the reeve
 
-The **Grange** is the third route to the light, and the only one that converts
-*time* into goods. Trade converts labour and the dark trade converts risk, and
-both pay the moment you act. A grange pays nothing on the day you build it and
-grows to **+20% on every shed** over twenty-four days of being worked — a bet on
-the run being long, not an upgrade everyone takes. The clock only runs while it
-is staffed, so hands off it stop the growth, and a second grange adds nothing:
-the bet is made once.
+The third route to the light is the only one that converts *time* into goods.
+Trade converts labour and the dark trade converts risk, and both pay the moment
+you act. A **reeve** pays very little the day you take him on and works up to
+**+15 / +20 / +25% on every shed** by rank over sixteen days of service — and
+everything he has built goes with him if you pay him off. He also brings
+ripening herds on sooner (×1.25 / 1.5 / 1.8). He is offered once a farm stands,
+costs an officer's berth and a wage, and is worth about a week to a port: the
+honest probe wins on day 80 with him and day 88 without.
 
-It unlocks behind a farm, costs two hands and 400 coin, and its fields visibly
-ripen from bare earth to deep green so the ramp is something you can watch
-rather than take on trust.
+**It used to be a building, the Grange,** which sold the same thing from a shed:
++20% to every shed, ripening over twenty-four days of being worked. Two reports
+retired it. The reeve, whose only effect was ripening speed, "does feel
+skippable" — and "why would you not hire to get farms online then fire for
+another captain?" A shed's growth never goes backwards, so he was a contractor,
+not an officer, while the grange did his real job for him. So the grange's
+bonus became his, built up while he serves. A run that built a grange before
+then keeps it working to the end, and gets the better of the two, never both.
 
-**It was specified wrong, and the probe caught it.** It lifted extractors only
-at first, on the reasoning that a grange husbands the land and does not stand
-over a saw. Measured, that made it a trap: the workshops are worker-limited
-rather than input-starved, so the extra raws piled up untouched while the
-grange's two hands came straight off finished-good output. The median win went
-from 100 days to **112** — slower, while working exactly as designed. That is
-the same mistake the dark trade made in paying for contraband in raws, and the
-lesson is the same one: the lighthouse asks for planks, tools, rope and
-sailcloth, so a route that does not move those does not move anything. Lifting
-every shed instead gives 96 days on a plain run and 106 under *A Grander Light*,
-against 100 and 116.
-
-**It was then overtuned, and a player caught that.** At +35% a port drowned:
-"my warehouse is filling quick and there's no pressure of being low on
-supplies". It compounds harder than the number suggests, because only outputs
-are scaled and inputs are not — an extractor makes 35% more raw *and* the
-workshop downstream turns the same raw into 35% more goods, so a two-stage
-chain lands near 1.8x while the raws it eats never rise. Cutting the ceiling to
-20% and the ramp to 24 days holds the pacing and gives the middle of the game
-its scarcity back.
+The bonus itself carries two lessons from the grange. **It lifts every shed**:
+the grange lifted only extractors at first, the workshops downstream were
+limited by hands rather than raws, and the extra raws piled up while the median
+win went from 100 days to 112. **And it stops at about +20%**: at +35% a port
+drowned — "my warehouse is filling quick and there's no pressure of being low
+on supplies" — because only outputs are scaled, so a two-stage chain lands near
+1.8x while the raws it eats never rise.
 
 ### Husbandry
 
-Three sheds keep animals, and all three ripen the way the Grange does — worth a
-quarter of themselves when built, full strength weeks later.
+Three sheds keep animals, and all three ripen — worth a quarter of themselves
+when built, full strength weeks later, and sooner with a reeve.
 
 | Shed | Animal | Gives | Ramp |
 | --- | --- | --- | --- |
@@ -351,10 +344,10 @@ time (−15/−28/−40%) and risk; **merchants** raise prices at home and abroa
 (up to +20% at the quay, +26% on voyages); **privateer captains** lift the odds
 at the rail (+8/+15/+22%) and the booty a won boarding lands (×1.15/1.32/1.55),
 and are offered only once a Privateer Berth stands — an honest port never sees
-the card; **reeves** bring every ripening shed on sooner (×1.25/1.5/1.8), and
-are offered once anything that ripens stands — a grange, a pasture, a byre or a
-hen house. They waited for a grange at first, and a port that put its herds in
-first met them after the herds had grown.
+the card; **reeves** work up to +15/+20/+25% on every shed over sixteen days of
+service and bring ripening herds on sooner (×1.25/1.5/1.8), are offered once a
+farm stands, and take everything they have built with them when paid off — see
+[Time into yield](#time-into-yield-the-reeve).
 
 **Carting is not hired.** It used to be a fourth officer, the quartermaster. A
 player pointed out that convenience should never compete for coin or a berth

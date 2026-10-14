@@ -37,6 +37,16 @@ and pets — see [design/livestock.md](design/livestock.md) and
 
 ## Next
 
+**The reeve took over the grange's job** — on a branch, awaiting a playtest.
+Reported from play that he "does feel skippable", and asked: "why would you not
+hire to get farms online then fire for another captain?" His only effect was
+ripening speed, which a shed keeps after he leaves. Now he works up to +15/+20/
++25% on every shed over sixteen days of service and loses it when paid off,
+and the grange is retired (old runs keep theirs). Honest probe: 77 with the
+grange as shipped, 80 with the reeve, 88 with neither — he is worth about a
+week. Needs a played run to say whether that feels like an officer worth a
+berth against the captain and the merchant.
+
 **~~Decide the dark trade~~ — it stays.** Settled on 2026-10-06 by a played
 run, `human-2026-10-06-dark-102d.pa1`, on build 1.14.1 with no charters: the
 light lit on **day 102** against 77-88 for the honest runs on record. The route

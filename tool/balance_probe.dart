@@ -33,7 +33,7 @@ const List<String> buildOrder = [
   // requirement, from a smithy that was never built. Played runs put the mine
   // down between days 23 and 42, so the iron chain belongs here, and the
   // slower half of the herd can wait behind it.
-  'warehouse', 'farm', 'grange', 'pasture', 'byre',
+  'warehouse', 'farm', 'pasture', 'byre',
   'house', 'mine', 'sawmill', 'smithy', 'weaver',
   'warehouse', 'hen_house', 'bakery', 'house',
   'import_berth', 'forest_camp', 'cooperage', 'mine', 'smithy',
@@ -59,7 +59,7 @@ const List<String> darkBuildOrder = [
   // byre for the sailcloth and cheese the bill wants; an order that skipped
   // them would measure a port that cannot win rather than a dark one.
   'forest_camp', 'sawmill', 'house', 'flax_field', 'ropewalk',
-  'warehouse', 'farm', 'cooperage', 'grange', 'pasture',
+  'warehouse', 'farm', 'cooperage', 'pasture',
   'mine', 'privateer_berth', 'powder_mill', 'byre', 'house',
   'smithy',
   // COOPERAGE BEFORE THE BERTH AND THE DISTILLERY, and it is not optional.
@@ -662,6 +662,7 @@ Run _play(int seed, {bool verbose = false}) {
     }
 
     _sendConsignments(g);
+    _hireReeve(g);
     if (kHire) _hireRetinue(g);
     buildIndex = _tryBuild(g, buildIndex);
     kBuildIndex = buildIndex;
@@ -963,6 +964,24 @@ void _hireRetinue(GameState g) {
   }
 }
 
+/// Take on a reeve, and raise him to the second rank, as soon as the port can
+/// carry him.
+///
+/// ALWAYS ON, UNLIKE THE OTHER OFFICERS. He took over the grange's job, and
+/// the grange was in the build order — a probe that never hired him would be
+/// measuring a port with that bonus simply deleted, and every figure after
+/// this change would read as the game getting harder when it had only moved a
+/// lever. He is hired at the point the grange went up, behind the farm, with
+/// the same coin cushion as any other hire, and promoted to the rank whose
+/// bonus matches the grange's +20%.
+void _hireReeve(GameState g) {
+  final next = g.nextOn(RetinueTrack.reeve);
+  if (next == null || next.level > topRank) return;
+  if (!g.canHire(next)) return;
+  if (g.coin - next.coinCost < g.dailyWageBill * 6) return;
+  g.hire(next);
+}
+
 int _tryBuild(GameState g, int index) {
   // Once the port turns to finishing, coin is for the light and not for the
   // next shed. The first version of this said `&& coin < lighthouseCoinCost`,
@@ -1082,7 +1101,7 @@ void _reassign(GameState g) {
     // every single sample. Every dark-trade verdict this file has printed was
     // a port that could not keep what it stole.
     final hides = def.concealPerWorker > 0;
-    if (!def.ripens && !hides && def.id != 'grange') continue;
+    if (!def.ripens && !hides) continue;
     while (g.buildings[i].workers < def.maxWorkers && g.idleWorkers > 1) {
       g.setWorkers(i, g.buildings[i].workers + 1);
     }

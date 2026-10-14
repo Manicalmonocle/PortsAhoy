@@ -295,6 +295,12 @@ const List<BuildingDef> kBuildingDefs = [
     id: 'grange',
     name: 'Grange',
     icon: '🌾',
+    // RETIRED: its +20% to every shed is the reeve's now, as an officer's
+    // bonus that builds up while he serves — see Retainer.yieldBonus. It
+    // stays defined so a run that built one before then keeps it working to
+    // the end, under the rule that a run keeps the terms it began under; it
+    // can no longer be built.
+    buildable: false,
     blurb: 'Rotates the fields, beds the herds and keeps every shed in good '
         'order. Worth little at first; worth a great deal by harvest.',
     maxWorkers: 2,

@@ -24,7 +24,10 @@ void main() {
 
     test('everything else is locked, with a reason given', () {
       final g = GameState.newGame();
-      for (final d in kBuildingDefs) {
+      // Buildable ones only: a retired building — the grange, since the reeve
+      // took over its job — is defined so old runs keep it, and has no way to
+      // unlock on purpose.
+      for (final d in kBuildingDefs.where((d) => d.buildable)) {
         if (g.isUnlocked(d.id)) continue;
         final rule = unlockRuleFor(d.id);
         expect(rule, isNotNull, reason: '${d.id} has no way to unlock');
@@ -34,6 +37,16 @@ void main() {
   });
 
   group('the tree', () {
+    test('the grange is retired: never offered, and nothing waits on it', () {
+      expect(defById('grange').buildable, isFalse);
+      expect(unlockRuleFor('grange'), isNull);
+      for (final d in kBuildingDefs.where((d) => d.buildable)) {
+        expect(unlockRuleFor(d.id)?.requires ?? const [], isNot(contains('grange')),
+            reason: '${d.id} would wait forever on a shed nobody can build');
+      }
+      expect(unlockRuleFor('hen_house')!.requires, ['farm']);
+    });
+
     test('every building is reachable', () {
       for (final d in kBuildingDefs.where((d) => d.buildable)) {
         expect(unlockRuleFor(d.id), isNotNull, reason: d.id);

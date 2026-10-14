@@ -926,36 +926,44 @@ void _lighthouseCardTests() {
     await closeGame(tester);
   });
 
-  testWidgets('the build card says what a grange actually does',
-      (tester) async {
+  testWidgets('the reeve\'s card says what he does, in numbers', (tester) async {
     SharedPreferences.setMockInitialValues({});
     final c = GameController(seedOverride: 20260815);
     await c.load();
     c.setSpeed(0);
     addTearDown(c.dispose);
 
-    // The grange makes nothing, so `isProducer` is false and the per-worker
-    // rate line every other card carries never rendered — leaving the one
-    // building whose worth is hardest to guess as the only one in the tab with
-    // no number on it. Reported from a played +32 run: "not 100% sure what
-    // grange does. it isn't very clear."
-    c.state.unlocked.add('grange');
+    // He took over the grange's job, and the grange's card had to learn this
+    // lesson once already: "not 100% sure what grange does. it isn't very
+    // clear." A bonus that takes weeks to come in has to say how much and how
+    // long, or it cannot be told from one that does nothing.
+    c.state.buildings.add(Building(defId: 'farm'));
+    c.state.placeAll();
+    c.state.coin = 5000;
 
     tester.view.physicalSize = const Size(420, 2600);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
     await tester.pumpWidget(PortsAhoyApp(controller: c));
     await tester.pump();
-    await openPanel(tester, 'Build');
+    await openPanel(tester, 'Trade');
     await tester.pumpAndSettle();
 
-    final pct = (Balance.grangeMaxYield * 100).round();
-    expect(find.textContaining('+$pct%'), findsWidgets,
-        reason: 'the card must state the bonus it is actually worth');
-    expect(find.textContaining('${Balance.grangeRipenDays.round()} days'),
+    final first = retainerAt(RetinueTrack.reeve, 1)!;
+    final pct = (first.yieldBonus * 100).round();
+    expect(find.textContaining('Every shed +$pct%'), findsWidgets,
+        reason: 'the offer must state the bonus he works up to');
+    expect(find.textContaining('${Balance.reeveServiceDays.round()} days'),
         findsWidgets,
-        reason: 'a bonus that takes five weeks to arrive has to say so, or the '
-            'player cannot tell it from one that does nothing');
+        reason: 'and how long it takes to come in');
+
+    c.act((g) => g.hire(first));
+    await tester.pumpAndSettle();
+    expect(c.state.reeveLevel, 1);
+    expect(find.textContaining('Getting the land in order'), findsOneWidget,
+        reason: 'once hired he says how far along he is');
+    expect(find.textContaining('goes with him'), findsOneWidget,
+        reason: 'and what paying him off would cost');
 
     await closeGame(tester);
   });
@@ -1183,7 +1191,7 @@ void _lighthouseCardTests() {
     // it, because it produces nothing and the per-worker rate line never ran.
     // Three more sheds ripen now, and the same silence would swallow all of
     // them.
-    for (final def in kBuildingDefs.where((d) => d.ripens)) {
+    for (final def in kBuildingDefs.where((d) => d.ripens && d.buildable)) {
       c.state.unlocked.add(def.id);
     }
 
@@ -1195,7 +1203,7 @@ void _lighthouseCardTests() {
     await openPanel(tester, 'Build');
     await tester.pumpAndSettle();
 
-    for (final def in kBuildingDefs.where((d) => d.ripens)) {
+    for (final def in kBuildingDefs.where((d) => d.ripens && d.buildable)) {
       expect(find.textContaining('${def.ripenDays.round()} days'), findsWidgets,
           reason: '${def.name} does not say how long it takes to come on');
     }
