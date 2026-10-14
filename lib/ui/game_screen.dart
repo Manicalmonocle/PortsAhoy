@@ -14,6 +14,7 @@ import 'market_tab.dart';
 import 'pet_panel.dart';
 import 'shed_list.dart';
 import 'growth_text.dart';
+import 'hold_still.dart';
 import 'theme.dart';
 import 'trade_panel.dart';
 
@@ -976,13 +977,25 @@ class _PanelSheet extends StatelessWidget {
     );
   }
 
+  // Every panel holds still while it is being touched (see HoldStill) — keyed
+  // by panel, so switching panels never shows the last one's frozen frame.
+  // The Quay brings its own finer hold, for ships that sail mid-tap.
   Widget _body() => switch (panel) {
-    _Panel.build => BuildTab(controller: controller),
+    _Panel.build => HoldStill(
+        key: const ValueKey('build'),
+        controller: controller,
+        child: BuildTab(controller: controller)),
     _Panel.quay => MarketTab(controller: controller),
-    _Panel.trade => TradePanel(controller: controller),
+    _Panel.trade => HoldStill(
+        key: const ValueKey('trade'),
+        controller: controller,
+        child: TradePanel(controller: controller)),
     _Panel.log => LogTab(controller: controller),
     _Panel.charters => CharterPanel(controller: controller),
-    _Panel.sheds => ShedList(controller: controller),
+    _Panel.sheds => HoldStill(
+        key: const ValueKey('sheds'),
+        controller: controller,
+        child: ShedList(controller: controller)),
     _Panel.none => const SizedBox.shrink(),
   };
 }

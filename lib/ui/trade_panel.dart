@@ -407,20 +407,45 @@ class _MoodLine extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 4),
-          Text(
-            state.happinessReasons.join(' · '),
-            style: const TextStyle(
-                fontSize: 11, color: Palette.fog, height: 1.4),
-          ),
-          if (h < Balance.happinessGrowthFloor)
-            const Padding(
-              padding: EdgeInsets.only(top: 3),
-              child: Text(
-                'Nobody new will settle here until this turns round. There is '
-                'nothing to buy that fixes it.',
-                style: TextStyle(fontSize: 11, color: Palette.rust),
-              ),
+          // THE SAME HEIGHT WHATEVER THE MOOD. This sits at the top of the
+          // Trade panel, so any change in its height moves everything else.
+          // Measured on a port hovering near 30%: crossing it removed a
+          // three-line warning and slid the panel up 51 pixels, and a reason
+          // changing from "the crew is paid" to "wages are not being met"
+          // wrapped onto a second line. So the reasons always have two lines
+          // of room, and the growth line is always there, one line long.
+          SizedBox(
+            height: 11 * 1.4 * 2 + 1,
+            child: Text(
+              state.happinessReasons.join(' · '),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                  fontSize: 11, color: Palette.fog, height: 1.4),
             ),
+          ),
+          const SizedBox(height: 3),
+          // A fixed slot as well as one line: shrinking a long line to fit
+          // also makes it shorter, and the warning is longer than the calm
+          // message — so without the slot the panel still moved a few pixels.
+          SizedBox(
+            height: 16,
+            child: FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(
+              h < Balance.happinessGrowthFloor
+                  ? 'Nobody new settles below 30% — and no purchase fixes it.'
+                  : 'Newcomers settle while the town stays above 30%.',
+              maxLines: 1,
+              style: TextStyle(
+                  fontSize: 11,
+                  color: h < Balance.happinessGrowthFloor
+                      ? Palette.rust
+                      : Palette.fog.withValues(alpha: 0.5)),
+            ),
+          ),
+          ),
         ],
       ),
     );

@@ -187,7 +187,12 @@ class ShedGroupCard extends StatelessWidget {
                         ],
                       ),
                       const SizedBox(height: 2),
+                      // One line, always: an unstaffed shed's whole blurb
+                      // used to stand here, two or three lines that collapsed
+                      // to one the moment it got a hand.
                       Text(flow(),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                           style: TextStyle(
                             fontSize: 11,
                             color: workers == 0
@@ -231,57 +236,57 @@ class ShedGroupCard extends StatelessWidget {
                 ),
               ],
             ),
-            if (held > 0.5) ...[
+            // THE SAME SHAPE EVERY TICK. The yard row used to appear only
+            // while a yard held something, and carting empties every yard at
+            // once: measured on a scrolled Sheds panel, twenty entries moved
+            // together by up to 190 pixels — "even scrolling through sheds
+            // ... jumps around". The warning and weather lines came and went
+            // the same way. So a shed with a yard always shows it, empty or
+            // not, and one status line is always there, saying the most
+            // urgent thing: short of materials, then the weather, then fine.
+            if (def.outputs.isNotEmpty || def.imports) ...[
               const SizedBox(height: 8),
               Row(
                 children: [
                   Expanded(
-                    child: Text('${fmt(held)} waiting in the yards',
-                        style: const TextStyle(
-                            fontSize: 11, color: Palette.fog)),
+                    child: Text(
+                        held > 0.5
+                            ? '${fmt(held)} waiting in the yards'
+                            : 'Yards empty',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                            fontSize: 11,
+                            color: held > 0.5
+                                ? Palette.fog
+                                : Palette.fog.withValues(alpha: 0.5))),
                   ),
                   OutlinedButton(
-                    onPressed: () => controller.act((s) {
-                      for (final b in s.shedsOfType(defId)) {
-                        s.collect(b);
-                      }
-                    }),
+                    onPressed: held > 0.5
+                        ? () => controller.act((s) {
+                              for (final b in s.shedsOfType(defId)) {
+                                s.collect(b);
+                              }
+                            })
+                        : null,
                     style: OutlinedButton.styleFrom(
                       foregroundColor: Palette.brass,
-                      side: const BorderSide(color: Palette.brass),
+                      side: BorderSide(
+                          color: held > 0.5 ? Palette.brass : Palette.line),
                       visualDensity: VisualDensity.compact,
                     ),
                     child: const Text('Collect'),
                   ),
                 ],
               ),
-            ],
-            if (starved) ...[
               const SizedBox(height: 6),
-              Row(
-                children: [
-                  const Icon(Icons.warning_amber_rounded,
-                      size: 14, color: Palette.rust),
-                  const SizedBox(width: 6),
-                  Expanded(
-                    child: Text(shedStarvedLabel(worked
-                        .reduce((a, b) =>
-                            a.lastEfficiency <= b.lastEfficiency ? a : b)),
-                        style: const TextStyle(
-                            fontSize: 11, color: Palette.rust)),
-                  ),
-                ],
-              ),
-            ],
-            if (throttle != 1.0 && workers > 0) ...[
-              const SizedBox(height: 6),
-              Text(
-                throttle > 1.0
-                    ? 'Running at ${(throttle * 100).round()}% — the weather is with you'
-                    : 'Running at ${(throttle * 100).round()}% — conditions',
-                style: TextStyle(
-                    fontSize: 11,
-                    color: throttle > 1.0 ? Palette.moss : Palette.lamp),
+              _StatusLine(
+                starved: starved
+                    ? shedStarvedLabel(worked.reduce((a, b) =>
+                        a.lastEfficiency <= b.lastEfficiency ? a : b))
+                    : null,
+                throttle: workers > 0 ? throttle : 1.0,
+                staffed: workers > 0,
               ),
             ],
             if (def.imports) ...[
@@ -718,6 +723,55 @@ class HintCard extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+
+/// The one status line on a shed card: always present, so the card keeps its
+/// height whatever the shed is doing.
+class _StatusLine extends StatelessWidget {
+  const _StatusLine({
+    required this.starved,
+    required this.throttle,
+    required this.staffed,
+  });
+
+  final String? starved;
+  final double throttle;
+  final bool staffed;
+
+  @override
+  Widget build(BuildContext context) {
+    final (IconData? icon, String text, Color colour) = starved != null
+        ? (Icons.warning_amber_rounded, starved!, Palette.rust)
+        : throttle > 1.0
+            ? (null,
+                'Running at ${(throttle * 100).round()}% — the weather is with '
+                    'you',
+                Palette.moss)
+            : throttle < 1.0
+                ? (null,
+                    'Running at ${(throttle * 100).round()}% — conditions',
+                    Palette.lamp)
+                : staffed
+                    ? (null, 'Running normally',
+                        Palette.fog.withValues(alpha: 0.5))
+                    : (null, 'Add hands to start it',
+                        Palette.fog.withValues(alpha: 0.5));
+    return Row(
+      children: [
+        if (icon != null) ...[
+          Icon(icon, size: 14, color: colour),
+          const SizedBox(width: 6),
+        ],
+        Expanded(
+          child: Text(text,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(fontSize: 11, height: 1.3, color: colour)),
+        ),
+      ],
     );
   }
 }

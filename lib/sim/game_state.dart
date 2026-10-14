@@ -2246,7 +2246,23 @@ class GameState {
   }
 
   /// Sell up to [qty] units into [offer]. Returns coin earned.
+  /// Whether [ship] is still alongside. Every trade checks it.
+  ///
+  /// Nothing used to, because nothing could hold on to a ship after it left —
+  /// until the Quay began keeping a sailed ship's card in place, dimmed, while
+  /// the player was mid-trade, so the cards below would not slide up under a
+  /// thumb. The card turns its buttons off; this makes sure the game would
+  /// refuse regardless, rather than paying coin for cargo loaded onto a hull
+  /// that is already over the horizon.
+  ///
+  /// Asked of her sailing time rather than of the market's list: the ship the
+  /// Quay keeps on screen is precisely one whose time has passed, and a ship
+  /// that left early because everything she wanted was filled has nothing
+  /// left to trade anyway.
+  bool atQuay(Ship ship) => tick < ship.departTick;
+
   double sell(Ship ship, Offer offer, double qty) {
+    if (!atQuay(ship)) return 0;
     final available = stock[offer.resource];
     final amount = [qty, available, offer.quantity]
         .reduce((a, b) => a < b ? a : b);
@@ -2284,6 +2300,7 @@ class GameState {
   /// Swap contraband for raw materials at a parity coin cannot match in bulk.
   /// The loudest transaction in the game per unit, and the best deal.
   bool barter(Ship ship, Barter deal) {
+    if (!atQuay(ship)) return false;
     if (deal.taken) return false;
     if (!stock.has(deal.give, deal.giveQty)) return false;
 
@@ -2364,6 +2381,7 @@ class GameState {
 
   /// Can this hull be boarded right now, and if not, why not.
   String? prizeBlocker(Ship ship) {
+    if (!atQuay(ship)) return 'She has sailed';
     if (!ship.foreign || ship.prizeTons <= 0) return 'Not a lawful target';
     if (berthCrew <= 0) return 'No crew at the privateer berth';
     if (stock[Resource.powder] < Balance.prizePowderCost) {
@@ -2491,6 +2509,7 @@ class GameState {
 
   /// Buy up to [qty] units off a ship. Returns coin spent.
   double buy(Ship ship, Offer ware, double qty) {
+    if (!atQuay(ship)) return 0;
     final amount = qty < maxPurchasable(ware) ? qty : maxPurchasable(ware);
     if (amount <= 1e-6) return 0;
 

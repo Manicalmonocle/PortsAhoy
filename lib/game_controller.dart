@@ -252,7 +252,12 @@ class GameController extends ChangeNotifier {
 
   /// Run the player's action, then repaint. Every mutation funnels through
   /// here so the UI can never drift from simulation state.
+  /// How many deliberate actions the player has taken. A panel holding still
+  /// while it is touched still refreshes for these — see HoldStill.
+  int actions = 0;
+
   void act(void Function(GameState s) action) {
+    actions++;
     action(state);
     _syncTimer(); // finishing the lighthouse stops the clock
     notifyListeners();

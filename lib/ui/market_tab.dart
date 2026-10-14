@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../audio/sound_board.dart';
@@ -8,47 +10,148 @@ import '../sim/retinue.dart';
 import 'pet_panel.dart';
 import 'theme.dart';
 
-class MarketTab extends StatelessWidget {
+class MarketTab extends StatefulWidget {
   const MarketTab({super.key, required this.controller});
 
   final GameController controller;
 
+  /// How long the quay holds still after the player last touched it.
+  static const Duration hold = Duration(milliseconds: 2500);
+
+  /// The wall clock the hold is measured on. A test sets its own.
+  @visibleForTesting
+  static DateTime Function() now = DateTime.now;
+
+  @override
+  State<MarketTab> createState() => _MarketTabState();
+}
+
+/// THE QUAY HOLDS STILL WHILE YOU TRADE.
+///
+/// Reported from play: "screens jump around at every tick making buying /
+/// selling aggravating". Measured by stepping a port one tick at a time with
+/// nothing touched, the quay moved under the player's thumb three ways:
+///
+///  - a ship that sailed took its card with it, and every card below slid up
+///    by a whole card — 173 to 345 pixels — so the button under the thumb
+///    belonged to another ship. Ships are listed oldest first, and the oldest
+///    is always the next to sail, so this happened at every departure;
+///  - an offer filled — by the player's own tap on "All", as often as not —
+///    vanished, and every row below slid up 57 pixels;
+///  - a ship's name wrapped onto a second line whenever its "sails in" pill
+///    turned bold at ten hours out, and unwrapped at nine (see _ShipCard).
+///
+/// So while the player has touched the quay in the last [MarketTab.hold], it
+/// keeps what it was showing: a ship that has sailed stays where it was, dimmed
+/// and marked as sailed; a row that has filled stays, dimmed; a ship that
+/// arrives joins at the bottom, below anything being read. Nothing on it can
+/// be acted on once it is gone. When the player lets go, it catches up in one
+/// move, while nobody is aiming at it.
+class _MarketTabState extends State<MarketTab> {
+  DateTime _lastTouch = DateTime.fromMillisecondsSinceEpoch(0);
+  Timer? _release;
+
+  /// The ships on screen, in the order they are on screen.
+  List<Ship> _shown = [];
+
+  /// The rows each ship was showing when the hold began — its offers, wares
+  /// and barters, and the ship itself standing for its prize row.
+  final Map<Ship, Set<Object>> _rows = {};
+
+  bool _cutter = false;
+
+  bool get _holding => MarketTab.now().difference(_lastTouch) < MarketTab.hold;
+
+  void _touched(PointerEvent _) {
+    _lastTouch = MarketTab.now();
+    _release?.cancel();
+    // Catch up once the hold lapses, even if nothing else rebuilds the quay —
+    // a paused port does not tick.
+    _release = Timer(MarketTab.hold, () {
+      if (mounted) setState(() {});
+    });
+  }
+
+  @override
+  void dispose() {
+    _release?.cancel();
+    super.dispose();
+  }
+
+  static Set<Object> _onScreen(Ship s) => {
+    ...s.offers.where((o) => !o.isFilled),
+    ...s.wares.where((w) => !w.isFilled),
+    ...s.barters.where((b) => !b.taken),
+    if (s.foreign && s.prizeTons > 0) s,
+  };
+
   @override
   Widget build(BuildContext context) {
+    final controller = widget.controller;
     final state = controller.state;
-    final ships = state.market.ships;
+    final live = state.market.ships;
 
-    return ListView(
-      padding: const EdgeInsets.only(bottom: 24),
-      children: [
-        if (state.cutterOnStation) _CutterCard(controller: controller),
-        // SHE IS A SHIP, SO SHE BELONGS WHERE THE SHIPS ARE. The offer card
-        // was first put under Trade, beside the pet it would become, which is
-        // where the kept animal lives and NOT where anybody looks for a hull.
-        // A player kept her waiting and then could not find her again: "I
-        // clicked to make the ship wait but then I couldn't find it again once
-        // I got the coin." Pinned above the market, like the cutter, because
-        // neither of them is something you trade with.
-        PetOfferCard(controller: controller),
-        const Padding(
-          padding: EdgeInsets.fromLTRB(20, 14, 20, 4),
-          child: Text(
-            'Selling in bulk drives a price down for days; buying pushes it up. '
-            'Spread your trade.',
-            style: TextStyle(fontSize: 11, color: Palette.fog, height: 1.4),
-          ),
-        ),
-        if (ships.isEmpty)
+    if (!_holding) {
+      _shown = List.of(live);
+      _rows
+        ..clear()
+        ..addEntries(live.map((s) => MapEntry(s, _onScreen(s))));
+      _cutter = state.cutterOnStation;
+    } else {
+      // Newcomers join at the bottom, below anything being read.
+      for (final s in live) {
+        if (!_shown.contains(s)) {
+          _shown.add(s);
+          _rows[s] = _onScreen(s);
+        }
+      }
+    }
+
+    return Listener(
+      onPointerDown: _touched,
+      onPointerMove: _touched,
+      onPointerSignal: _touched,
+      onPointerPanZoomStart: _touched,
+      onPointerPanZoomUpdate: _touched,
+      child: ListView(
+        padding: const EdgeInsets.only(bottom: 24),
+        children: [
+          if (_cutter) _CutterCard(controller: controller),
+          // SHE IS A SHIP, SO SHE BELONGS WHERE THE SHIPS ARE. The offer card
+          // was first put under Trade, beside the pet it would become, which
+          // is where the kept animal lives and NOT where anybody looks for a
+          // hull. A player kept her waiting and then could not find her again:
+          // "I clicked to make the ship wait but then I couldn't find it again
+          // once I got the coin." Pinned above the market, like the cutter,
+          // because neither of them is something you trade with.
+          PetOfferCard(controller: controller),
           const Padding(
-            padding: EdgeInsets.all(32),
+            padding: EdgeInsets.fromLTRB(20, 14, 20, 4),
             child: Text(
-              'No ships at the quay.\nAnother is always on the tide.',
-              textAlign: TextAlign.center,
-              style: TextStyle(color: Palette.fog, height: 1.5),
+              'Selling in bulk drives a price down for days; buying pushes it '
+              'up. Spread your trade.',
+              style: TextStyle(fontSize: 11, color: Palette.fog, height: 1.4),
             ),
           ),
-        ...ships.map((s) => _ShipCard(controller: controller, ship: s)),
-      ],
+          if (_shown.isEmpty)
+            const Padding(
+              padding: EdgeInsets.all(32),
+              child: Text(
+                'No ships at the quay.\nAnother is always on the tide.',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Palette.fog, height: 1.5),
+              ),
+            ),
+          ..._shown.map(
+            (s) => _ShipCard(
+              controller: controller,
+              ship: s,
+              sailed: !live.contains(s),
+              rows: _rows[s] ?? _onScreen(s),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -157,96 +260,171 @@ class _CutterCard extends StatelessWidget {
 }
 
 class _ShipCard extends StatelessWidget {
-  const _ShipCard({required this.controller, required this.ship});
+  const _ShipCard({
+    required this.controller,
+    required this.ship,
+    required this.sailed,
+    required this.rows,
+  });
 
   final GameController controller;
   final Ship ship;
+
+  /// Gone from the quay, but kept in place while the player is trading.
+  final bool sailed;
+
+  /// The rows to show: what was on screen when the hold began.
+  final Set<Object> rows;
+
+  /// A row kept after it has gone, dimmed so it reads as done.
+  static Widget _dim(bool live, Widget row) =>
+      live ? row : Opacity(opacity: 0.4, child: row);
 
   @override
   Widget build(BuildContext context) {
     final state = controller.state;
     final hoursLeft = ship.departTick - state.tick;
     final leavingSoon = hoursLeft <= 10;
-    final buying = ship.offers.where((o) => !o.isFilled).toList();
-    final selling = ship.wares.where((w) => !w.isFilled).toList();
-    final swaps = ship.barters.where((b) => !b.taken).toList();
+    // In the order the ship lists them, as they were on screen; a row that
+    // has filled since stays, dimmed, rather than closing up under a thumb.
+    final buying = ship.offers.where(rows.contains).toList();
+    final selling = ship.wares.where(rows.contains).toList();
+    final swaps = ship.barters.where(rows.contains).toList();
 
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(14, 12, 14, 10),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Text(ship.isFreeTrader ? '🏴' : '⛴️',
-                    style: const TextStyle(fontSize: 18)),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        ship.name,
-                        style: const TextStyle(
+    return Opacity(
+      opacity: sailed ? 0.55 : 1,
+      child: Card(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(14, 12, 14, 10),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Text(
+                    ship.isFreeTrader ? '🏴' : '⛴️',
+                    style: const TextStyle(fontSize: 18),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // ONE LINE, ALWAYS. It wrapped whenever the pill beside
+                        // it widened — the pill turns bold at ten hours out and
+                        // has two digits until nine — so the whole quay lurched
+                        // a line at ten hours and back again at nine.
+                        Text(
+                          ship.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
                             fontSize: 15,
                             fontWeight: FontWeight.w700,
-                            color: Colors.white),
-                      ),
-                      Text(
-                        ship.isFreeTrader
-                            ? 'Free trader — asks no questions'
-                            : 'Crown trader',
+                            color: Colors.white,
+                          ),
+                        ),
+                        Text(
+                          ship.isFreeTrader
+                              ? 'Free trader — asks no questions'
+                              : 'Crown trader',
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: ship.isFreeTrader
+                                ? Palette.lamp
+                                : Palette.fog.withValues(alpha: 0.7),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  // A fixed width, so neither the bold of "leaving soon" nor a
+                  // second digit can move anything else on the card.
+                  Container(
+                    width: 88,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 3,
+                    ),
+                    decoration: BoxDecoration(
+                      color: sailed
+                          ? Palette.deep
+                          : leavingSoon
+                          ? Palette.rust.withValues(alpha: 0.2)
+                          : Palette.deep,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        sailed ? 'has sailed' : 'sails in ${hoursLeft}h',
                         style: TextStyle(
-                          fontSize: 10,
-                          color: ship.isFreeTrader
-                              ? Palette.lamp
-                              : Palette.fog.withValues(alpha: 0.7),
+                          fontSize: 11,
+                          color: sailed
+                              ? Palette.fog
+                              : leavingSoon
+                              ? Palette.rust
+                              : Palette.fog,
+                          fontWeight: leavingSoon && !sailed
+                              ? FontWeight.w700
+                              : FontWeight.w400,
                         ),
                       ),
-                    ],
+                    ),
                   ),
-                ),
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                  decoration: BoxDecoration(
-                    color: leavingSoon
-                        ? Palette.rust.withValues(alpha: 0.2)
-                        : Palette.deep,
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Text(
-                    'sails in ${hoursLeft}h',
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: leavingSoon ? Palette.rust : Palette.fog,
-                      fontWeight:
-                          leavingSoon ? FontWeight.w700 : FontWeight.w400,
+                ],
+              ),
+              const SizedBox(height: 4),
+              if (buying.isNotEmpty) ...[
+                const _RowLabel('Wants to buy'),
+                ...buying.map(
+                  (o) => _dim(
+                    !sailed && !o.isFilled,
+                    _OfferRow(
+                      controller: controller,
+                      ship: ship,
+                      offer: o,
+                      live: !sailed && !o.isFilled,
                     ),
                   ),
                 ),
               ],
-            ),
-            const SizedBox(height: 4),
-            if (buying.isNotEmpty) ...[
-              const _RowLabel('Wants to buy'),
-              ...buying.map((o) =>
-                  _OfferRow(controller: controller, ship: ship, offer: o)),
+              if (selling.isNotEmpty) ...[
+                const _RowLabel('Has for sale'),
+                ...selling.map(
+                  (w) => _dim(
+                    !sailed && !w.isFilled,
+                    _WareRow(
+                      controller: controller,
+                      ship: ship,
+                      ware: w,
+                      live: !sailed && !w.isFilled,
+                    ),
+                  ),
+                ),
+              ],
+              if (swaps.isNotEmpty) ...[
+                const _RowLabel('Will trade, no coin'),
+                ...swaps.map(
+                  (b) => _dim(
+                    !sailed && !b.taken,
+                    _BarterRow(
+                      controller: controller,
+                      ship: ship,
+                      deal: b,
+                      live: !sailed && !b.taken,
+                    ),
+                  ),
+                ),
+              ],
+              if (rows.contains(ship))
+                _PrizeRow(
+                  controller: controller,
+                  ship: ship,
+                  live: !sailed && ship.prizeTons > 0,
+                ),
             ],
-            if (selling.isNotEmpty) ...[
-              const _RowLabel('Has for sale'),
-              ...selling.map((w) =>
-                  _WareRow(controller: controller, ship: ship, ware: w)),
-            ],
-            if (swaps.isNotEmpty) ...[
-              const _RowLabel('Will trade, no coin'),
-              ...swaps.map((b) =>
-                  _BarterRow(controller: controller, ship: ship, deal: b)),
-            ],
-            if (ship.foreign && ship.prizeTons > 0)
-              _PrizeRow(controller: controller, ship: ship),
-          ],
+          ),
         ),
       ),
     );
@@ -275,6 +453,7 @@ class _RowLabel extends StatelessWidget {
 /// Cargo the captain will part with, at a markup over the going rate.
 class _WareRow extends StatelessWidget {
   const _WareRow({
+    this.live = true,
     required this.controller,
     required this.ship,
     required this.ware,
@@ -283,6 +462,11 @@ class _WareRow extends StatelessWidget {
   final GameController controller;
   final Ship ship;
   final Offer ware;
+
+  /// False for a row kept on screen after it has gone — filled, taken, or on a
+  /// ship that has sailed — while the quay holds still. Dimmed, and nothing
+  /// on it can be pressed.
+  final bool live;
 
   @override
   Widget build(BuildContext context) {
@@ -307,32 +491,36 @@ class _WareRow extends StatelessWidget {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.white),
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white,
+                        ),
                       ),
                     ),
                     const SizedBox(width: 6),
                     Text(
                       '${ware.pricePerUnit.toStringAsFixed(2)}c',
                       style: const TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w700,
-                          color: Palette.sea),
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: Palette.sea,
+                      ),
                     ),
                   ],
                 ),
-                Text(
+                _OneLine(
                   'offers ${ware.quantity.round()} · you can take ${max.floor()}',
                   style: TextStyle(
-                      fontSize: 10, color: Palette.fog.withValues(alpha: 0.8)),
+                    fontSize: 10,
+                    color: Palette.fog.withValues(alpha: 0.8),
+                  ),
                 ),
               ],
             ),
           ),
           _SellButton(
             label: 'Buy 10',
-            enabled: max >= 10,
+            enabled: live && max >= 10,
             onTap: () {
               controller.act((s) => s.buy(ship, ware, 10));
               SoundBoard.instance.play(Sfx.coins);
@@ -341,7 +529,7 @@ class _WareRow extends StatelessWidget {
           const SizedBox(width: 6),
           _SellButton(
             label: 'Max',
-            enabled: max >= 1,
+            enabled: live && max >= 1,
             onTap: () {
               controller.act((s) => s.buy(ship, ware, max));
               SoundBoard.instance.play(Sfx.coins);
@@ -355,6 +543,7 @@ class _WareRow extends StatelessWidget {
 
 class _OfferRow extends StatelessWidget {
   const _OfferRow({
+    this.live = true,
     required this.controller,
     required this.ship,
     required this.offer,
@@ -363,6 +552,11 @@ class _OfferRow extends StatelessWidget {
   final GameController controller;
   final Ship ship;
   final Offer offer;
+
+  /// False for a row kept on screen after it has gone — filled, taken, or on a
+  /// ship that has sailed — while the quay holds still. Dimmed, and nothing
+  /// on it can be pressed.
+  final bool live;
 
   @override
   Widget build(BuildContext context) {
@@ -393,18 +587,20 @@ class _OfferRow extends StatelessWidget {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.white),
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white,
+                        ),
                       ),
                     ),
                     const SizedBox(width: 6),
                     Text(
                       '${offer.pricePerUnit.toStringAsFixed(2)}c',
                       style: const TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w700,
-                          color: Palette.brass),
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: Palette.brass,
+                      ),
                     ),
                     const SizedBox(width: 4),
                     Text(
@@ -418,36 +614,41 @@ class _OfferRow extends StatelessWidget {
                     ),
                   ],
                 ),
-                Text(
+                _OneLine(
                   'wants ${offer.quantity.round()} · you hold ${fmt(held)}',
                   style: TextStyle(
-                      fontSize: 10, color: Palette.fog.withValues(alpha: 0.8)),
+                    fontSize: 10,
+                    color: Palette.fog.withValues(alpha: 0.8),
+                  ),
                 ),
                 // What your factor is doing to this bid. The badge above is
                 // the market's premium over the going rate and has nothing to
                 // do with them — which is precisely what got misread as the
                 // merchant's work.
                 if (state.hiredOn(RetinueTrack.merchant) != null)
-                  Builder(builder: (_) {
-                    final m = state.hiredOn(RetinueTrack.merchant)!;
-                    final net = state.quayNetPerUnit(offer);
-                    final up = net >= offer.pricePerUnit;
-                    return Text(
-                      '${m.name}: ${net.toStringAsFixed(2)}c a unit to you '
-                      '(+${((m.sellBonus - 1) * 100).round()}% '
-                      '−${(m.commission * 100).toStringAsFixed(1)}%)',
-                      style: TextStyle(
+                  Builder(
+                    builder: (_) {
+                      final m = state.hiredOn(RetinueTrack.merchant)!;
+                      final net = state.quayNetPerUnit(offer);
+                      final up = net >= offer.pricePerUnit;
+                      return _OneLine(
+                        '${m.name}: ${net.toStringAsFixed(2)}c a unit to you '
+                        '(+${((m.sellBonus - 1) * 100).round()}% '
+                        '−${(m.commission * 100).toStringAsFixed(1)}%)',
+                        style: TextStyle(
                           fontSize: 10,
                           fontWeight: FontWeight.w600,
-                          color: up ? Palette.moss : Palette.rust),
-                    );
-                  }),
+                          color: up ? Palette.moss : Palette.rust,
+                        ),
+                      );
+                    },
+                  ),
               ],
             ),
           ),
           _SellButton(
             label: '10',
-            enabled: held >= 10 && offer.quantity >= 1,
+            enabled: live && held >= 10 && offer.quantity >= 1,
             onTap: () {
               controller.act((s) => s.sell(ship, offer, 10));
               SoundBoard.instance.play(Sfx.coins);
@@ -457,7 +658,7 @@ class _OfferRow extends StatelessWidget {
           _SellButton(
             label: 'All',
             primary: true,
-            enabled: canSell,
+            enabled: live && canSell,
             onTap: () {
               controller.act((s) => s.sell(ship, offer, sellable));
               SoundBoard.instance.play(Sfx.coins);
@@ -474,6 +675,7 @@ class _OfferRow extends StatelessWidget {
 /// The best parity in the game and the loudest thing you can do on a quay.
 class _BarterRow extends StatelessWidget {
   const _BarterRow({
+    this.live = true,
     required this.controller,
     required this.ship,
     required this.deal,
@@ -482,6 +684,11 @@ class _BarterRow extends StatelessWidget {
   final GameController controller;
   final Ship ship;
   final Barter deal;
+
+  /// False for a row kept on screen after it has gone — filled, taken, or on a
+  /// ship that has sailed — while the quay holds still. Dimmed, and nothing
+  /// on it can be pressed.
+  final bool live;
 
   @override
   Widget build(BuildContext context) {
@@ -510,9 +717,10 @@ class _BarterRow extends StatelessWidget {
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.white),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white,
+                  ),
                 ),
                 Text(
                   hasGoods
@@ -531,7 +739,7 @@ class _BarterRow extends StatelessWidget {
           _SellButton(
             label: 'Trade',
             primary: true,
-            enabled: hasGoods && hasRoom,
+            enabled: live && hasGoods && hasRoom,
             onTap: () => controller.act((s) => s.barter(ship, deal)),
           ),
         ],
@@ -545,10 +753,15 @@ class _BarterRow extends StatelessWidget {
 /// Resolves the instant you press it. There is no voyage and nothing to wait
 /// for, which is exactly why there is nothing here anyone could sell you.
 class _PrizeRow extends StatelessWidget {
-  const _PrizeRow({required this.controller, required this.ship});
+  const _PrizeRow({
+    required this.controller,
+    required this.ship,
+    this.live = true,
+  });
 
   final GameController controller;
   final Ship ship;
+  final bool live;
 
   @override
   Widget build(BuildContext context) {
@@ -564,7 +777,8 @@ class _PrizeRow extends StatelessWidget {
         color: Palette.deep,
         borderRadius: BorderRadius.circular(10),
         border: Border.all(
-            color: covered ? Palette.brass : Palette.rust.withValues(alpha: 0.7)),
+          color: covered ? Palette.brass : Palette.rust.withValues(alpha: 0.7),
+        ),
       ),
       child: Row(
         children: [
@@ -577,9 +791,10 @@ class _PrizeRow extends StatelessWidget {
                 Text(
                   'Foreign hull · ${ship.prizeTons} tons',
                   style: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.white),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white,
+                  ),
                 ),
                 Text(
                   blocker ??
@@ -598,7 +813,7 @@ class _PrizeRow extends StatelessWidget {
           _SellButton(
             label: 'Board',
             primary: true,
-            enabled: blocker == null,
+            enabled: live && blocker == null,
             onTap: () => controller.act((s) => s.takePrize(ship)),
           ),
         ],
@@ -648,4 +863,21 @@ class _SellButton extends StatelessWidget {
             ),
     );
   }
+}
+/// A line that stays one line: it shrinks to fit rather than wrapping.
+///
+/// For text whose numbers change every tick. A wrap that comes and goes as a
+/// count gains or loses a digit moves everything below it — the quay's "wants
+/// 24 · you hold 0" was already two lines tall on a phone.
+class _OneLine extends StatelessWidget {
+  const _OneLine(this.text, {required this.style});
+  final String text;
+  final TextStyle style;
+
+  @override
+  Widget build(BuildContext context) => FittedBox(
+    fit: BoxFit.scaleDown,
+    alignment: Alignment.centerLeft,
+    child: Text(text, maxLines: 1, style: style),
+  );
 }
