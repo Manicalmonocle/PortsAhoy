@@ -1035,7 +1035,12 @@ void _reassign(GameState g) {
     b.workers = 0;
   }
 
-  final foodNeed = g.population * Balance.foodPerPersonPerDay / Balance.ticksPerDay;
+  // The reeve eats like several villagers. A probe that grew food only for
+  // the people it could count would starve him and measure a bot that
+  // forgot him, not the cost of keeping him.
+  final foodNeed = (g.population + g.reeveAppetite) *
+      Balance.foodPerPersonPerDay /
+      Balance.ticksPerDay;
   var foodRate = 0.0;
 
   // 1. Cover the day's eating, with headroom for growth.

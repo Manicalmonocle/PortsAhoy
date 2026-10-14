@@ -48,11 +48,18 @@ List<String> reeveAtWorkLines(GameState s, Retainer hired) {
   final now = ((s.reeveYieldBonus - 1) * 100).round();
   final daysToFull =
       ((1 - s.reeveService) * Balance.reeveServiceDays).ceil();
+  final eats = hired.appetite.round();
   final lines = <String>[
-    s.reeveService >= 1
-        ? 'The land is in order: every shed +$full%.'
-        : 'Getting the land in order: every shed +$now% now, +$full% in '
-            'about ${_days(daysToFull)}. Pay him off and that goes with him.',
+    if (s.reeveHungry)
+      'Hungry — the stores cannot feed him, so he does nothing until they '
+          'can. He eats like $eats villagers.'
+    else if (s.reeveService >= 1)
+      'The land is in order: every shed +$full%. He eats like $eats '
+          'villagers.'
+    else
+      'Getting the land in order: every shed +$now% now, +$full% in about '
+          '${_days(daysToFull)}. Pay him off and that goes with him. He eats '
+          'like $eats villagers.',
   ];
   // A run that built a grange before it was retired gets the better of the
   // two, never both, and should be told which is in force.
@@ -76,10 +83,12 @@ List<String> reeveAtWorkLines(GameState s, Retainer hired) {
 String reeveOfferLine(GameState s, Retainer next) {
   final current = s.hiredOn(RetinueTrack.reeve);
   final bonus = (next.yieldBonus * 100).round();
+  final eats = next.appetite.round();
   final head = current == null
       ? 'Every shed +$bonus% over ${Balance.reeveServiceDays.round()} days '
-          'of service'
-      : 'Raises every shed to +$bonus%, keeping the order he has made';
+          'of service, eating like $eats villagers'
+      : 'Raises every shed to +$bonus%, keeping the order he has made, '
+          'and eats like $eats villagers';
   if (s.growingSheds.isEmpty) return '$head.';
   final more = (s.reeveSavingDays(next.ripenSpeed) -
           s.reeveSavingDays(s.reeveSpeed))

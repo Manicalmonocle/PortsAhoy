@@ -98,6 +98,7 @@ class Retainer {
     this.bootyBonus = 1.0,
     this.requiresBuilding,
     this.yieldBonus = 0.0,
+    this.appetite = 0.0,
   });
 
   final RetinueTrack track;
@@ -174,6 +175,30 @@ class Retainer {
   /// So the grange's bonus is his now, and it builds up while he serves and
   /// goes with him when he leaves: an officer worth keeping.
   final double yieldBonus;
+
+  /// How much this officer eats, in villagers' worth a day.
+  ///
+  /// THE REEVE'S RUNNING COST, and it is food rather than coin. The captain
+  /// and the merchant each take a cut of every voyage or sale, so their cost
+  /// grows with what they do; the reeve cost a flat few coin a day however
+  /// large the port he lifted — and was reported as "a little over tuned".
+  /// The player's own answer: "what if it brings stuff online faster / makes
+  /// more but cost more food than a regular villager". Food was the slack
+  /// resource in the run that prompted it, with fifteen to twenty-five days
+  /// in store from the midpoint on; he eats into exactly that.
+  ///
+  /// He eats after the town and goes hungry rather than starve it, and a
+  /// hungry reeve does nothing — the same rule as an unfed pet.
+  ///
+  /// MEASURED at 5 / 8 / 11 on the honest probe, 16 seeds: the median stays
+  /// at 80 with or without it. The cost comes as risk, not days. The lowest
+  /// food in store fell from 2.8 days to 2.3 against the 2-day gate for growth,
+  /// and one seed in sixteen ran dry around day 70 with the reeve hungry and
+  /// the town stuck below the headcount it finishes on: 108 days against 85.
+  /// Cheap to a port that keeps its stores, dear to one that runs them thin.
+  /// Teaching the probe to build a farm when hunger held growth back rescued
+  /// that seed but cost two others, so it is not in the probe.
+  final double appetite;
 }
 
 /// How many tracks you may have someone on at once.
@@ -330,6 +355,7 @@ const List<Retainer> kRetinue = [
     coinCost: 600,
     dailyWage: 2,
     ripenSpeed: 1.25,
+    appetite: 5,
     yieldBonus: 0.15,
     requiresBuilding: 'farm',
   ),
@@ -342,6 +368,7 @@ const List<Retainer> kRetinue = [
     coinCost: 2600,
     dailyWage: 4,
     ripenSpeed: 1.5,
+    appetite: 8,
     yieldBonus: 0.20,
     requiresBuilding: 'farm',
   ),
@@ -355,6 +382,7 @@ const List<Retainer> kRetinue = [
     coinCost: 5400,
     dailyWage: 7,
     ripenSpeed: 1.8,
+    appetite: 11,
     yieldBonus: 0.25,
     requiresBuilding: 'farm',
   ),

@@ -44,8 +44,13 @@ ripening speed, which a shed keeps after he leaves. Now he works up to +15/+20/
 +25% on every shed over sixteen days of service and loses it when paid off,
 and the grange is retired (old runs keep theirs). Honest probe: 77 with the
 grange as shipped, 80 with the reeve, 88 with neither — he is worth about a
-week. Needs a played run to say whether that feels like an officer worth a
-berth against the captain and the merchant.
+week.
+
+A played run then found him "a little over tuned", so he now **eats like 5 / 8
+/ 11 villagers** by rank, after the town, and does nothing while hungry. On the
+probe that costs no days at the median and one starved seed in sixteen (108
+against 85) — a running cost that bites a port that runs its stores thin.
+Needs a played run to say whether it is felt.
 
 **~~Decide the dark trade~~ — it stays.** Settled on 2026-10-06 by a played
 run, `human-2026-10-06-dark-102d.pa1`, on build 1.14.1 with no charters: the

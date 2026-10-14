@@ -24,9 +24,13 @@ GameState withFarm() {
   return g;
 }
 
+/// Run the port for [n] days with coin and food kept topped up, so neither
+/// wages nor the reeve's appetite becomes the story of a test about something
+/// else.
 void days(GameState g, double n) {
   for (var i = 0; i < n * Balance.ticksPerDay; i++) {
-    g.coin = 50000; // keep wages from becoming the story
+    g.coin = 50000;
+    g.stock[Resource.fish] = g.storageCapacity;
     g.step();
   }
 }
@@ -133,6 +137,65 @@ void main() {
     expect(GameState.fromJson(old).reeveService, 0);
   });
 
+  group('his appetite', () {
+    test('he eats after the town, and goes hungry rather than cost a family',
+        () {
+      // "Cost more food than a regular villager" — the reeve's running cost.
+      final g = withFarm();
+      g.hire(reeve(1));
+      g.reeveService = 1;
+      g.population = 10;
+      for (final r in Resource.values.where((r) => r.isFood)) {
+        g.stock[r] = 0;
+      }
+      // Enough for the town for one day, and not a mouthful more.
+      g.stock[Resource.fish] = 10 * Balance.foodPerPersonPerDay;
+      final people = g.population;
+      for (var i = 0; i < Balance.ticksPerDay; i++) {
+        g.coin = 50000;
+        g.step();
+      }
+      expect(g.population, people, reason: 'the town ate first');
+      expect(g.reeveHungry, isTrue);
+      expect(g.reeveYieldBonus, 1.0,
+          reason: 'a hungry reeve does nothing — the unfed pet\'s rule');
+
+      // Feed the stores and he is back at work.
+      days(g, 1);
+      expect(g.reeveHungry, isFalse);
+      expect(g.reeveYieldBonus, closeTo(1 + reeve(1).yieldBonus, 1e-9));
+    });
+
+    test('a hungry reeve makes no progress', () {
+      final g = withFarm();
+      g.hire(reeve(1));
+      g.reeveService = 0.3;
+      g.reeveHungry = true;
+      for (var i = 0; i < Balance.ticksPerDay ~/ 2; i++) {
+        g.coin = 50000;
+        g.step();
+      }
+      expect(g.reeveService, 0.3,
+          reason: 'the half-day before the next meal, his build-up waits');
+    });
+
+    test('the food days count his mouths', () {
+      final g = withFarm();
+      final before = g.foodDays;
+      g.hire(reeve(1));
+      final pop = g.population;
+      expect(g.foodDays,
+          closeTo(before * pop / (pop + reeve(1).appetite), 1e-9));
+    });
+
+    test('each rank eats more, as each does more', () {
+      for (var lvl = 2; lvl <= 3; lvl++) {
+        expect(reeve(lvl).appetite, greaterThan(reeve(lvl - 1).appetite));
+      }
+      expect(reeve(1).appetite, 5);
+    });
+  });
+
   group('what the game says about him', () {
     test('a growing shed counts his speed, and names it', () {
       // The shed bubble used to work out its own countdown and leave him
@@ -163,13 +226,19 @@ void main() {
 
       g.reeveService = 1;
       expect(reeveAtWorkLines(g, reeve(1)).first,
-          'The land is in order: every shed +15%.');
+          'The land is in order: every shed +15%. He eats like 5 villagers.');
+
+      g.reeveHungry = true;
+      expect(reeveAtWorkLines(g, reeve(1)).first, startsWith('Hungry'),
+          reason: 'a reeve doing nothing has to say why');
     });
 
     test('the offer states the bonus and the wait before you pay', () {
       final g = withFarm();
       final line = reeveOfferLine(g, reeve(1));
       expect(line, contains('Every shed +15%'));
+      expect(line, contains('eating like 5 villagers'),
+          reason: 'the running cost, before the player pays');
       expect(line, contains('${Balance.reeveServiceDays.round()} days'));
     });
   });

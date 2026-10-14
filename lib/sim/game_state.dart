@@ -669,7 +669,9 @@ class GameState {
   /// Days of food remaining at the current headcount.
   double get foodDays => population == 0
       ? double.infinity
-      : foodStock / (population * Balance.foodPerPersonPerDay);
+      // The reeve eats too, so the days count him.
+      : foodStock /
+          ((population + reeveAppetite) * Balance.foodPerPersonPerDay);
 
   int get dailyWageBill => assignedWorkers * Balance.wagePerWorkerPerDay;
 
@@ -1221,11 +1223,43 @@ class GameState {
       needed -= given;
     }
 
+    _feedReeve(townFed: needed <= 1e-6);
+
     if (needed > 1e-6 && population > 0) {
       population -= 1;
       _clampAssignments();
       log('Stores ran dry. A family left on the evening tide.', LogKind.bad);
     }
+  }
+
+  /// The reeve eats after the town, from what is left. He goes hungry rather
+  /// than cost a family, and a hungry reeve does nothing until he is fed.
+  void _feedReeve({required bool townFed}) {
+    final r = hiredOn(RetinueTrack.reeve);
+    if (r == null) {
+      reeveHungry = false;
+      return;
+    }
+    var his = r.appetite * events.effects.foodScale * charters.foodUse;
+    if (townFed) {
+      for (final food in kEatingOrder) {
+        if (his <= 1e-6) break;
+        final feeds = food.nutrition;
+        if (feeds <= 0) continue;
+        final available = stock[food] * feeds;
+        final given = available < his ? available : his;
+        stock.remove(food, given / feeds);
+        his -= given;
+      }
+    }
+    final hungry = his > 1e-6;
+    if (hungry && !reeveHungry) {
+      log('${r.name} went hungry. The land slips while he is unfed.',
+          LogKind.bad);
+    } else if (!hungry && reeveHungry) {
+      log('${r.name} is fed again, and back at work.', LogKind.good);
+    }
+    reeveHungry = hungry;
   }
 
   void _payWages() {
@@ -1795,6 +1829,7 @@ class GameState {
         privateerLevel = 0;
       case RetinueTrack.reeve:
         reeveLevel = 0;
+        reeveHungry = false;
         // His work goes with him. That is the whole reason he is worth
         // keeping rather than hiring for the growing season and letting go.
         reeveService = 0;
@@ -2029,8 +2064,16 @@ class GameState {
   double get grangeYieldBonus => 1.0 + Balance.grangeMaxYield * grangeMaturity;
 
   /// What the reeve currently adds to every shed, as a multiplier.
-  double get reeveYieldBonus =>
-      1.0 + (hiredOn(RetinueTrack.reeve)?.yieldBonus ?? 0) * reeveService;
+  double get reeveYieldBonus => reeveHungry
+      ? 1.0
+      : 1.0 + (hiredOn(RetinueTrack.reeve)?.yieldBonus ?? 0) * reeveService;
+
+  /// How much the reeve you keep eats, in villagers' worth a day.
+  double get reeveAppetite => hiredOn(RetinueTrack.reeve)?.appetite ?? 0;
+
+  /// True while the stores could not feed the reeve at the last meal. A
+  /// hungry reeve gives no bonus and makes no progress until he is fed.
+  bool reeveHungry = false;
 
   /// What husbandry adds to every shed: the reeve's bonus, or a grange's in a
   /// run that built one before the grange was retired — whichever is larger,
@@ -2041,7 +2084,7 @@ class GameState {
 
   /// A reeve's service, advanced once a tick while one is kept.
   void _serve() {
-    if (reeveLevel == 0) return;
+    if (reeveLevel == 0 || reeveHungry) return;
     reeveService = (reeveService +
             1 / (Balance.reeveServiceDays * Balance.ticksPerDay))
         .clamp(0.0, 1.0);
@@ -2567,6 +2610,7 @@ class GameState {
         'privateerLevel': privateerLevel,
         'reeveLevel': reeveLevel,
         'reeveService': double.parse(reeveService.toStringAsFixed(4)),
+        if (reeveHungry) 'reeveHungry': true,
         'grangeMaturity': grangeMaturity,
         'bill': runBill.map((r, q) => MapEntry(r.name, q)),
         if (pet != null) 'pet': pet!.name,
@@ -2635,6 +2679,7 @@ class GameState {
     // from the day this loads, not from the day he was hired.
     state.reeveService =
         ((j['reeveService'] as num?)?.toDouble() ?? 0).clamp(0.0, 1.0);
+    state.reeveHungry = j['reeveHungry'] as bool? ?? false;
     final rawBill = j['bill'];
     if (rawBill is Map) {
       final restored = <Resource, double>{};

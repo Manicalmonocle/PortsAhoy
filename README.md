@@ -181,6 +181,17 @@ ripening herds on sooner (×1.25 / 1.5 / 1.8). He is offered once a farm stands,
 costs an officer's berth and a wage, and is worth about a week to a port: the
 honest probe wins on day 80 with him and day 88 without.
 
+**And he eats like 5 / 8 / 11 villagers** by rank. His wage was a flat few coin
+a day however large the port he lifted, and he was reported "a little over
+tuned"; the captain and the merchant each take a cut of what they do, so their
+cost grows with them. The player's own answer was food: "cost more food than a
+regular villager." He eats after the town and goes hungry rather than starve
+it, and a hungry reeve does nothing — his bonus stops and his service waits —
+until the stores are back. On the probe it costs no days at the median; it
+costs margin. The lowest food in store fell from 2.8 days to 2.3, and one seed
+in sixteen ran dry with him hungry and the town stalled below the headcount it
+finishes on, lighting on day 108 instead of 85.
+
 **It used to be a building, the Grange,** which sold the same thing from a shed:
 +20% to every shed, ripening over twenty-four days of being worked. Two reports
 retired it. The reeve, whose only effect was ripening speed, "does feel
@@ -345,8 +356,9 @@ time (−15/−28/−40%) and risk; **merchants** raise prices at home and abroa
 at the rail (+8/+15/+22%) and the booty a won boarding lands (×1.15/1.32/1.55),
 and are offered only once a Privateer Berth stands — an honest port never sees
 the card; **reeves** work up to +15/+20/+25% on every shed over sixteen days of
-service and bring ripening herds on sooner (×1.25/1.5/1.8), are offered once a
-farm stands, and take everything they have built with them when paid off — see
+service and bring ripening herds on sooner (×1.25/1.5/1.8), eat like 5/8/11
+villagers, are offered once a farm stands, and take everything they have built
+with them when paid off — see
 [Time into yield](#time-into-yield-the-reeve).
 
 **Carting is not hired.** It used to be a fourth officer, the quartermaster. A
