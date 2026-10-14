@@ -176,22 +176,39 @@ def fetch_sheet(url):
     # the new row, the new row, nothing, nothing, nothing. A single fetch can
     # therefore miss a report that is genuinely there. Fetch a few times and
     # take the union — dedupe downstream makes repeats free.
-    seen, out = set(), []
+    import csv
+    import io
+
+    # THE NOTES WERE BEING THROWN AWAY. The form asks "Any to add?", and that
+    # is where a player says how the run FELT — the one thing a run code cannot
+    # carry. This used to scan the sheet's whole text for codes and keep
+    # nothing else, so every note ever written went unread; it took a player
+    # asking "I did add notes on the send" to find out. Each row is read as a
+    # row now, and any cell that is not the code or the timestamp is its note.
+    seen, out, notes = set(), [], {}
     for attempt in range(4):
         if attempt:
             time.sleep(4)
         with urllib.request.urlopen(url, timeout=60) as r:
-            for code in codes_in(r.read().decode("utf-8", "replace")):
+            rows = list(csv.reader(io.StringIO(r.read().decode("utf-8", "replace"))))
+        for row in rows[1:]:
+            row_codes = [c for cell in row for c in codes_in(cell)]
+            note = " ".join(
+                cell.strip() for i, cell in enumerate(row)
+                if i > 0 and cell.strip() and not codes_in(cell))
+            for code in row_codes:
+                if note:
+                    notes[code] = note
                 if code not in seen:
                     seen.add(code)
                     out.append(code)
-    return out
+    return out, notes
 
 
-def save_codes(codes, seen, source):
+def save_codes(codes, seen, source, notes=None):
     """Write each unseen code to OUT, keyed by its own hash so the same
     report submitted twice — or found by both the sheet and the inbox —
-    lands once."""
+    lands once. A note sent with it is saved beside it as .note.txt."""
     import hashlib
     written, new_ids = 0, []
     for code in codes:
@@ -203,6 +220,9 @@ def save_codes(codes, seen, source):
         path = OUT / f"{stamp:%Y-%m-%d-%H%M%S}-{key[5:11]}.pa1"
         path.write_text(code + "\n")
         print(f"  saved {path.relative_to(REPO)}  ({len(code)} chars, via {source})")
+        note = (notes or {}).get(code)
+        if note:
+            path.with_suffix(".note.txt").write_text(note + "\n")
         new_ids.append(key)
         written += 1
     return written, new_ids
@@ -221,13 +241,14 @@ def main():
                 sheet = line.split("=", 1)[1].strip()
     if sheet:
         try:
-            codes = fetch_sheet(sheet)
+            codes, notes = fetch_sheet(sheet)
         except Exception as e:  # noqa: BLE001 — a dead URL must not block mail
             print(f"  sheet fetch failed: {e}", file=sys.stderr)
-            codes = []
+            codes, notes = [], {}
         else:
-            print(f"{len(codes)} report(s) in the sheet.")
-            w, ids = save_codes(codes, seen, "sheet")
+            print(f"{len(codes)} report(s) in the sheet, {len(notes)} with notes.")
+            _backfill_notes(notes)
+            w, ids = save_codes(codes, seen, "sheet", notes)
             remember(ids)
             if w:
                 _decode_new()
@@ -335,7 +356,22 @@ def _decode_new():
         # The header alone says whether a report is worth opening.
         for line in result.stdout.splitlines()[:10]:
             print("  " + line)
+        note = path.with_suffix(".note.txt")
+        if note.exists():
+            print(f"  NOTE: {note.read_text().strip()}")
         print()
+
+
+def _backfill_notes(notes):
+    """Give runs saved before notes were kept the note they came with."""
+    by_code = {}
+    for path in OUT.glob("*.pa1"):
+        by_code.setdefault(path.read_text().strip(), path)
+    for code, note in notes.items():
+        path = by_code.get(code)
+        if path and not path.with_suffix(".note.txt").exists():
+            path.with_suffix(".note.txt").write_text(note + "\n")
+            print(f"  note recovered for {path.name}: {note[:70]}")
 
 
 if __name__ == "__main__":
