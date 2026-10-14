@@ -2030,6 +2030,29 @@ class GameState {
   /// How fast a reeve brings the fields and the herds on, if you keep one.
   double get reeveSpeed => hiredOn(RetinueTrack.reeve)?.ripenSpeed ?? 1.0;
 
+  /// Days of growing [b] has left at [speed] — the reeve you keep, unless
+  /// told otherwise. Zero once grown, and for anything that does not ripen.
+  ///
+  /// THE SHED CARD USED TO WORK THIS OUT FOR ITSELF, and left the reeve out:
+  /// hire one and every growing shed went on quoting exactly the days it had
+  /// before, wrong by his whole effect. Nothing on screen ever said he was
+  /// doing anything — reported from play as "the reeve does feel skippable".
+  /// One sum, here, for everything that shows it.
+  double ripenDaysLeft(Building b, [double? speed]) {
+    if (!b.def.ripens || b.maturity >= 1) return 0;
+    return (1 - b.maturity) * b.def.ripenDays / (speed ?? reeveSpeed);
+  }
+
+  /// Sheds that are growing right now: ripening, not yet grown, and worked —
+  /// nothing ripens untended, so an idle one is not growing.
+  Iterable<Building> get growingSheds => buildings.where(
+      (b) => b.def.ripens && b.maturity < 1 && b.workers > 0);
+
+  /// Days a reeve working at [speed] takes off everything growing now,
+  /// against keeping nobody.
+  double reeveSavingDays(double speed) => growingSheds.fold(
+      0.0, (sum, b) => sum + ripenDaysLeft(b, 1.0) - ripenDaysLeft(b, speed));
+
   /// A privateer captain's edge at the rail, if you retain one.
   double get privateerPrizeBonus =>
       hiredOn(RetinueTrack.privateer)?.prizeBonus ?? 0.0;

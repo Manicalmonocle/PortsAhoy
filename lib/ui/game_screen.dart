@@ -13,6 +13,7 @@ import 'log_tab.dart';
 import 'market_tab.dart';
 import 'pet_panel.dart';
 import 'shed_list.dart';
+import 'growth_text.dart';
 import 'theme.dart';
 import 'trade_panel.dart';
 
@@ -1158,31 +1159,7 @@ class _BuildingBubble extends StatelessWidget {
               if (b.def.ripens) ...[
                 const SizedBox(height: 6),
                 Builder(builder: (_) {
-                  final s = controller.state;
-                  final pct = (b.maturity * 100).round();
-                  final left =
-                      ((1 - b.maturity) * b.def.ripenDays).ceil();
-                  final isGrange = b.defId == 'grange';
-                  final gain = ((s.grangeYieldBonus - 1) * 100).round();
-                  final cap = (Balance.grangeMaxYield * 100).round();
-
-                  final String text;
-                  if (b.workers == 0) {
-                    text = 'Idle — nothing comes on while nobody works it. '
-                        '$pct% grown.';
-                  } else if (pct >= 100) {
-                    text = isGrange
-                        ? 'Fully grown. +$gain% to every shed.'
-                        : 'Fully grown, and yielding its best.';
-                  } else if (isGrange) {
-                    text = '$pct% grown — +$gain% to every shed now, '
-                        'rising to +$cap% in about $left days.';
-                  } else {
-                    text = '$pct% grown — '
-                        '${(b.ripeness * 100).round()}% of its full yield, '
-                        'and full in about $left days.';
-                  }
-
+                  final text = shedGrowthLine(controller.state, b)!;
                   return Text(
                     text,
                     style: TextStyle(

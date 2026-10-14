@@ -7,6 +7,7 @@ import '../sim/resources.dart';
 import '../sim/retinue.dart';
 import '../sim/trade.dart';
 import 'pet_panel.dart';
+import 'growth_text.dart';
 import 'theme.dart';
 
 /// Trade you start.
@@ -566,6 +567,13 @@ class _RetinueCard extends StatelessWidget {
               const SizedBox(height: 2),
               Text(effectOf(hired),
                   style: const TextStyle(fontSize: 11, color: Palette.moss)),
+              // A percentage is a promise; this is the delivery, in days, on
+              // what is actually growing. Without it a reeve was a wage with
+              // nothing on screen to show for it.
+              if (track == RetinueTrack.reeve)
+                Text(reeveAtWorkLine(s, hired),
+                    style: const TextStyle(
+                        fontSize: 11, color: Palette.fog, height: 1.3)),
               if (hired.commission > 0)
                 Text(
                     'Takes ${(hired.commission * 100).toStringAsFixed(1)}% of '
@@ -601,6 +609,12 @@ class _RetinueCard extends StatelessWidget {
                                     '${next.dailyWage}c a day',
                             style: const TextStyle(
                                 fontSize: 11, color: Palette.brass)),
+                        if (track == RetinueTrack.reeve)
+                          Text(reeveOfferLine(s, next),
+                              style: const TextStyle(
+                                  fontSize: 11,
+                                  color: Palette.moss,
+                                  height: 1.3)),
                         if (s.producingSheds < next.requiresBuildings)
                           Text(
                             'Needs ${next.requiresBuildings} working sheds '
